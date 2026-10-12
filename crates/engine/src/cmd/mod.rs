@@ -10,6 +10,7 @@ pub mod object;
 pub mod page;
 pub mod query;
 pub mod style;
+pub mod versions;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -112,6 +113,7 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(brand::specs());
         v.extend(export::specs());
         v.extend(content::specs());
+        v.extend(versions::specs());
         v.extend(query::specs());
         v
     })

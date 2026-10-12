@@ -39,6 +39,15 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             set_size
         ),
         cmd!("page.setBackground", "Page Background", ["Page"], None, "{color?: #rrggbb | fill?: Fill JSON, index?}", has_doc, set_background),
+        cmd!(
+            "page.cropToContent",
+            "Crop Page to Content",
+            ["Page"],
+            None,
+            "{index?, padding?: px = 0} — the page shrinks (or grows) to the bounds of its visible objects",
+            has_doc,
+            crop_to_content
+        ),
         cmd!("page.setNotes", "Page Notes", [], None, "{notes, index?}", has_doc, set_notes),
         cmd!("page.setDuration", "Page Duration", [], None, "{seconds | null, index?}", has_doc, set_duration),
     ]
@@ -225,4 +234,24 @@ fn set_duration(s: &mut Session, p: &Value) -> Result<Value> {
         Ok(())
     })?;
     Ok(ok(json!({})))
+}
+
+fn crop_to_content(s: &mut Session, p: &Value) -> Result<Value> {
+    let i = index_or_current(s, p, "page.cropToContent")?;
+    let pad = f64_or(p, "padding", 0.0).clamp(0.0, MAX_PAGE_SIDE / 2.0);
+    let page = s.doc()?.doc.pages.get(i).cloned().ok_or_else(|| bad("page.cropToContent", format!("no page {i}")))?;
+    let bounds = super::object::bounds_of(page.elements.iter().filter(|e| !e.hidden).map(|e| e.frame))
+        .ok_or_else(|| bad("page.cropToContent", "the page has no visible objects"))?;
+    let (w, h) = ((bounds.width() + pad * 2.0).clamp(1.0, MAX_PAGE_SIDE), (bounds.height() + pad * 2.0).clamp(1.0, MAX_PAGE_SIDE));
+    let (dx, dy) = (pad - bounds.x0, pad - bounds.y0);
+    s.edit("Crop Page", |doc, _| {
+        let page = doc.page_mut(i)?;
+        for e in &mut page.elements {
+            super::edit::shift(e, dx, dy);
+        }
+        page.width = w;
+        page.height = h;
+        Ok(())
+    })?;
+    Ok(ok(json!({"width": w, "height": h})))
 }

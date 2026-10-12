@@ -369,3 +369,50 @@ fn picture_features() {
     assert!(std::fs::read(dir.join("out.jpg")).unwrap().starts_with(&[0xff, 0xd8]));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn crop_page_to_content() {
+    let mut s = session();
+    s.execute("shape.add", &json!({"x": 100, "y": 200, "width": 50, "height": 40})).unwrap();
+    s.execute("shape.add", &json!({"x": 300, "y": 220, "width": 50, "height": 100})).unwrap();
+    let r = s.execute("page.cropToContent", &json!({"padding": 10})).unwrap();
+    assert_eq!((r["width"].as_f64(), r["height"].as_f64()), (Some(270.0), Some(140.0)));
+    assert_eq!(s.doc().unwrap().doc.pages[0].elements[0].frame.x, 10.0);
+    s.execute("page.add", &json!({})).unwrap();
+    assert!(s.execute("page.cropToContent", &json!({})).is_err(), "an empty page cannot be cropped");
+}
+
+#[test]
+fn version_history() {
+    let mut s = session();
+    s.execute("text.add", &json!({"text": "First"})).unwrap();
+    let v1 = s.execute("version.save", &json!({"name": "Draft 1"})).unwrap()["id"].as_u64().unwrap();
+    s.execute("text.add", &json!({"text": "Second"})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.pages[0].elements.len(), 2);
+    let list = s.execute("version.list", &json!({})).unwrap();
+    assert_eq!(list[0]["name"], "Draft 1");
+    s.execute("version.restore", &json!({"id": v1})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.pages[0].elements.len(), 1);
+    // The state before restoring was kept, and the restore is undoable.
+    assert_eq!(s.doc().unwrap().doc.versions.len(), 2);
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.pages[0].elements.len(), 2);
+    s.execute("version.copy", &json!({"id": v1})).unwrap();
+    assert_eq!(s.docs.len(), 2);
+    assert!(s.doc().unwrap().doc.versions.is_empty());
+    s.execute("document.switch", &json!({"index": 0})).unwrap();
+    s.execute("version.rename", &json!({"id": v1, "name": "Final"})).unwrap();
+    s.execute("version.delete", &json!({"id": v1})).unwrap();
+    assert!(s.execute("version.restore", &json!({"id": v1})).is_err());
+    // Versions survive saving and opening, and saving adds an automatic one.
+    let dir = std::env::temp_dir().join(format!("genha-versions-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("v.genha").display().to_string();
+    s.execute("file.saveAs", &json!({"path": path})).unwrap();
+    let n = s.doc().unwrap().doc.versions.len();
+    s.execute("file.save", &json!({})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.versions.len(), n, "no new version when nothing changed");
+    s.execute("file.open", &json!({"path": path})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.versions.len(), n);
+    std::fs::remove_dir_all(&dir).unwrap();
+}

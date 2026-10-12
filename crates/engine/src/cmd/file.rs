@@ -115,6 +115,7 @@ fn file_save_as(s: &mut Session, p: &Value) -> Result<Value> {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn save_to(s: &mut Session, path: &std::path::Path, compress: bool) -> Result<Value> {
+    super::versions::auto_version(s);
     let bytes = genha_format::to_bytes(&s.doc()?.doc, compress)?;
     genha_format::write_atomic(path, &bytes)?;
     let d = s.doc_mut()?;

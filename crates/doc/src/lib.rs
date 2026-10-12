@@ -14,6 +14,7 @@ mod brand;
 mod element;
 mod page;
 pub mod preset;
+pub mod version;
 
 use std::collections::BTreeMap;
 
@@ -28,6 +29,7 @@ pub use genha_geom::{Fit, Frame};
 pub use page::Page;
 pub use preset::{PRESETS, PagePreset};
 use serde::{Deserialize, Serialize};
+pub use version::Version;
 
 /// Largest page side accepted, in pixels (untrusted input is capped to this).
 pub const MAX_PAGE_SIDE: f64 = 16_384.0;
@@ -67,6 +69,9 @@ pub struct Document {
     pub assets: BTreeMap<AssetId, Asset>,
     /// The next id [`Document::alloc_id`] hands out (ids and asset ids share the counter).
     pub next_id: u64,
+    /// Version history, oldest first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub versions: Vec<Version>,
 }
 
 impl Default for Document {
@@ -78,7 +83,8 @@ impl Default for Document {
 impl Document {
     /// A document with one blank white page of the given size.
     pub fn new(title: &str, width: f64, height: f64) -> Self {
-        let mut doc = Document { title: title.to_string(), pages: vec![], brand: BrandKit::default(), assets: BTreeMap::new(), next_id: 1 };
+        let mut doc =
+            Document { title: title.to_string(), pages: vec![], brand: BrandKit::default(), assets: BTreeMap::new(), next_id: 1, versions: vec![] };
         let id = doc.alloc_id();
         doc.pages.push(Page::new(id, "Page 1", width, height));
         doc
@@ -164,7 +170,20 @@ impl Document {
             notes.push(format!("dropped {} pages past the limit of {MAX_PAGES}", self.pages.len() - MAX_PAGES));
             self.pages.truncate(MAX_PAGES);
         }
+        if self.versions.len() > version::MAX_VERSIONS {
+            let drop = self.versions.len() - version::MAX_VERSIONS;
+            self.versions.drain(..drop);
+            notes.push(format!("dropped {drop} old versions"));
+        }
         let mut max = self.assets.keys().map(|a| a.0).max().unwrap_or(0);
+        for v in &mut self.versions {
+            max = max.max(v.id);
+            for p in &mut v.pages {
+                p.width = clamp_side(p.width);
+                p.height = clamp_side(p.height);
+                max = std::iter::once(p.id).chain(p.ids()).map(|i| i.0).fold(max, u64::max);
+            }
+        }
         let mut seen = std::collections::HashSet::new();
         let mut dupes = 0usize;
         for p in &mut self.pages {
@@ -212,8 +231,13 @@ impl Document {
 
     /// Asset ids no element or brand logo refers to.
     pub fn unused_assets(&self) -> Vec<AssetId> {
-        let used: std::collections::HashSet<AssetId> =
-            self.pages.iter().flat_map(|p| p.asset_refs()).chain(self.brand.logos.iter().copied()).collect();
+        let used: std::collections::HashSet<AssetId> = self
+            .pages
+            .iter()
+            .chain(self.versions.iter().flat_map(|v| v.pages.iter()))
+            .flat_map(|p| p.asset_refs())
+            .chain(self.brand.logos.iter().copied())
+            .collect();
         self.assets.keys().filter(|a| !used.contains(a)).copied().collect()
     }
 }
