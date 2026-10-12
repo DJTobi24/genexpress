@@ -1,0 +1,16 @@
+[package]
+name = "genexpress-color"
+description = "GenExpress colour: sRGB colours, hex, HSL, contrast and palette harmonies"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

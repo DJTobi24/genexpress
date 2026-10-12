@@ -1,0 +1,75 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+# default-members
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.95"
+repository = "https://github.com/DJTobi24/genexpress"
+
+[workspace.dependencies]
+# internal
+genexpress-geom = { path = "crates/geom" }
+genexpress-color = { path = "crates/color" }
+genexpress-doc = { path = "crates/doc" }
+genexpress-text = { path = "crates/text" }
+genexpress-effects = { path = "crates/effects" }
+genexpress-layout = { path = "crates/layout" }
+genexpress-templates = { path = "crates/templates" }
+genexpress-render = { path = "crates/render" }
+genexpress-svg = { path = "crates/svg" }
+genexpress-pdf = { path = "crates/pdf" }
+genexpress-format = { path = "crates/format" }
+genexpress-tools = { path = "crates/tools" }
+genexpress-engine = { path = "crates/engine" }
+genexpress-ui-egui = { path = "crates/ui-egui" }
+genexpress-mcp = { path = "crates/mcp" }
+
+# foundation
+kurbo = { version = "0.13", features = ["serde"] }
+peniko = "0.6"
+thiserror = "2"
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+base64 = "0.22"
+log = "0.4"
+proptest = "1"
+
+# rendering / formats
+vello_cpu = "0.2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
+skrifa = "0.44"
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+
+# ui
+egui = "0.36"
+eframe = { version = "0.36", default-features = false }
+rfd = "0.17"
+env_logger = { version = "0.11", default-features = false, features = ["auto-color", "humantime"] }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+# GenExpress never crashes: shipped code returns `Result`/`Option` instead of panicking (see
+# AGENTS.md › Never crash). Tests may unwrap (clippy.toml).
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
