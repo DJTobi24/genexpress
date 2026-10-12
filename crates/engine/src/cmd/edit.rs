@@ -57,7 +57,7 @@ fn undo(s: &mut Session, _: &Value) -> Result<Value> {
     let d = s.doc_mut()?;
     let e = d.history.undo.pop().ok_or_else(|| EngineError::Other("nothing to undo".into()))?;
     let label = e.label.clone();
-    d.history.redo.push(HistoryEntry { label: e.label, doc: Arc::clone(&d.doc), selection: d.selection.clone(), page: d.page });
+    d.history.redo.push(HistoryEntry { label: e.label, merge_key: None, doc: Arc::clone(&d.doc), selection: d.selection.clone(), page: d.page });
     d.doc = e.doc;
     d.selection = e.selection;
     d.page = e.page.min(d.doc.pages.len().saturating_sub(1));
@@ -70,7 +70,7 @@ fn redo(s: &mut Session, _: &Value) -> Result<Value> {
     let d = s.doc_mut()?;
     let e = d.history.redo.pop().ok_or_else(|| EngineError::Other("nothing to redo".into()))?;
     let label = e.label.clone();
-    d.history.undo.push(HistoryEntry { label: e.label, doc: Arc::clone(&d.doc), selection: d.selection.clone(), page: d.page });
+    d.history.undo.push(HistoryEntry { label: e.label, merge_key: None, doc: Arc::clone(&d.doc), selection: d.selection.clone(), page: d.page });
     d.doc = e.doc;
     d.selection = e.selection;
     d.page = e.page.min(d.doc.pages.len().saturating_sub(1));

@@ -67,6 +67,8 @@ pub type Result<T> = std::result::Result<T, EngineError>;
 #[derive(Clone, Debug)]
 pub struct HistoryEntry {
     pub label: String,
+    /// Edits with the same key in a row make one step (typing, dragging a slider).
+    pub merge_key: Option<String>,
     pub doc: Arc<Document>,
     pub selection: Vec<NodeId>,
     pub page: usize,
@@ -128,6 +130,8 @@ pub struct Session {
     pub preview: Option<Preview>,
     /// Status messages for the UI (latest last).
     pub messages: Vec<String>,
+    /// `merge_key` of the command running now (from its params).
+    merge_key: Option<String>,
 }
 
 impl Default for Session {
@@ -146,6 +150,7 @@ impl Session {
             tools: ToolState::default(),
             preview: None,
             messages: vec![],
+            merge_key: None,
         }
     }
 
@@ -180,7 +185,10 @@ impl Session {
         let saved = self.active().cloned();
         let saved_active = self.active;
         let params = if params.is_null() { Value::Object(Default::default()) } else { params.clone() };
-        match guard::catch_panic(|| (spec.run)(self, &params)) {
+        self.merge_key = params.get("merge_key").and_then(Value::as_str).map(str::to_string);
+        let result = guard::catch_panic(|| (spec.run)(self, &params));
+        self.merge_key = None;
+        match result {
             Ok(r) => r,
             Err(msg) => {
                 self.active = saved_active;
@@ -223,13 +231,18 @@ impl Session {
 
     /// Applies an edit as one undo step. `f` gets a writable document; on `Err` nothing changes.
     pub fn edit<T>(&mut self, label: &str, f: impl FnOnce(&mut Document, &mut EditCx) -> Result<T>) -> Result<T> {
-        let d = self.doc_mut()?;
+        let d = self.doc()?;
         let before = Arc::clone(&d.doc);
         let mut cx = EditCx { selection: d.selection.clone(), page: d.page };
         let mut work = (*before).clone();
         let r = f(&mut work, &mut cx)?;
-        let entry = HistoryEntry { label: label.to_string(), doc: before, selection: d.selection.clone(), page: d.page };
-        d.history.undo.push(entry);
+        let merge = self.merge_key.clone();
+        let Some(d) = self.docs.get_mut(self.active) else { return Err(EngineError::NoDocument) };
+        let same = merge.is_some() && d.history.redo.is_empty() && d.history.undo.last().is_some_and(|e| e.merge_key == merge);
+        if !same {
+            let entry = HistoryEntry { label: label.to_string(), merge_key: merge, doc: before, selection: d.selection.clone(), page: d.page };
+            d.history.undo.push(entry);
+        }
         if d.history.undo.len() > d.history.limit {
             let excess = d.history.undo.len() - d.history.limit;
             d.history.undo.drain(..excess);

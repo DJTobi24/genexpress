@@ -244,3 +244,16 @@ fn command_ids_are_unique_and_documented() {
         assert!(!c.label.is_empty() && !c.params.is_empty(), "{} needs a label and params doc", c.id);
     }
 }
+
+#[test]
+fn merge_key_coalesces_steps() {
+    let mut s = session();
+    s.execute("text.add", &json!({"text": "a"})).unwrap();
+    for t in ["ab", "abc", "abcd"] {
+        s.execute("text.setText", &json!({"text": t, "merge_key": "typing"})).unwrap();
+    }
+    assert_eq!(s.doc().unwrap().history.undo.len(), 2);
+    s.execute("edit.undo", &json!({})).unwrap();
+    let ElementKind::Text(t) = &s.doc().unwrap().doc.pages[0].elements[0].kind else { panic!() };
+    assert_eq!(t.text, "a");
+}
