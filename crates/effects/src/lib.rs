@@ -13,7 +13,7 @@ mod encode;
 mod filters;
 mod transform;
 
-pub use background::{change_background, remove_background};
+pub use background::{blur_background, change_background, pixelate, remove_background};
 pub use encode::{OutputFormat, encode, flatten_on_white};
 pub use filters::{FilterPreset, MAX_DOMINANT, blend_preset, dominant_colors, filter_preset, filter_presets};
 pub use image::RgbaImage;

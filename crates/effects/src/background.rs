@@ -196,6 +196,33 @@ pub fn change_background(img: &RgbaImage, color: Color, tolerance: f32) -> RgbaI
     out
 }
 
+/// Blurs the background of `img` (found as in [`remove_background`]) and keeps the subject sharp,
+/// like a shallow depth of field. `radius` is the blur in pixels (clamped to `0..=100`).
+pub fn blur_background(img: &RgbaImage, tolerance: f32, radius: f32) -> RgbaImage {
+    let cut = remove_background(img, tolerance);
+    let r = if radius.is_finite() { radius.clamp(0.0, 100.0) } else { 12.0 };
+    let blurred = image::imageops::blur(img, r.max(0.1) / 2.0);
+    let mut out = blurred;
+    for (o, (c, src)) in out.pixels_mut().zip(cut.pixels().zip(img.pixels())) {
+        // The cut-out's alpha says how much of the sharp subject shows.
+        let a = f32::from(c[3]) / 255.0;
+        for k in 0..3 {
+            let v = f32::from(src[k]) * a + f32::from(o[k]) * (1.0 - a);
+            o[k] = v.round().clamp(0.0, 255.0) as u8;
+        }
+        o[3] = src[3];
+    }
+    out
+}
+
+/// Pixelates `img` in blocks of `block` pixels (clamped to `2..=256`).
+pub fn pixelate(img: &RgbaImage, block: u32) -> RgbaImage {
+    let b = block.clamp(2, 256);
+    let (w, h) = img.dimensions();
+    let small = image::imageops::resize(img, w.div_ceil(b).max(1), h.div_ceil(b).max(1), image::imageops::FilterType::Triangle);
+    image::imageops::resize(&small, w.max(1), h.max(1), image::imageops::FilterType::Nearest)
+}
+
 /// `top` composited over `bottom` (straight alpha).
 fn over(top: Rgba<u8>, bottom: Color) -> Rgba<u8> {
     let ta = f32::from(top[3]) / 255.0;
@@ -209,6 +236,28 @@ fn over(top: Rgba<u8>, bottom: Color) -> Rgba<u8> {
         v.round().clamp(0.0, 255.0) as u8
     };
     Rgba([mix(top[0], bottom.r), mix(top[1], bottom.g), mix(top[2], bottom.b), (oa * 255.0).round().clamp(0.0, 255.0) as u8])
+}
+
+#[cfg(test)]
+mod blur_tests {
+    use super::*;
+
+    #[test]
+    fn blur_background_keeps_the_subject() {
+        // A white backdrop with fine black stripes (blurring greys them) and a red square.
+        let mut img = RgbaImage::from_fn(60, 60, |x, _| if x % 4 == 0 { Rgba([200, 200, 200, 255]) } else { Rgba([255, 255, 255, 255]) });
+        for y in 20..40 {
+            for x in 20..40 {
+                img.put_pixel(x, y, Rgba([220, 20, 20, 255]));
+            }
+        }
+        let out = blur_background(&img, 30.0, 10.0);
+        assert_eq!(out.get_pixel(30, 30), &Rgba([220, 20, 20, 255]), "the subject stays sharp");
+        assert_eq!(out.get_pixel(4, 50)[3], 255);
+        let p = pixelate(&img, 10);
+        assert_eq!(p.dimensions(), (60, 60));
+        assert_eq!(p.get_pixel(0, 0), p.get_pixel(5, 5));
+    }
 }
 
 #[cfg(test)]

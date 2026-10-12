@@ -342,6 +342,11 @@ fn picture_features() {
     let pic = id(&s.execute("image.place", &json!({"data": data, "name": "sq.png"})).unwrap());
     s.execute("image.filter", &json!({"preset": "mono", "intensity": 50})).unwrap();
     assert!(s.execute("image.filter", &json!({"preset": "nope"})).is_err());
+    s.execute("image.blurBackground", &json!({"amount": 8})).unwrap();
+    s.execute("image.changeBackground", &json!({"color": "#00ff00"})).unwrap();
+    assert!(s.execute("image.changeBackground", &json!({})).is_err(), "needs a colour");
+    s.execute("edit.undo", &json!({})).unwrap();
+    s.execute("edit.undo", &json!({})).unwrap();
     s.execute("image.removeBackground", &json!({})).unwrap();
     let d = s.doc().unwrap();
     let ElementKind::Image(im) = &d.doc.element(NodeId(pic)).unwrap().kind else { panic!() };

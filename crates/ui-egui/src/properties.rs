@@ -320,6 +320,17 @@ fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genha_col
                 if ui.button("Remove background").on_hover_text("Colour-based: works best on plain backdrops").clicked() {
                     acts.run("image.removeBackground", json!({}));
                 }
+                if ui.button("Blur background").clicked() {
+                    acts.run("image.blurBackground", json!({}));
+                }
+                if ui.button("White background").clicked() {
+                    acts.run("image.changeBackground", json!({"color": "#ffffff"}));
+                }
+                if let Some(b) = brand.first()
+                    && ui.button("Brand background").clicked()
+                {
+                    acts.run("image.changeBackground", json!({"color": b.to_hex()}));
+                }
                 if ui.button("Fill frame").clicked() {
                     acts.run("image.setFit", json!({"fit": "cover"}));
                 }

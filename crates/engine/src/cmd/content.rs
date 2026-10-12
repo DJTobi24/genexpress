@@ -64,6 +64,24 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             has_selection,
             remove_background
         ),
+        cmd!(
+            "image.changeBackground",
+            "Change Background",
+            [],
+            None,
+            "{ids?, color: #rrggbb, tolerance?: 0–100 = 30} — replaces the backdrop connected to the picture's edges with a colour",
+            has_selection,
+            change_background
+        ),
+        cmd!(
+            "image.blurBackground",
+            "Blur Background",
+            [],
+            None,
+            "{ids?, amount?: px 0–100 = 12, tolerance?: 0–100 = 30} — keeps the subject sharp",
+            has_selection,
+            blur_background
+        ),
         cmd!("image.placeAsset", "Place Picture Again", [], None, "{asset: id of a picture already in the design}", has_doc, place_asset),
         cmd!("element.qrCode", "Add QR Code", ["Insert"], None, "{text, color?: #rrggbb, x?, y?, size?}", has_doc, qr_code),
         cmd!(
@@ -81,7 +99,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Quick Action",
             [],
             None,
-            "{action: remove-background|resize|convert|auto-crop|filter|rotate|flip, input: path, output: path (format from its extension), scale?, width?, height?, fit?, preset?, tolerance?, quarter_turns?, horizontal?}",
+            "{action: remove-background|change-background|blur-background|resize|convert|auto-crop|filter|pixelate|rotate|flip, input: path, output: path (format from its extension), scale?, width?, height?, fit?, preset?, tolerance?, color?, amount?, block?, quarter_turns?, horizontal?}",
             always,
             quick_image
         ),
@@ -370,7 +388,31 @@ fn png_asset(name: &str, img: &genha_effects::RgbaImage) -> Result<Asset> {
 
 fn remove_background(s: &mut Session, p: &Value) -> Result<Value> {
     let tolerance = f64_or(p, "tolerance", 30.0).clamp(0.0, 100.0) as f32;
-    let ids = image_targets(s, p, "image.removeBackground")?;
+    replace_pictures(s, p, "image.removeBackground", "Remove Background", "cutout", |img| genha_effects::remove_background(img, tolerance))
+}
+
+fn change_background(s: &mut Session, p: &Value) -> Result<Value> {
+    let tolerance = f64_or(p, "tolerance", 30.0).clamp(0.0, 100.0) as f32;
+    let color = super::color_req(p, "color", "image.changeBackground")?;
+    replace_pictures(s, p, "image.changeBackground", "Change Background", "background", |img| genha_effects::change_background(img, color, tolerance))
+}
+
+fn blur_background(s: &mut Session, p: &Value) -> Result<Value> {
+    let tolerance = f64_or(p, "tolerance", 30.0).clamp(0.0, 100.0) as f32;
+    let amount = f64_or(p, "amount", 12.0).clamp(0.0, 100.0) as f32;
+    replace_pictures(s, p, "image.blurBackground", "Blur Background", "blurred", |img| genha_effects::blur_background(img, tolerance, amount))
+}
+
+/// Replaces the selected pictures' data with `f` applied to it (one new asset per source picture).
+fn replace_pictures(
+    s: &mut Session,
+    p: &Value,
+    cmd: &str,
+    label: &str,
+    suffix: &str,
+    f: impl Fn(&genha_effects::RgbaImage) -> genha_effects::RgbaImage,
+) -> Result<Value> {
+    let ids = image_targets(s, p, cmd)?;
     // Decode and cut out before the edit (the slow part), one new asset per source picture.
     let d = s.doc()?;
     let mut done: std::collections::BTreeMap<AssetId, Asset> = Default::default();
@@ -380,12 +422,12 @@ fn remove_background(s: &mut Session, p: &Value) -> Result<Value> {
         {
             let src = d.doc.asset(img.asset)?;
             let pixels = genha_effects::decode(&src.data)?;
-            let cut = genha_effects::remove_background(&pixels, tolerance);
+            let cut = f(&pixels);
             let stem = src.name.rsplit_once('.').map(|(a, _)| a).unwrap_or(&src.name);
-            done.insert(img.asset, png_asset(&format!("{stem}-cutout.png"), &cut)?);
+            done.insert(img.asset, png_asset(&format!("{stem}-{suffix}.png"), &cut)?);
         }
     }
-    s.edit("Remove Background", |doc, _| {
+    s.edit(label, |doc, _| {
         let mut map = std::collections::BTreeMap::new();
         for (old, asset) in done {
             map.insert(old, doc.add_asset(asset));
@@ -537,6 +579,12 @@ fn quick_image(_: &mut Session, p: &Value) -> Result<Value> {
             fx::resize(&img, w.round().clamp(1.0, 16384.0) as u32, h.round().clamp(1.0, 16384.0) as u32, fit)?
         }
         "convert" => img,
+        "change-background" => {
+            let color = super::color_param(p, "color", "quick.image")?.unwrap_or(Color::WHITE);
+            fx::change_background(&img, color, f64_or(p, "tolerance", 30.0).clamp(0.0, 100.0) as f32)
+        }
+        "blur-background" => fx::blur_background(&img, f64_or(p, "tolerance", 30.0).clamp(0.0, 100.0) as f32, f64_or(p, "amount", 12.0) as f32),
+        "pixelate" => fx::pixelate(&img, f64_or(p, "block", 16.0).clamp(2.0, 256.0) as u32),
         "auto-crop" => fx::auto_crop(&img),
         "rotate" => fx::rotate(&img, f64_or(p, "quarter_turns", 1.0).clamp(-4.0, 4.0) as i32),
         "flip" => fx::flip(&img, super::bool_or(p, "horizontal", true)),

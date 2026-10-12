@@ -27,6 +27,9 @@ pub const QUICK_ACTIONS: &[(&str, &str, &str)] = &[
     ("convert-png", "Convert to PNG", "Any picture to PNG"),
     ("convert-jpeg", "Convert to JPEG", "Any picture to JPEG"),
     ("convert-webp", "Convert to WebP", "Any picture to WebP"),
+    ("blur-background", "Blur background", "Keep the subject sharp, blur what is behind"),
+    ("change-background", "White background", "Replace a plain backdrop with white"),
+    ("pixelate", "Pixelate", "Big blocky pixels"),
     ("auto-crop", "Trim borders", "Remove empty or uniform edges"),
     ("grayscale", "Black & white", "Turn a photo black and white"),
 ];
@@ -294,6 +297,9 @@ fn run_quick_action(app: &mut App, action: &str) {
         "convert-jpeg" => ("jpg", json!({"action": "convert"})),
         "convert-webp" => ("webp", json!({"action": "convert"})),
         "auto-crop" => ("png", json!({"action": "auto-crop"})),
+        "blur-background" => ("png", json!({"action": "blur-background"})),
+        "change-background" => ("png", json!({"action": "change-background", "color": "#ffffff"})),
+        "pixelate" => ("png", json!({"action": "pixelate"})),
         _ => ("png", json!({"action": "filter", "preset": "mono"})),
     };
     let Some(output) = io::pick_save(&format!("{stem}-{action}.{ext}"), (ext, &[ext])) else { return };
