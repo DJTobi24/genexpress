@@ -368,6 +368,18 @@ fn picture_features() {
     assert_eq!((r["width"].as_u64(), r["height"].as_u64()), (Some(30), Some(30)));
     assert!(std::fs::read(dir.join("out.jpg")).unwrap().starts_with(&[0xff, 0xd8]));
     std::fs::remove_dir_all(&dir).unwrap();
+    // The same on bytes, without files (the web build).
+    let (jpg, w, _) = crate::cmd::content::quick_image_bytes(&png, "jpg", &json!({"action": "resize", "width": 30})).unwrap();
+    assert_eq!(w, 30);
+    assert!(jpg.starts_with(&[0xff, 0xd8]));
+    assert!(crate::cmd::content::quick_image_bytes(&png, "tiff", &json!({"action": "convert"})).is_err());
+    assert!(crate::cmd::content::quick_image_bytes(b"junk", "png", &json!({"action": "convert"})).is_err());
+    // A design as bytes (the web build's Save downloads them): marks it saved, reopens the same.
+    assert!(s.doc().unwrap().dirty);
+    let bytes = crate::cmd::file::design_bytes(&mut s).unwrap();
+    assert!(!s.doc().unwrap().dirty);
+    let (doc, _) = genha_format::from_bytes(&bytes).unwrap();
+    assert_eq!(doc.pages.len(), s.doc().unwrap().doc.pages.len());
 }
 
 #[test]

@@ -10,8 +10,19 @@ GenHa is an independent open-source project. It is not affiliated with, endorsed
 sponsored by Adobe Inc. "Adobe" and "Adobe Express" are trademarks of Adobe Inc., used here only to
 describe the feature set GenHa aims to cover.
 
-Third-party assets: none are bundled yet. Every asset added to this repository is listed with its
+Third-party assets: none are stored in this repository. Every asset added to it is listed with its
 licence in ASSETS.md; licence texts live next to the assets.
+
+Fonts compiled into the apps: the desktop and web apps embed egui's built-in fonts from the
+`epaint_default_fonts` crate (https://github.com/emilk/egui), used for the user interface and, when
+no system fonts are available (always in the browser), as fallback fonts for designs:
+  * Ubuntu Light — Ubuntu Font Licence 1.0 (https://ubuntu.com/legal/font-licence)
+  * Hack — MIT License, with the Bitstream Vera licence for the parts derived from it
+    (https://github.com/source-foundry/Hack)
+  * Noto Emoji — SIL Open Font License 1.1 (https://github.com/googlefonts/noto-emoji)
+  * emoji-icon-font — SIL Open Font License 1.1 / MIT (https://github.com/jslegers/emoji-icon-font)
+The licence texts ship with that crate (fonts/UFL.txt, fonts/OFL.txt, fonts/Hack-Regular.txt,
+fonts/emoji-icon-font-mit-license.txt).
 
 The repository layout, layering and agent conventions follow the ArtCraft apps (VectorCraft,
 MIT OR Apache-2.0, https://github.com/storytold/vectorcraft).

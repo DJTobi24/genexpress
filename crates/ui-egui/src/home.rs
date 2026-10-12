@@ -285,8 +285,6 @@ fn quick_actions(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 }
 
 fn run_quick_action(app: &mut App, action: &str) {
-    let Some(input) = io::pick_open(&[io::PICTURES]) else { return };
-    let stem = input.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "picture".into());
     let (ext, params) = match action {
         "remove-background" => ("png", json!({"action": "remove-background"})),
         "resize" => ("png", json!({"action": "resize", "scale": 0.5})),
@@ -296,6 +294,14 @@ fn run_quick_action(app: &mut App, action: &str) {
         "auto-crop" => ("png", json!({"action": "auto-crop"})),
         _ => ("png", json!({"action": "filter", "preset": "mono"})),
     };
+    // In the browser the picture arrives later and the result is downloaded (web.rs).
+    #[cfg(target_arch = "wasm32")]
+    crate::web::pick(crate::web::Purpose::Quick { action: action.to_string(), ext, params: params.clone() }, &[io::PICTURES]);
+    #[cfg(not(target_arch = "wasm32"))]
+    let Some(input) = io::pick_open(&[io::PICTURES]) else { return };
+    #[cfg(target_arch = "wasm32")]
+    let Some(input) = None::<std::path::PathBuf> else { return };
+    let stem = input.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "picture".into());
     let Some(output) = io::pick_save(&format!("{stem}-{action}.{ext}"), (ext, &[ext])) else { return };
     let mut p = params;
     if let Some(o) = p.as_object_mut() {

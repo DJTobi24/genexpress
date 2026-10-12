@@ -502,22 +502,42 @@ fn brand_use_palette(s: &mut Session, p: &Value) -> Result<Value> {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn quick_image(_: &mut Session, p: &Value) -> Result<Value> {
-    use genha_effects as fx;
-    let action = str_req(p, "action", "quick.image")?;
+    str_req(p, "action", "quick.image")?;
     let input = str_req(p, "input", "quick.image")?;
     let output = str_req(p, "output", "quick.image")?;
     let ext = std::path::Path::new(output).extension().and_then(|e| e.to_str()).unwrap_or("png");
-    let mut format = fx::OutputFormat::from_extension(ext)
-        .ok_or_else(|| bad("quick.image", format!("unsupported output type `.{ext}` (png, jpg, webp, gif, bmp)")))?;
-    if let fx::OutputFormat::Jpeg { quality } = &mut format {
-        *quality = f64_or(p, "quality", f64::from(*quality)).clamp(1.0, 100.0) as u8;
-    }
+    quick_format(ext, p)?;
     let len = std::fs::metadata(input).map_err(|e| EngineError::Other(format!("cannot open {input}: {e}")))?.len();
     if len > super::create::MAX_PICTURE_BYTES as u64 {
         return Err(EngineError::Other(format!("{input} is too large")));
     }
     let bytes = std::fs::read(input).map_err(|e| EngineError::Other(format!("cannot read {input}: {e}")))?;
-    let img = fx::decode(&bytes)?;
+    let (data, width, height) = quick_image_bytes(&bytes, ext, p)?;
+    super::export::write(output, &data)?;
+    Ok(ok(json!({"output": output, "width": width, "height": height, "bytes": data.len()})))
+}
+
+/// The output format of a quick action writing `ext` (png, jpg, webp, gif, bmp).
+fn quick_format(ext: &str, p: &Value) -> Result<genha_effects::OutputFormat> {
+    let mut format = genha_effects::OutputFormat::from_extension(ext)
+        .ok_or_else(|| bad("quick.image", format!("unsupported output type `.{ext}` (png, jpg, webp, gif, bmp)")))?;
+    if let genha_effects::OutputFormat::Jpeg { quality } = &mut format {
+        *quality = f64_or(p, "quality", f64::from(*quality)).clamp(1.0, 100.0) as u8;
+    }
+    Ok(format)
+}
+
+/// A quick action on picture bytes (`quick.image`'s params without `input`/`output`): the result
+/// encoded as `ext` (png, jpg, webp, gif, bmp), and its width and height. For hosts without a
+/// file system (the web build).
+pub fn quick_image_bytes(bytes: &[u8], ext: &str, p: &Value) -> Result<(Vec<u8>, u32, u32)> {
+    use genha_effects as fx;
+    let action = str_req(p, "action", "quick.image")?;
+    let format = quick_format(ext, p)?;
+    if bytes.len() > super::create::MAX_PICTURE_BYTES {
+        return Err(EngineError::Other("the picture is too large".into()));
+    }
+    let img = fx::decode(bytes)?;
     let out = match action {
         "remove-background" => fx::remove_background(&img, f64_or(p, "tolerance", 30.0).clamp(0.0, 100.0) as f32),
         "resize" => {
@@ -550,8 +570,7 @@ fn quick_image(_: &mut Session, p: &Value) -> Result<Value> {
         other => return Err(bad("quick.image", format!("unknown action `{other}`"))),
     };
     let data = fx::encode(&out, format)?;
-    super::export::write(output, &data)?;
-    Ok(ok(json!({"output": output, "width": out.width(), "height": out.height(), "bytes": data.len()})))
+    Ok((data, out.width(), out.height()))
 }
 
 #[cfg(target_arch = "wasm32")]

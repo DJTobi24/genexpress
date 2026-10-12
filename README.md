@@ -15,7 +15,7 @@ workspace, "everything is a command", a never-crash policy, and first-class auto
 
 ## Status
 
-**Stage: pre-alpha (M1 done).** A working desktop editor with templates, smart resize, picture tools
+**Stage: pre-alpha (M1 done).** A working desktop and web editor with templates, smart resize, picture tools
 and exports; ~20–25% of the target feature set by our own (low) estimate — see
 [ROADMAP.md](ROADMAP.md) and [docs/target-app-parity.md](docs/target-app-parity.md).
 
@@ -35,7 +35,12 @@ What works today:
 ```sh
 cargo run --release -p genha                       # the desktop app
 cargo run --release -p genha-cli -- --help         # the command line
+cargo xtask web && python3 -m http.server -d dist/web 8080   # the web app: open http://127.0.0.1:8080
 ```
+
+The web version is the same app compiled to WebAssembly: files are opened through the browser's
+file picker or by dropping them on the page, and Save / Download become browser downloads
+(see [docs/development.md › Web](docs/development.md#web)).
 
 Command-line examples:
 

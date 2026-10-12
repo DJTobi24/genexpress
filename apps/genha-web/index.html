@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="color-scheme" content="light dark">
+  <title>GenHa</title>
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f4f4f6; }
+    @media (prefers-color-scheme: dark) { html, body { background: #1d1d21; } }
+    #genha_canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+    #genha_loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      color: #77777f; font: 15px system-ui, sans-serif; pointer-events: none; }
+  </style>
+  <!-- `cargo xtask web` puts the loader for the wasm-bindgen glue here. -->
+  <!-- genha:loader -->
+</head>
+<body>
+  <canvas id="genha_canvas"></canvas>
+  <div id="genha_loading">Loading GenHa&hellip;</div>
+  <noscript>GenHa needs JavaScript and WebAssembly to run in the browser.</noscript>
+</body>
+</html>
