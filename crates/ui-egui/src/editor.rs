@@ -333,7 +333,7 @@ fn d_key(doc: &std::sync::Arc<genha_doc::Document>) -> u64 {
 
 fn left_rail(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     egui::Panel::left("rail")
-        .exact_size(72.0)
+        .exact_size(106.0)
         .frame(egui::Frame::new().fill(t.panel).inner_margin(egui::Margin::symmetric(6, 10)).stroke(egui::Stroke::new(1.0, t.border)))
         .show(ui, |ui| {
             ui.vertical_centered(|ui| {
