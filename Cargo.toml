@@ -57,6 +57,15 @@ egui = "0.36"
 eframe = { version = "0.36", default-features = false }
 rfd = { version = "0.17", default-features = false, features = ["xdg-portal"] }
 env_logger = { version = "0.11", default-features = false, features = ["auto-color", "humantime"] }
+# Fallback fonts for the browser (no system fonts there): egui's own, shipped as a crate
+# (Ubuntu Font Licence 1.0, OFL-1.1, MIT/Bitstream Vera; see NOTICE). No font files in this repo.
+epaint_default_fonts = "0.36"
+
+# web build (wasm32 only)
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = "0.3"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

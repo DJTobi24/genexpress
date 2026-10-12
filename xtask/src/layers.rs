@@ -130,5 +130,8 @@ mod tests {
         assert_eq!(check(&[c("genha-render", &["genha-svg"])]).len(), 1);
         assert!(check(&[c("genha-color", &["genha-geom"])]).is_empty());
         assert_eq!(check(&[c("genha-mystery", &[])]).len(), 1);
+        // The web app is exempt like the desktop app: it may use eframe and the UI.
+        assert_eq!(classify("genha-web"), Some(Class::Exempt));
+        assert!(check(&[c("genha-web", &["genha-ui-egui", "eframe"])]).is_empty());
     }
 }

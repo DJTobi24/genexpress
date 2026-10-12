@@ -26,7 +26,7 @@ that nothing below L6 depends on a UI toolkit (egui, eframe, winit, rfd). Table:
 | L4 | `tools` | pointer gestures → commands (select/move/resize/rotate, shape and text tools, snapping) |
 | L5 | `engine` | sessions, undo history, selection, the command registry, file I/O, the panic guard |
 | L6 | `ui-egui`, `mcp` | the egui front end (home screen, editor, panels, canvas); the MCP server (JSON-RPC over stdio) |
-| L7 | `apps/genha`, `apps/genha-cli`, `xtask` | desktop app (eframe), CLI (`run`, `export`, `quick`, `info`, `mcp`…), build tooling |
+| L7 | `apps/genha`, `apps/genha-web`, `apps/genha-cli`, `xtask` | desktop app (eframe), web app (eframe web runner, wasm32; `cargo xtask web`), CLI (`run`, `export`, `quick`, `info`, `mcp`…), build tooling |
 
 ## The document
 

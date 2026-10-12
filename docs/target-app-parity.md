@@ -160,7 +160,7 @@ Sources: https://developer.adobe.com/express/add-ons/docs/references/document-sa
 | MCP / chat assistants | ✅ | `genha-cli mcp` |
 | Embed SDK | ⬜ | M9 (web build) |
 | Desktop apps | ✅ | native Linux/macOS/Windows (egui) |
-| Web app | ⬜ | M2 (WASM build of the same UI) |
+| Web app | 🟡 | `apps/genha-web`: the same UI in the browser (WASM, WebGL2), verified in Chromium; open/place/drop through the browser, Save and Download as downloads; text only in a built-in fallback face, no Data Recovery or recent designs yet |
 | Mobile apps | ⬜ | later |
 | Offline use | ✅ | everything runs locally; no account needed; Data Recovery copies unsaved designs every minute (`recovery.*`) |
 

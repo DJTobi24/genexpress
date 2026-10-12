@@ -6,7 +6,7 @@ Every known shortfall, most valuable first. Pick work from the top unless the us
 
 | # | Gap | Area | Notes |
 |---|---|---|---|
-| 1 | Web build of the app (WASM, eframe web, downloads instead of file dialogs) | Platform | engine and below already build for wasm32 |
+| 1 | Web build: installed/web fonts (only the built-in Ubuntu Light, one weight), Data Recovery and recent designs in browser storage, paste of pictures, control channel over a web socket | Platform | the web app runs (`apps/genha-web`, `cargo xtask web`): open, place, drop, quick actions, Save and Download as browser downloads |
 | 2 | Edit text directly on the canvas (caret, selection) instead of the floating editor | Editor | |
 | 3 | Kerning, ligatures and complex scripts (HarfRust shaping); per-glyph font fallback | Text | `crates/text` uses charmap + advances only |
 | 4 | Vector PDF (krilla) and CMYK print PDF | Export | pages are pictures with an invisible text layer; print PDF has bleed and crop marks |

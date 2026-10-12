@@ -1,4 +1,5 @@
-//! Native file dialogs (desktop only; the web build uses drag and drop and downloads).
+//! File dialogs: native ones on the desktop; in the browser the file picker and downloads
+//! (`web.rs`).
 
 use std::path::PathBuf;
 
@@ -19,11 +20,17 @@ pub fn pick_save(default_name: &str, filter: (&str, &[&str])) -> Option<PathBuf>
     rfd::FileDialog::new().set_file_name(default_name).add_filter(filter.0, filter.1).save_file()
 }
 
+/// In the browser: opens the browser's file picker and returns `None`; the chosen file arrives a
+/// frame later (`web::poll`). With designs among the filters it opens as a design, else it is a
+/// picture placed into the open design.
 #[cfg(target_arch = "wasm32")]
-pub fn pick_open(_: &[(&str, &[&str])]) -> Option<PathBuf> {
+pub fn pick_open(filters: &[(&str, &[&str])]) -> Option<PathBuf> {
+    let purpose = if filters.iter().any(|f| f.0 == DESIGNS.0) { crate::web::Purpose::Open } else { crate::web::Purpose::Place };
+    crate::web::pick(purpose, filters);
     None
 }
 
+/// In the browser files are downloaded instead (`web::save`, `web::export`).
 #[cfg(target_arch = "wasm32")]
 pub fn pick_save(_: &str, _: (&str, &[&str])) -> Option<PathBuf> {
     None

@@ -14,3 +14,4 @@ Templates, shapes, icons, palettes and filter presets are generated in code (`cr
 |---|---|---|---|---|
 | docs/images/editor.png | GenHa contributors | screenshot of GenHa | MIT OR Apache-2.0 | the app showing an original template; rendered with system fonts (Inter, OFL) |
 | docs/images/home.png | GenHa contributors | screenshot of GenHa | MIT OR Apache-2.0 | home screen |
+| docs/images/web.png | GenHa contributors | screenshot of GenHa in Chromium (web build) | MIT OR Apache-2.0 | the web app showing an original template; text in the built-in fallback face Ubuntu Light (Ubuntu Font Licence 1.0, from the `epaint_default_fonts` crate) |

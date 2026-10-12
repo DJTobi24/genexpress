@@ -186,6 +186,8 @@ fn download_menu(app: &mut App, ui: &mut egui::Ui) {
     for (label, cmd, ext, extra) in entries {
         if ui.button(label).clicked() {
             ui.close();
+            #[cfg(target_arch = "wasm32")]
+            crate::web::export(app, cmd, ext, &extra, &name);
             if let Some(path) = io::pick_save(&format!("{name}.{ext}"), (ext, &[ext])) {
                 let mut p = extra;
                 if let Some(o) = p.as_object_mut() {
@@ -206,6 +208,8 @@ pub fn save(app: &mut App, save_as: bool) {
         return;
     }
     let name = app.session.active().map(|d| io::file_stem(&d.doc.title)).unwrap_or_else(|| "design".into());
+    #[cfg(target_arch = "wasm32")]
+    crate::web::save(app, &name);
     if let Some(path) = io::pick_save(&format!("{name}.genha"), io::DESIGNS)
         && app.run("file.saveAs", &json!({"path": path.display().to_string()})).is_some()
     {

@@ -92,7 +92,8 @@ fn main() -> std::process::ExitCode {
         }
     }
     opts.data_dir = data_dir();
-    let fonts = Arc::new(genha_text::FontBook::system());
+    // The system's fonts, or built-in fallback faces when there are none.
+    let fonts = Arc::new(genha_ui_egui::fonts::system_or_fallback());
     log::info!("{} font families found", fonts.families().len());
     let native = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
