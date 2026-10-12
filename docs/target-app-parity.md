@@ -14,10 +14,10 @@ Legend: ✅ works (basic form) · 🟡 partial · ⬜ not yet (milestone in [roa
 |---|---|---|
 | 1. Editor & canvas | ~40% (estimated) | pages of any size, select/move/resize/rotate, groups, order, lock/hide, undo/redo, snapping; no comments, co-editing, version history yet |
 | 2. Templates & content | ~15% (estimated) | 17 original templates, shape & icon library in code; no stock library (by design: open content later) |
-| 3. Text | ~35% (estimated) | text boxes, styles, presets, shadow/outline/highlight effects, system fonts; no curved text, spellcheck, translate |
+| 3. Text | ~40% (estimated) | text boxes, styles, presets, shadow/outline/highlight effects, curved text, system fonts; no grid text, spellcheck, translate |
 | 4. Pictures & AI | ~25% (estimated) | place, crop, fit, crop-to-shape, adjustments, filter presets, classic background removal, convert/resize quick actions; no generative AI yet |
 | 5. Video | 0% | model has page durations and animations; no timeline or video export yet |
-| 6. Documents & PDF | ~15% (estimated) | multi-page PDF export (raster), presentations as pages, QR codes; no PDF editing/import, charts, web pages |
+| 6. Documents & PDF | ~25% (estimated) | multi-page PDF export (raster), presentations as pages, QR codes, charts (bar, line, area, pie, donut, progress) and tables; no PDF editing/import, web pages |
 | 7. Brand kits | ~35% (estimated) | colours, heading/body fonts, logos slot, apply to page; no locking/template controls |
 | 8. Social | 0% | size presets only; no scheduler (planned as an optional, self-hostable add-on) |
 | 9. Export & share | ~40% (estimated) | PNG (transparent), JPEG, SVG, PDF; no MP4/GIF, share links, print ordering |
@@ -66,7 +66,7 @@ Sources: https://www.adobe.com/express/feature/design/text-effects/curved · htt
 | Add text, font, size, colour, alignment, spacing, line height | ✅ | `text.add`, `text.setStyle` |
 | Text presets (heading/subheading/body…) | ✅ | 11 presets, `text.addPreset` |
 | Shadow, outline, shape-behind-text (highlight) | ✅ | `text.setEffect` |
-| Curved / grid text | ⬜ | M3 |
+| Curved / grid text | 🟡 | curved text: `text.setCurve` (-360..360 degrees, arch or smile, multi-line on concentric arcs, shadow and outline follow; highlight boxes are left out on curves); grid text M3 |
 | Document-wide text styles | ⬜ | M3 |
 | Brand fonts (uploaded) | 🟡 | system fonts; adding font files to a design: M3 |
 | Spellcheck, translate | ⬜ | M8 |
@@ -110,7 +110,7 @@ Sources: https://helpx.adobe.com/express/using/charts.html · https://helpx.adob
 | Multi-page PDF export | ✅ | `export.pdf` (raster pages); vector PDF M4 |
 | Presentations (pages + notes, present mode) | 🟡 | pages + notes; present mode M5 |
 | PDF edit / combine / import | ⬜ | M9 (shared with the PDFCraft sibling) |
-| Charts, tables | ⬜ | M5 |
+| Charts, tables | 🟡 | `chart.add/setData/setStyle/setKind`: bar, horizontal bar, line, area, pie, donut, progress bar and ring; one labelled data series (typed or pasted as `Label: value` text), brand or own colours, labels/values/legend, number or percent. `table.add/setCell/insertRow/deleteRow/insertColumn/deleteColumn/setRows/setStyle`: header row, banded rows, grid lines, wrapped cell text, column widths, CSV in. Not yet: several series, axis titles, merged cells, per-cell styles |
 | QR code generator | ✅ | `element.qrCode` |
 | Single-page web pages | ⬜ | M9 (static HTML export) |
 | PPTX import/export | ⬜ | M9 |

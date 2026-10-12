@@ -48,6 +48,9 @@ pub fn element_summary(e: &Element) -> Value {
             if t.effect != TextEffect::None {
                 o.insert("effect".into(), json!(t.effect));
             }
+            if t.curve != 0.0 {
+                o.insert("curve".into(), json!(t.curve));
+            }
         }
         ElementKind::Image(i) => {
             o.insert("asset".into(), json!(i.asset.0));
@@ -60,6 +63,19 @@ pub fn element_summary(e: &Element) -> Value {
         }
         ElementKind::Group(g) => {
             o.insert("children".into(), Value::Array(g.children.iter().map(element_summary).collect()));
+        }
+        ElementKind::Chart(c) => {
+            o.insert("chart".into(), json!(c.kind.id()));
+            o.insert("data".into(), json!(c.data));
+            if !c.colors.is_empty() {
+                o.insert("colors".into(), json!(c.colors));
+            }
+            o.insert("value_format".into(), json!(c.value_format));
+        }
+        ElementKind::Table(t) => {
+            o.insert("rows".into(), json!(t.rows));
+            o.insert("size".into(), json!([t.rows.len(), t.columns()]));
+            o.insert("header_row".into(), json!(t.header_row));
         }
     }
     v

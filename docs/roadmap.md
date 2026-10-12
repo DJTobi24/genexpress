@@ -7,9 +7,9 @@
 | M0 Foundation | workspace, layers, doc model, format, engine, guard, xtask, agent docs | ✅ done |
 | M1 Editor | text/render/svg/pdf, effects/layout/templates, UI (home, editor, canvas, panels), CLI, MCP, control channel | ✅ done |
 | M2 Web & polish | WASM app, crop page, on-canvas text editing, multi-select handles, recent files, preferences | ⬜ next |
-| M3 Text | curved/grid text, document styles, embedded fonts, shaping & kerning, spellcheck hooks | ⬜ |
+| M3 Text | curved/grid text, document styles, embedded fonts, shaping & kerning, spellcheck hooks | 🟡 curved text done |
 | M4 Pictures & print | vector PDF, print PDF (bleed, marks), SVG import, HEIC, vectorize, better background removal | ⬜ |
-| M5 Documents | charts, tables, present mode, version history, several brands, accessibility, translations | ⬜ |
+| M5 Documents | charts, tables, present mode, version history, several brands, accessibility, translations | 🟡 charts (single series) and tables done |
 | M6 Motion & video | animation playback, GIF/MP4 export, timeline, scenes, audio | ⬜ |
 | M7 Collaboration | optional self-hostable sync server: share links, comments, co-editing, template locking | ⬜ |
 | M8 AI | pluggable local/remote models: background removal, generative fill/expand, text-to-image, captions, translate | ⬜ |

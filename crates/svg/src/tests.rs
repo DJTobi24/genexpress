@@ -123,6 +123,7 @@ fn text_is_escaped_and_laid_out() {
             text: "a < b & \"c\" {fill}\nsecond line\u{1}".into(),
             style,
             effect: TextEffect::Shadow { color: Color::BLACK, offset_x: 2.0, offset_y: 2.0, blur: 3.0 },
+            curve: 0.0,
         }),
     );
     let svg = export_page(&d, 0, fonts(), &SvgOptions::default()).unwrap();
@@ -152,7 +153,11 @@ fn text_effects() {
         TextEffect::Outline { color: Color::rgb(255, 0, 0), width: 2.0 },
         TextEffect::Highlight { color: Color::rgb(255, 255, 0), padding: 4.0, corner_radius: 3.0 },
     ] {
-        push(&mut d, Frame::new(0.0, 0.0, 300.0, 50.0), ElementKind::Text(TextEl { text: "Hi".into(), style: TextStyle::default(), effect }));
+        push(
+            &mut d,
+            Frame::new(0.0, 0.0, 300.0, 50.0),
+            ElementKind::Text(TextEl { text: "Hi".into(), style: TextStyle::default(), effect, curve: 0.0 }),
+        );
     }
     let svg = export_page(&d, 0, &FontBook::new(), &SvgOptions::default()).unwrap();
     check_tags(&svg);
@@ -229,4 +234,36 @@ fn numbers_and_escaping() {
     assert_eq!(num(-0.0001), "0");
     assert_eq!(num(f64::NAN), "0");
     assert_eq!(esc("<a href='x'>&</a>"), "&lt;a href=&apos;x&apos;&gt;&amp;&lt;/a&gt;");
+}
+
+#[test]
+fn charts_tables_and_curved_text() {
+    let mut d = Document::new("Data", 900.0, 600.0);
+    for (i, k) in genha_doc::ChartKind::ALL.into_iter().enumerate() {
+        let mut c = genha_doc::ChartEl::sample(k);
+        c.data[0].label = "R&D <x>".into();
+        c.background = Fill::linear(90.0, Color::WHITE, Color::rgb(0xee, 0xee, 0xff));
+        push(&mut d, Frame::new((i % 4) as f64 * 220.0, (i / 4) as f64 * 220.0, 200.0, 200.0), ElementKind::Chart(c));
+    }
+    let mut t = genha_doc::TableEl::blank(3, 2);
+    t.rows[1][0] = "a & b".into();
+    push(&mut d, Frame::new(660.0, 220.0, 220.0, 150.0), ElementKind::Table(t));
+    let mut te = TextEl::new("Round & round", TextStyle::default());
+    te.curve = 200.0;
+    te.effect = TextEffect::Highlight { color: Color::rgb(255, 255, 0), padding: 4.0, corner_radius: 2.0 };
+    push(&mut d, Frame::new(0.0, 450.0, 400.0, 150.0), ElementKind::Text(te));
+    for text_as_paths in [false, true] {
+        let svg = export_page(&d, 0, fonts(), &SvgOptions { text_as_paths }).unwrap();
+        check_tags(&svg);
+        assert!(svg.contains("<linearGradient"));
+        // Chart and table labels are text unless asked for as outlines; curved text never is.
+        assert_eq!(svg.contains("R&amp;D &lt;x&gt;"), !text_as_paths);
+        assert_eq!(svg.contains("a &amp; b"), !text_as_paths);
+        assert!(!svg.contains("Round &amp; round"));
+        // A highlight does not follow the curve: no yellow box.
+        assert!(!svg.contains("#ffff00"));
+        if !fonts().is_empty() {
+            assert!(svg.matches("<path").count() > 40);
+        }
+    }
 }

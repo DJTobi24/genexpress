@@ -11,7 +11,7 @@ use skrifa::metrics::GlyphMetrics;
 use skrifa::outline::{DrawSettings, OutlinePen};
 use skrifa::{FontRef, GlyphId, MetadataProvider, OutlineGlyphCollection};
 
-use crate::{FontBook, LineLayout, TextLayout};
+use crate::{FontBook, GlyphLayout, GlyphLine, LineLayout, PlacedGlyph, TextLayout};
 
 /// Most characters laid out (the rest are dropped).
 pub const MAX_TEXT_CHARS: usize = 100_000;
@@ -53,6 +53,19 @@ fn params(style: &TextStyle) -> Params {
 /// Lays out `text` in `style` in a box `box_width` wide (no wrapping when it is not a positive
 /// finite number). Origin at the box's top-left, y down.
 pub fn layout(book: &FontBook, text: &str, style: &TextStyle, box_width: f64) -> TextLayout {
+    layout_impl(book, text, style, box_width, None)
+}
+
+/// Like [`layout`], but keeps every glyph's own outline and position, for text that is placed
+/// glyph by glyph (curved text). Underlines are left out.
+pub fn layout_glyphs(book: &FontBook, text: &str, style: &TextStyle, box_width: f64) -> GlyphLayout {
+    let mut lines = vec![];
+    let l = layout_impl(book, text, style, box_width, Some(&mut lines));
+    GlyphLayout { lines, width: l.width, height: l.height }
+}
+
+/// Lays out text; when `glyphs` is given, also fills it with each line's separate glyphs.
+fn layout_impl(book: &FontBook, text: &str, style: &TextStyle, box_width: f64, mut glyph_lines: Option<&mut Vec<GlyphLine>>) -> TextLayout {
     let p = params(style);
     let wrap = if box_width.is_finite() && box_width > 0.0 { Some(box_width) } else { None };
     let mut text: String = text.chars().take(MAX_TEXT_CHARS).collect();
@@ -155,16 +168,27 @@ pub fn layout(book: &FontBook, text: &str, style: &TextStyle, box_width: f64) ->
         let mut path = BezPath::new();
         let mut pen_x = x;
         let settings = || DrawSettings::unhinted(size, LocationRef::default());
+        let mut placed_glyphs: Vec<PlacedGlyph> = vec![];
         for g in &glyphs {
+            let mut own = BezPath::new();
             if let (Some(f), Some(gid)) = (g.face, g.gid)
                 && let Some(o) = open.get(&f)
                 && let Some(outline) = o.outlines.get(gid)
             {
-                let mut pen = PathPen { path: &mut path, x: pen_x, y: baseline };
+                let mut pen = PathPen { path: &mut own, x: pen_x, y: baseline };
                 // A glyph that fails to draw is left out.
                 let _ = outline.draw(settings(), &mut pen);
             }
+            if glyph_lines.is_some() {
+                path.extend(own.iter());
+                placed_glyphs.push(PlacedGlyph { ch: g.ch, x: pen_x, advance: g.advance, path: own });
+            } else {
+                path.extend(own);
+            }
             pen_x += g.advance + p.spacing;
+        }
+        if let Some(out) = glyph_lines.as_deref_mut() {
+            out.push(GlyphLine { glyphs: placed_glyphs, x, width: w, top, baseline, height: p.line_height });
         }
         if style.underline && w > 0.0 {
             let y = baseline + ul_off * p.size;

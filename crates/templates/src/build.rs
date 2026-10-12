@@ -200,7 +200,7 @@ impl B {
     pub fn text_el(&mut self, name: &str, x: f64, y: f64, w: f64, text: &str, style: TextStyle) -> Element {
         let lines = text.lines().count().max(1) as f64;
         let h = (lines * style.font_size * style.line_height + style.font_size * 0.15).ceil();
-        self.el(name, Frame::new(x, y, w, h), ElementKind::Text(TextEl { text: text.into(), style, effect: TextEffect::None }))
+        self.el(name, Frame::new(x, y, w, h), ElementKind::Text(TextEl { text: text.into(), style, effect: TextEffect::None, curve: 0.0 }))
     }
 
     pub fn text(&mut self, name: &str, x: f64, y: f64, w: f64, text: &str, style: TextStyle) -> NodeId {

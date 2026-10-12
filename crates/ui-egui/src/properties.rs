@@ -2,6 +2,9 @@
 
 use serde_json::{Value, json};
 
+#[path = "data_props.rs"]
+mod data_props;
+
 use crate::App;
 use crate::theme::{Tokens, from_egui, to_egui};
 use genha_doc::{Element, ElementKind, Fill, Page, ShapeKind, TextAlign, TextEffect};
@@ -162,6 +165,7 @@ fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genha_col
             if ui.add(egui::Slider::new(&mut ls, -200.0..=800.0).text("Letter spacing")).changed() {
                 acts.run("text.setStyle", json!({"letter_spacing": ls, "merge_key": key("ls")}));
             }
+            data_props::curve(ui, t, id, text, acts);
             section(ui, t, "EFFECT");
             ui.horizontal_wrapped(|ui| {
                 let effects: [(&str, TextEffect); 4] = [
@@ -328,6 +332,8 @@ fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genha_col
                 }
             });
         }
+        ElementKind::Chart(c) => data_props::chart(ui, t, id, c, brand, acts),
+        ElementKind::Table(tb) => data_props::table(ui, t, id, tb, brand, acts),
         ElementKind::Group(g) => {
             ui.label(format!("Group of {} objects", g.children.len()));
             if ui.button("Ungroup").clicked() {

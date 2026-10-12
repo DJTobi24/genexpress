@@ -23,12 +23,12 @@ What works today:
 
 - **Start**: 35 size presets (social, video, print, marketing, documents) or a custom size; 17 original templates; open pictures as a design.
 - **Edit**: multi-page designs (pages of different sizes), select/move/resize/rotate with smart snapping, groups, layer order, lock/hide, align & distribute, copy/paste (also style), undo/redo.
-- **Content**: text with styles, presets and effects (shadow, outline, highlight); shapes and 25 original icons; QR codes; collages; brand kit (colours, fonts, palettes, colours from a photo).
+- **Content**: text with styles, presets and effects (shadow, outline, highlight) and curved text; charts (bar, line, area, pie, donut, progress) and tables; shapes and 25 original icons; QR codes; collages; brand kit (colours, fonts, palettes, colours from a photo).
 - **Pictures**: place, crop, fit, crop to shape, corner radius, border, adjustments, 14 filters, background removal (colour-based).
 - **Smart resize**: re-lay out a page for another size, or add a resized copy.
 - **Export**: PNG (also transparent and 2×), JPEG, SVG, multi-page PDF. Native `.genha` files.
 - **Quick actions** (file in, file out): remove background, resize, convert PNG/JPEG/WebP, trim, black & white.
-- **Automation**: 102 commands reachable from the UI, the CLI, a JSON-lines control channel and MCP.
+- **Automation**: 115 commands reachable from the UI, the CLI, a JSON-lines control channel and MCP.
 
 ## Run it
 

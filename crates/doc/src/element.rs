@@ -4,7 +4,7 @@ use genha_color::Color;
 use genha_geom::{Fit, Frame};
 use serde::{Deserialize, Serialize};
 
-use crate::{AssetId, NodeId};
+use crate::{AssetId, ChartEl, NodeId, TableEl};
 
 fn one() -> f32 {
     1.0
@@ -67,6 +67,8 @@ pub enum ElementKind {
     Text(TextEl),
     Image(ImageEl),
     Group(GroupEl),
+    Chart(ChartEl),
+    Table(TableEl),
 }
 
 impl ElementKind {
@@ -76,6 +78,8 @@ impl ElementKind {
             ElementKind::Text(_) => "Text",
             ElementKind::Image(_) => "Image",
             ElementKind::Group(_) => "Group",
+            ElementKind::Chart(_) => "Chart",
+            ElementKind::Table(_) => "Table",
         }
     }
 }
@@ -200,6 +204,31 @@ pub struct TextEl {
     pub style: TextStyle,
     #[serde(default)]
     pub effect: TextEffect,
+    /// Curved text: how far the lines bend, in degrees of arc spanned by the widest line
+    /// (`-360..=360`, 0 = straight). Positive bends the text over the top of a circle (an arch,
+    /// letters pointing away from the centre); negative wraps it under the bottom (a smile, letters
+    /// pointing towards the centre). ±360 closes the widest line into a full circle.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub curve: f64,
+}
+
+fn is_zero(v: &f64) -> bool {
+    *v == 0.0
+}
+
+/// Largest curve, in degrees.
+pub const MAX_CURVE: f64 = 360.0;
+
+impl TextEl {
+    /// Straight text with no effect.
+    pub fn new(text: impl Into<String>, style: TextStyle) -> Self {
+        TextEl { text: text.into(), style, effect: TextEffect::None, curve: 0.0 }
+    }
+
+    /// The curve clamped to `-360..=360` (0 when not finite).
+    pub fn curve_degrees(&self) -> f64 {
+        if self.curve.is_finite() { self.curve.clamp(-MAX_CURVE, MAX_CURVE) } else { 0.0 }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

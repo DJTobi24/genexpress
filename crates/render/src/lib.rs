@@ -5,13 +5,17 @@
 //! size, rotation, flips) with its opacity. Shapes are filled (solid or gradient) and stroked; a
 //! shape's drop shadow is blurred with a vello_cpu filter layer (a plain offset copy when the blur
 //! is tiny). Text is laid out by `genha-text` and drawn as glyph outlines, with its shadow,
-//! outline or highlight effect. Pictures are decoded, cropped and adjusted by `genha-effects`,
+//! outline or highlight effect; curved text has its glyphs placed along an arc ([`curved_text_path`]).
+//! Charts and tables become [`Scene`]s of paths and text ([`chart_scene`], [`table_scene`]), shared
+//! with the SVG writer. Pictures are decoded, cropped and adjusted by `genha-effects`,
 //! fitted into the frame and clipped to it (or to their mask shape); a picture that is missing or
 //! cannot be decoded draws as a grey placeholder instead of failing the page.
 //!
 //! [`Renderer`] keeps decoded pictures between renders so an editor can redraw cheaply.
 #![forbid(unsafe_code)]
 
+mod curve;
+mod datavis;
 mod paint;
 mod pictures;
 
@@ -24,6 +28,10 @@ use vello_common::filter_effects::{EdgeMode, Filter, FilterPrimitive};
 use vello_cpu::peniko;
 use vello_cpu::{Pixmap, RenderContext, Resources};
 
+pub use curve::{curved_text_path, curved_text_size};
+pub use datavis::{
+    CHART_PALETTE, Prim, Scene, TableGeometry, TextLine, TextPrim, chart_colors, chart_scene, format_number, table_geometry, table_scene,
+};
 pub use paint::{MAX_PATH_DATA, MAX_STROKE_WIDTH, linear_points, radial_radius, shape_path};
 
 /// Largest raster side, in pixels.
@@ -253,6 +261,14 @@ impl Draw<'_> {
             ElementKind::Shape(s) => self.shape(ctx, s, &frame, local),
             ElementKind::Text(t) => self.text(ctx, t, &frame, local),
             ElementKind::Image(im) => self.image(ctx, im, &frame, local),
+            ElementKind::Chart(c) => {
+                let scene = chart_scene(self.fonts, &self.doc.brand, c, frame.width, frame.height);
+                self.scene(ctx, &scene, &frame, local);
+            }
+            ElementKind::Table(t) => {
+                let scene = table_scene(self.fonts, t, frame.width, frame.height);
+                self.scene(ctx, &scene, &frame, local);
+            }
             ElementKind::Group(g) => {
                 // Children are in page coordinates; a flipped group mirrors them about its centre.
                 let c = frame.center();
@@ -348,12 +364,53 @@ impl Draw<'_> {
         }
     }
 
+    /// Draws a chart's or table's primitives in the element's box.
+    fn scene(&mut self, ctx: &mut RenderContext, scene: &Scene, frame: &Frame, local: Affine) {
+        let device = self.device(local);
+        ctx.set_transform(device);
+        if let Some(bg) = &scene.background {
+            let r = Rect::new(0.0, 0.0, frame.width, frame.height);
+            if paint::set_fill(ctx, bg, r) {
+                ctx.fill_rect(&r);
+            }
+        }
+        ctx.reset_paint_transform();
+        for p in &scene.prims {
+            match p {
+                Prim::Fill { path, color } => {
+                    ctx.set_paint(paint::pcolor(*color));
+                    ctx.fill_path(path);
+                }
+                Prim::Stroke { path, color, width, round } => {
+                    let mut st = Stroke::new(width.clamp(0.0, MAX_STROKE_WIDTH));
+                    if *round {
+                        st = st.with_join(kurbo::Join::Round).with_caps(kurbo::Cap::Round);
+                    }
+                    ctx.set_paint(paint::pcolor(*color));
+                    ctx.set_stroke(st);
+                    ctx.stroke_path(path);
+                }
+                Prim::Text(tp) => {
+                    ctx.set_paint(paint::pcolor(tp.color));
+                    ctx.fill_path(&tp.path);
+                }
+            }
+        }
+    }
+
     fn text(&mut self, ctx: &mut RenderContext, t: &TextEl, frame: &Frame, local: Affine) {
         let layout = genha_text::layout(self.fonts, &t.text, &t.style, frame.width);
-        let mut glyphs = BezPath::new();
-        for line in &layout.lines {
-            glyphs.extend(line.path.iter());
-        }
+        let curved = curved_text_path(self.fonts, t, frame.width, frame.height);
+        let glyphs = match &curved {
+            Some(p) => p.clone(),
+            None => {
+                let mut glyphs = BezPath::new();
+                for line in &layout.lines {
+                    glyphs.extend(line.path.iter());
+                }
+                glyphs
+            }
+        };
         let device = self.device(local);
         match &t.effect {
             TextEffect::None => {}
@@ -375,6 +432,8 @@ impl Draw<'_> {
                     ctx.stroke_path(&glyphs);
                 }
             }
+            // Line boxes do not follow a curve: curved text is drawn without them.
+            TextEffect::Highlight { .. } if curved.is_some() => {}
             TextEffect::Highlight { color, padding, corner_radius } => {
                 let pad = sane(*padding, 0.0, 10_000.0);
                 ctx.set_transform(device);

@@ -5,7 +5,8 @@
 //! Shapes become `<path>`s with solid or gradient fills (`<linearGradient>` / `<radialGradient>` in
 //! `<defs>`), strokes and dashes; shadows are blurred copies (`feGaussianBlur`). Text becomes
 //! `<text>` with a `<tspan>` per laid-out line (so line breaks match the editor), or outlines when
-//! [`SvgOptions::text_as_paths`] is set. Pictures are embedded as `data:` URLs — the original
+//! [`SvgOptions::text_as_paths`] is set; curved text is always written as outlines. Charts and
+//! tables are the renderer's [`Scene`]s written as paths and `<text>`. Pictures are embedded as `data:` URLs — the original
 //! file when it is shown uncropped and unadjusted, otherwise the edited pixels as PNG — clipped to
 //! the frame's rounded rectangle or to their mask shape.
 #![forbid(unsafe_code)]
@@ -14,9 +15,9 @@ use std::fmt::Write as _;
 
 use base64::Engine as _;
 use genha_color::Color;
-use genha_doc::{Document, Element, ElementKind, Fill, ImageEl, Shadow, ShapeEl, ShapeKind, StrokeStyle, TextAlign, TextEffect, TextEl};
+use genha_doc::{Document, Element, ElementKind, Fill, ImageEl, Shadow, ShapeEl, ShapeKind, StrokeStyle, TextAlign, TextEffect, TextEl, TextStyle};
 use genha_geom::{Size, fit, rounded_rect};
-use genha_render::{Raster, encode_png, linear_points, radial_radius, shape_path};
+use genha_render::{Prim, Raster, Scene, chart_scene, curved_text_path, encode_png, linear_points, radial_radius, shape_path, table_scene};
 use genha_text::FontBook;
 use kurbo::{Affine, BezPath, PathEl, Rect, Shape};
 
@@ -274,13 +275,21 @@ impl Writer<'_> {
             }
             ElementKind::Text(t) => {
                 let _ = writeln!(self.body, "<g{op}>");
-                self.text(t, frame.width, local);
+                self.text(t, frame.width, frame.height, local);
                 self.body.push_str("</g>\n");
             }
             ElementKind::Image(im) => {
                 let _ = writeln!(self.body, "<g{op}>");
                 self.image(im, frame.width, frame.height, local);
                 self.body.push_str("</g>\n");
+            }
+            ElementKind::Chart(c) => {
+                let scene = chart_scene(self.fonts, &self.doc.brand, c, frame.width, frame.height);
+                self.scene(&scene, frame.width, frame.height, local, &op);
+            }
+            ElementKind::Table(t) => {
+                let scene = table_scene(self.fonts, t, frame.width, frame.height);
+                self.scene(&scene, frame.width, frame.height, local, &op);
             }
         }
     }
@@ -322,64 +331,27 @@ impl Writer<'_> {
         let _ = writeln!(self.body, r#"<path transform="{}" d="{d}"{fill_attr}{stroke_attr}/>"#, matrix(local));
     }
 
-    fn text(&mut self, t: &TextEl, w: f64, local: Affine) {
+    fn text(&mut self, t: &TextEl, w: f64, h: f64, local: Affine) {
         let layout = genha_text::layout(self.fonts, &t.text, &t.style, w);
         let st = &t.style;
         let mut glyphs = BezPath::new();
         for line in &layout.lines {
             glyphs.extend(line.path.iter());
         }
+        let curved = curved_text_path(self.fonts, t, w, h);
+        if let Some(p) = &curved {
+            glyphs = p.clone();
+        }
         // The drawing of the letters, [`FILL`] / [`STROKE`] standing for paint attributes.
-        let content = if self.opts.text_as_paths {
+        let content = if self.opts.text_as_paths || curved.is_some() {
             format!(r#"<path d="{}"{FILL}/>"#, path_data(&glyphs))
         } else {
-            let mut family = vec![];
-            if let Some(resolved) = self.fonts.resolve_family(&st.font_family, st.bold, st.italic) {
-                family.push(format!("'{}'", resolved.replace('\'', "")));
-            }
-            let generic = match st.font_family.trim().to_lowercase().as_str() {
-                "serif" => "serif",
-                "mono" | "monospace" => "monospace",
-                _ => "sans-serif",
-            };
-            if !matches!(st.font_family.trim().to_lowercase().as_str(), "sans" | "serif" | "mono" | "display" | "sans-serif" | "monospace") {
-                let f = format!("'{}'", st.font_family.replace('\'', ""));
-                if !family.contains(&f) {
-                    family.insert(0, f);
-                }
-            }
-            family.push(generic.into());
-            let weight = if st.font_family.trim().eq_ignore_ascii_case("display") {
-                if st.bold { "900" } else { "800" }
-            } else if st.bold {
-                "bold"
-            } else {
-                "normal"
-            };
-            let size = sane(st.font_size, 0.0, genha_text::MAX_FONT_SIZE);
-            let mut s = format!(
-                r#"<text xml:space="preserve" font-family="{}" font-size="{}" font-weight="{weight}" font-style="{}""#,
-                esc(&family.join(", ")),
-                num(size),
-                if st.italic { "italic" } else { "normal" }
-            );
-            if st.underline {
-                s.push_str(r#" text-decoration="underline""#);
-            }
-            let spacing = sane(st.letter_spacing, -1000.0, 10_000.0) / 1000.0 * size;
-            if spacing != 0.0 {
-                let _ = write!(s, r#" letter-spacing="{}""#, num(spacing));
-            }
+            let mut s = self.text_open(st);
             s.push_str(FILL);
             s.push_str(STROKE);
             s.push('>');
             for line in &layout.lines {
-                let (x, anchor) = match st.align {
-                    TextAlign::Left => (line.x, "start"),
-                    TextAlign::Center => (line.x + line.width / 2.0, "middle"),
-                    TextAlign::Right => (line.x + line.width, "end"),
-                };
-                let _ = write!(s, r#"<tspan x="{}" y="{}" text-anchor="{anchor}">{}</tspan>"#, num(x), num(line.baseline), esc(line.text.trim_end()));
+                s.push_str(&tspan(st.align, line.x, line.width, line.baseline, &line.text));
             }
             s.push_str("</text>");
             s
@@ -401,6 +373,8 @@ impl Writer<'_> {
                     let _ = writeln!(self.body, r#"<g transform="{m}">{body}</g>"#);
                 }
             }
+            // Line boxes do not follow a curve: curved text is written without them.
+            TextEffect::Highlight { .. } if curved.is_some() => {}
             TextEffect::Highlight { color, padding, corner_radius } => {
                 let pad = sane(*padding, 0.0, 10_000.0);
                 let r = sane(*corner_radius, 0.0, 10_000.0);
@@ -415,6 +389,91 @@ impl Writer<'_> {
         }
         let body = content.replace(FILL, &Paint::color(st.color).attrs("fill")).replace(STROKE, "");
         let _ = writeln!(self.body, r#"<g transform="{m}">{body}</g>"#);
+    }
+
+    /// A chart's or table's primitives in the element's box.
+    fn scene(&mut self, scene: &Scene, w: f64, h: f64, local: Affine, op: &str) {
+        let _ = writeln!(self.body, r#"<g transform="{}"{op}>"#, matrix(local));
+        if let Some(bg) = &scene.background {
+            let r = Rect::new(0.0, 0.0, w, h);
+            if let Some(paint) = self.paint(bg, r) {
+                let _ = writeln!(self.body, r#"<rect width="{}" height="{}"{}/>"#, num(w), num(h), paint.attrs("fill"));
+            }
+        }
+        for p in &scene.prims {
+            match p {
+                Prim::Fill { path, color } => {
+                    let _ = writeln!(self.body, r#"<path d="{}"{}/>"#, path_data(path), Paint::color(*color).attrs("fill"));
+                }
+                Prim::Stroke { path, color, width, round } => {
+                    let round = if *round { r#" stroke-linejoin="round" stroke-linecap="round""# } else { "" };
+                    let _ = writeln!(
+                        self.body,
+                        r#"<path d="{}" fill="none"{} stroke-width="{}"{round}/>"#,
+                        path_data(path),
+                        Paint::color(*color).attrs("stroke"),
+                        num(width.min(genha_render::MAX_STROKE_WIDTH))
+                    );
+                }
+                Prim::Text(tp) => {
+                    let fill = Paint::color(tp.color).attrs("fill");
+                    if self.opts.text_as_paths {
+                        let _ = writeln!(self.body, r#"<path d="{}"{fill}/>"#, path_data(&tp.path));
+                    } else {
+                        let mut s = self.text_open(&tp.style);
+                        s.push_str(&fill);
+                        s.push('>');
+                        for l in &tp.lines {
+                            s.push_str(&tspan(tp.style.align, l.x, l.width, l.baseline, &l.text));
+                        }
+                        let _ = writeln!(self.body, "{s}</text>");
+                    }
+                }
+            }
+        }
+        self.body.push_str("</g>\n");
+    }
+
+    /// `<text …` with the font attributes of `st` (unclosed: paint attributes and `>` follow).
+    fn text_open(&self, st: &TextStyle) -> String {
+        let mut family = vec![];
+        if let Some(resolved) = self.fonts.resolve_family(&st.font_family, st.bold, st.italic) {
+            family.push(format!("'{}'", resolved.replace('\'', "")));
+        }
+        let generic = match st.font_family.trim().to_lowercase().as_str() {
+            "serif" => "serif",
+            "mono" | "monospace" => "monospace",
+            _ => "sans-serif",
+        };
+        if !matches!(st.font_family.trim().to_lowercase().as_str(), "sans" | "serif" | "mono" | "display" | "sans-serif" | "monospace") {
+            let f = format!("'{}'", st.font_family.replace('\'', ""));
+            if !family.contains(&f) {
+                family.insert(0, f);
+            }
+        }
+        family.push(generic.into());
+        let weight = if st.font_family.trim().eq_ignore_ascii_case("display") {
+            if st.bold { "900" } else { "800" }
+        } else if st.bold {
+            "bold"
+        } else {
+            "normal"
+        };
+        let size = sane(st.font_size, 0.0, genha_text::MAX_FONT_SIZE);
+        let mut s = format!(
+            r#"<text xml:space="preserve" font-family="{}" font-size="{}" font-weight="{weight}" font-style="{}""#,
+            esc(&family.join(", ")),
+            num(size),
+            if st.italic { "italic" } else { "normal" }
+        );
+        if st.underline {
+            s.push_str(r#" text-decoration="underline""#);
+        }
+        let spacing = sane(st.letter_spacing, -1000.0, 10_000.0) / 1000.0 * size;
+        if spacing != 0.0 {
+            let _ = write!(s, r#" letter-spacing="{}""#, num(spacing));
+        }
+        s
     }
 
     fn image(&mut self, im: &ImageEl, w: f64, h: f64, local: Affine) {
@@ -456,6 +515,16 @@ impl Writer<'_> {
             );
         }
     }
+}
+
+/// A `<tspan>` for one laid-out line, anchored at the end its alignment keeps in place.
+fn tspan(align: TextAlign, x: f64, width: f64, baseline: f64, text: &str) -> String {
+    let (x, anchor) = match align {
+        TextAlign::Left => (x, "start"),
+        TextAlign::Center => (x + width / 2.0, "middle"),
+        TextAlign::Right => (x + width, "end"),
+    };
+    format!(r#"<tspan x="{}" y="{}" text-anchor="{anchor}">{}</tspan>"#, num(x), num(baseline), esc(text.trim_end()))
 }
 
 /// ` stroke-width="…"` and dashes for `s`.

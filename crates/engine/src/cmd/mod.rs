@@ -3,6 +3,7 @@
 pub mod brand;
 pub mod content;
 pub mod create;
+pub mod data;
 pub mod edit;
 pub mod export;
 pub mod file;
@@ -107,6 +108,7 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(edit::specs());
         v.extend(page::specs());
         v.extend(create::specs());
+        v.extend(data::specs());
         v.extend(object::specs());
         v.extend(style::specs());
         v.extend(brand::specs());
