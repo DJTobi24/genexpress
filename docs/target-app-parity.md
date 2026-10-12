@@ -13,7 +13,7 @@ Legend: ✅ works (basic form) · 🟡 partial · ⬜ not yet (milestone in [roa
 | Area | Score | Notes |
 |---|---|---|
 | 1. Editor & canvas | ~40% (estimated) | pages of any size, select/move/resize/rotate, groups, order, lock/hide, undo/redo, snapping; no comments, co-editing, version history yet |
-| 2. Templates & content | ~15% (estimated) | ~16 original templates, shape & icon library in code; no stock library (by design: open content later) |
+| 2. Templates & content | ~15% (estimated) | 17 original templates, shape & icon library in code; no stock library (by design: open content later) |
 | 3. Text | ~35% (estimated) | text boxes, styles, presets, shadow/outline/highlight effects, system fonts; no curved text, spellcheck, translate |
 | 4. Pictures & AI | ~25% (estimated) | place, crop, fit, crop-to-shape, adjustments, filter presets, classic background removal, convert/resize quick actions; no generative AI yet |
 | 5. Video | 0% | model has page durations and animations; no timeline or video export yet |
@@ -32,7 +32,7 @@ Sources: https://helpx.adobe.com/express/web/organize-your-designs/arrange-layer
 |---|---|---|
 | Multi-page designs, pages of different sizes | ✅ | `page.add/duplicate/delete/move/goto`, per-page size |
 | Resize page (presets or custom) | ✅ | `page.setSize`, presets (`presets.list`) |
-| Smart resize / duplicate & resize to other sizes | 🟡 | `page.resize` (smart re-anchoring), `page.resizeCopy` |
+| Smart resize / duplicate & resize to other sizes | ✅ | `page.resize` (smart re-anchoring), `page.resize {copy: true}` |
 | Crop page to content | ⬜ | M2 |
 | Layers panel, reorder, lock, hide | ✅ | `object.bringForward…`, `object.lock/hide`, Layers panel |
 | Group / ungroup | ✅ | `object.group/ungroup` |
@@ -49,12 +49,12 @@ Sources: https://www.adobe.com/express/feature · https://www.adobe.com/express/
 
 | Feature | Status | GenExpress |
 |---|---|---|
-| Templates by category (social, marketing, print, documents) | 🟡 | ~16 original templates generated in code (`template.list/use`) |
+| Templates by category (social, marketing, print, documents) | 🟡 | 17 original templates generated in code (`template.list/use`) |
 | Template search / filters | 🟡 | category + tags |
 | Stock photos, video, audio | ➖/⬜ | no proprietary stock; M6: optional open-content sources (CC0 libraries) and local folders |
-| Icons, shapes, design assets | 🟡 | basic shapes + ~25 original icons as paths |
+| Icons, shapes, design assets | 🟡 | 10 basic shapes + 25 original icons as paths (`library.list/addShape`) |
 | Backgrounds (solid, gradient) | ✅ | page background fill |
-| Photo grids / collages, frames | 🟡 | `layout.collage` layouts; crop-to-shape frames |
+| Photo grids / collages, frames | 🟡 | `layout.collage` (layouts for 1–9 pictures); crop-to-shape frames |
 | Text-to-template, generate similar | ⬜ | M8 (pluggable local/remote AI providers) |
 
 ## 3. Text
@@ -64,7 +64,7 @@ Sources: https://www.adobe.com/express/feature/design/text-effects/curved · htt
 | Feature | Status | GenExpress |
 |---|---|---|
 | Add text, font, size, colour, alignment, spacing, line height | ✅ | `text.add`, `text.setStyle` |
-| Text presets (heading/subheading/body…) | ✅ | `templates::text_presets` |
+| Text presets (heading/subheading/body…) | ✅ | 11 presets, `text.addPreset` |
 | Shadow, outline, shape-behind-text (highlight) | ✅ | `text.setEffect` |
 | Curved / grid text | ⬜ | M3 |
 | Document-wide text styles | ⬜ | M3 |
@@ -82,7 +82,7 @@ Sources: https://helpx.adobe.com/express/web/image-creation-and-editing/generate
 | HEIC import | ⬜ | M4 |
 | Crop, fit, flip, rotate, crop to shape | ✅ | `image.crop/setFit/mask`, `object.flip*` |
 | Adjustments (brightness, contrast, saturation, warmth, sharpen, blur) | ✅ | `image.adjust` |
-| Filters with intensity | ✅ | `image.filter` (original presets) |
+| Filters with intensity | ✅ | `image.filter` (14 original presets) |
 | Remove / change background | 🟡 | classic colour-based remover (no ML yet); ML model: M8 |
 | Quick actions: resize, crop, convert JPG/PNG/WebP | ✅ | `genexpress-cli quick …` |
 | Convert to SVG (vectorize) | ⬜ | M4 |

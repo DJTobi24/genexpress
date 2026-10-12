@@ -12,4 +12,5 @@ Templates, shapes, icons, palettes and filter presets are generated in code (`cr
 
 | Path | Author | Source | Licence | Notes |
 |---|---|---|---|---|
-| — | — | — | — | No bundled assets yet. |
+| docs/images/editor.png | GenExpress contributors | screenshot of GenExpress | MIT OR Apache-2.0 | the app showing an original template; rendered with system fonts (Inter, OFL) |
+| docs/images/home.png | GenExpress contributors | screenshot of GenExpress | MIT OR Apache-2.0 | home screen |
