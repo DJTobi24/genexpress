@@ -80,12 +80,13 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             outline(&painter, &el.frame, &to_screen, egui::Stroke::new(1.5, t.selection));
         }
     }
-    if let [id] = selection.as_slice()
-        && let Some(el) = page.find(*id)
-        && !el.locked
-        && app.session.tools.tool == ToolId::Select
+    if app.session.tools.tool == ToolId::Select
+        && let Some(f) = genha_tools::selection_frame(&display, &selection)
     {
-        handles(&painter, &el.frame, zoom, &to_screen, t);
+        if selection.len() > 1 {
+            outline(&painter, &f, &to_screen, egui::Stroke::new(1.0, t.selection.gamma_multiply(0.6)));
+        }
+        handles(&painter, &f, zoom, &to_screen, t);
     }
     if let Some(p) = &preview {
         let guide = egui::Stroke::new(1.0, t.guide);

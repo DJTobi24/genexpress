@@ -208,6 +208,18 @@ enum Gesture {
         id: NodeId,
         start_frame: Frame,
     },
+    /// Several objects scaled with their joint box.
+    ResizeMany {
+        handle: Handle,
+        start_box: Frame,
+        frames: Vec<(NodeId, Frame)>,
+    },
+    /// Several objects turned about their joint box's centre.
+    RotateMany {
+        start_box: Frame,
+        start_angle: f64,
+        frames: Vec<(NodeId, Frame)>,
+    },
     Marquee {
         start: Point,
         add: bool,
@@ -344,6 +356,21 @@ impl ToolState {
             };
             return ToolOutput::default();
         }
+        // Handles of a multiple selection: its joint box.
+        if cx.selection.len() > 1
+            && let Some(start_box) = selection_frame(cx.doc, cx.selection)
+            && let Some(handle) = hit_handle(&start_box, ev.pos, cx.zoom)
+        {
+            let frames: Vec<(NodeId, Frame)> =
+                cx.selection.iter().filter_map(|id| cx.doc.find(*id).map(|(_, e)| e)).filter(|e| !e.locked).map(|e| (e.id, e.frame)).collect();
+            self.gesture = if handle == Handle::Rotate {
+                let v = ev.pos - start_box.center();
+                Gesture::RotateMany { start_box, start_angle: v.y.atan2(v.x), frames }
+            } else {
+                Gesture::ResizeMany { handle, start_box, frames }
+            };
+            return ToolOutput::default();
+        }
         let hit = cx.page().and_then(|p| hit_test(p, ev.pos));
         match hit {
             Some(el) => {
@@ -401,6 +428,47 @@ impl ToolState {
                 }
                 ToolOutput { preview: Some(Preview { frames: vec![(id, f)], ..Default::default() }), ..Default::default() }
             }
+            Gesture::ResizeMany { handle, start_box, frames } => {
+                let b = resize_frame(&start_box, handle, ev.pos, ev.shift, ev.alt);
+                let sx = if start_box.width > 0.0 { b.width / start_box.width } else { 1.0 };
+                let sy = if start_box.height > 0.0 { b.height / start_box.height } else { 1.0 };
+                let out: Vec<(NodeId, Frame)> = frames
+                    .iter()
+                    .map(|(id, f)| {
+                        let (w, h) = ((f.width * sx).max(MIN_SIDE), (f.height * sy).max(MIN_SIDE));
+                        let c = f.center();
+                        let nc = Point::new(b.x + (c.x - start_box.x) * sx, b.y + (c.y - start_box.y) * sy);
+                        (*id, Frame { x: nc.x - w / 2.0, y: nc.y - h / 2.0, width: w, height: h, rotation: f.rotation })
+                    })
+                    .collect();
+                if commit {
+                    if b == start_box {
+                        return ToolOutput::default();
+                    }
+                    return ToolOutput { commands: vec![frames_cmd(&out, "Resize")], ..Default::default() };
+                }
+                ToolOutput { preview: Some(Preview { frames: out, ..Default::default() }), ..Default::default() }
+            }
+            Gesture::RotateMany { start_box, start_angle, frames } => {
+                let c = start_box.center();
+                let v = ev.pos - c;
+                let mut delta = (v.y.atan2(v.x) - start_angle).to_degrees();
+                if ev.shift {
+                    delta = (delta / 15.0).round() * 15.0;
+                }
+                let turn = genha_geom::Affine::rotate_about(delta.to_radians(), c);
+                let out: Vec<(NodeId, Frame)> = frames
+                    .iter()
+                    .map(|(id, f)| {
+                        let nc = turn * f.center();
+                        (*id, Frame { x: nc.x - f.width / 2.0, y: nc.y - f.height / 2.0, rotation: normalize_degrees(f.rotation + delta), ..*f })
+                    })
+                    .collect();
+                if commit {
+                    return ToolOutput { commands: vec![frames_cmd(&out, "Rotate")], ..Default::default() };
+                }
+                ToolOutput { preview: Some(Preview { frames: out, ..Default::default() }), ..Default::default() }
+            }
             Gesture::Rotate { id, start_frame } => {
                 let c = start_frame.center();
                 let v = ev.pos - c;
@@ -447,6 +515,20 @@ fn frames_cmd(frames: &[(NodeId, Frame)], label: &str) -> Invocation {
 
 fn rects_overlap(a: &Rect, b: &Rect) -> bool {
     a.x0 <= b.x1 && b.x0 <= a.x1 && a.y0 <= b.y1 && b.y0 <= a.y1
+}
+
+/// The box selection handles go on: a single object's own (rotated) frame, or the joint
+/// axis-aligned bounds of several unlocked objects.
+pub fn selection_frame(doc: &Document, selection: &[NodeId]) -> Option<Frame> {
+    let els: Vec<&Element> = selection.iter().filter_map(|id| doc.find(*id).map(|(_, e)| e)).filter(|e| !e.locked).collect();
+    match els.as_slice() {
+        [] => None,
+        [one] => Some(one.frame),
+        many => {
+            let b = many.iter().map(|e| e.frame.bounds()).reduce(|a, r| a.union(r))?;
+            Some(Frame::new(b.x0, b.y0, b.width(), b.height()))
+        }
+    }
 }
 
 /// The topmost visible element under `p` (groups are hit as a whole).

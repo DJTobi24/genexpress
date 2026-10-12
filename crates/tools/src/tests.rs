@@ -113,3 +113,30 @@ fn non_finite_events_are_ignored() {
     let mut t = ToolState::default();
     assert_eq!(t.event(&cx(&doc, &[]), ev(PointerKind::Down, f64::NAN, 0.0)), ToolOutput::default());
 }
+
+#[test]
+fn multi_selection_resizes_and_rotates_together() {
+    let (mut doc, a) = doc_with_rect(); // 100,100 200×100
+    let b = doc.alloc_id();
+    let mut el = doc.pages[0].elements[0].clone();
+    el.id = b;
+    el.frame = Frame::new(400.0, 100.0, 100.0, 100.0);
+    doc.pages[0].elements.push(el);
+    let sel = [a, b];
+    let joint = selection_frame(&doc, &sel).unwrap();
+    assert_eq!((joint.x, joint.width), (100.0, 400.0));
+    let mut t = ToolState::default();
+    // Bottom-right handle of the joint box (500, 200) dragged to (900, 300): twice as big.
+    t.event(&cx(&doc, &sel), ev(PointerKind::Down, 500.0, 200.0));
+    let out = t.event(&cx(&doc, &sel), ev(PointerKind::Up, 900.0, 300.0));
+    let frames = &out.commands[0].params["frames"];
+    let fb: Frame = serde_json::from_value(frames[1]["frame"].clone()).unwrap();
+    assert_eq!((fb.x, fb.y, fb.width, fb.height), (700.0, 100.0, 200.0, 200.0));
+    // Rotating the pair turns both about the joint centre.
+    let knob = Handle::Rotate.position(&joint, 1.0);
+    t.event(&cx(&doc, &sel), ev(PointerKind::Down, knob.x, knob.y));
+    let c = joint.center();
+    let out = t.event(&cx(&doc, &sel), ev(PointerKind::Up, c.x + 100.0, c.y));
+    let fa: Frame = serde_json::from_value(out.commands[0].params["frames"][0]["frame"].clone()).unwrap();
+    assert!((fa.rotation - 90.0).abs() < 1e-6, "{fa:?}");
+}
