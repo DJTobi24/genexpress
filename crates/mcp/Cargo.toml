@@ -1,0 +1,17 @@
+[package]
+name = "genha-mcp"
+description = "GenHa MCP server: JSON-RPC over stdio, headless or attached to the running app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+genha-engine = { workspace = true }
+genha-doc = { workspace = true }
+serde_json = { workspace = true }
+base64 = { workspace = true }
+log = { workspace = true }
+
+[lints]
+workspace = true

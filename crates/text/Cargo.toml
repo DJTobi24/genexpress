@@ -1,0 +1,17 @@
+[package]
+name = "genha-text"
+description = "GenHa text: font book, family matching, line layout and glyph outlines"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+genha-doc = { workspace = true }
+genha-geom = { workspace = true }
+kurbo = { workspace = true }
+skrifa = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

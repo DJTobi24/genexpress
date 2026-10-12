@@ -1,0 +1,19 @@
+[package]
+name = "genha"
+description = "GenHa: an open-source design app for social posts, flyers, presentations and more"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+genha-engine = { workspace = true }
+genha-ui-egui = { workspace = true }
+genha-text = { workspace = true }
+eframe = { workspace = true, features = ["default_fonts", "glow", "wayland", "x11"] }
+egui = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+
+[lints]
+workspace = true

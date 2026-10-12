@@ -1,0 +1,20 @@
+[package]
+name = "genha-pdf"
+description = "GenHa PDF export: pages rasterized and embedded as JPEG images"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+genha-doc = { workspace = true }
+genha-text = { workspace = true }
+genha-render = { workspace = true }
+genha-geom = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+image = { workspace = true }
+
+[lints]
+workspace = true

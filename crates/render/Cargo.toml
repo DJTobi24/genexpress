@@ -1,0 +1,22 @@
+[package]
+name = "genha-render"
+description = "GenHa renderer: pages to pixels (vello_cpu), thumbnails, PNG/JPEG encoding"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+genha-doc = { workspace = true }
+genha-geom = { workspace = true }
+genha-color = { workspace = true }
+genha-text = { workspace = true }
+genha-effects = { workspace = true }
+vello_cpu = { workspace = true }
+vello_common = { workspace = true }
+image = { workspace = true }
+kurbo = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

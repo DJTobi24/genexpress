@@ -1,0 +1,17 @@
+GenHa
+Copyright 2026 The GenHa contributors
+
+Licensed under either of
+  * Apache License, Version 2.0 (LICENSE-APACHE)
+  * MIT license (LICENSE-MIT)
+at your option.
+
+GenHa is an independent open-source project. It is not affiliated with, endorsed by or
+sponsored by Adobe Inc. "Adobe" and "Adobe Express" are trademarks of Adobe Inc., used here only to
+describe the feature set GenHa aims to cover.
+
+Third-party assets: none are bundled yet. Every asset added to this repository is listed with its
+licence in ASSETS.md; licence texts live next to the assets.
+
+The repository layout, layering and agent conventions follow the ArtCraft apps (VectorCraft,
+MIT OR Apache-2.0, https://github.com/storytold/vectorcraft).

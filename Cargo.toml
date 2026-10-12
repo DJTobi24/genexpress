@@ -1,0 +1,80 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "apps/*", "xtask"]
+default-members = ["crates/*", "apps/genha", "apps/genha-cli", "xtask"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.95"
+repository = "https://github.com/DJTobi24/genexpress"
+
+[workspace.dependencies]
+# internal
+genha-geom = { path = "crates/geom" }
+genha-color = { path = "crates/color" }
+genha-doc = { path = "crates/doc" }
+genha-text = { path = "crates/text" }
+genha-effects = { path = "crates/effects" }
+genha-layout = { path = "crates/layout" }
+genha-templates = { path = "crates/templates" }
+genha-render = { path = "crates/render" }
+genha-svg = { path = "crates/svg" }
+genha-pdf = { path = "crates/pdf" }
+genha-format = { path = "crates/format" }
+genha-tools = { path = "crates/tools" }
+genha-engine = { path = "crates/engine" }
+genha-ui-egui = { path = "crates/ui-egui" }
+genha-mcp = { path = "crates/mcp" }
+
+# foundation
+kurbo = { version = "0.13", features = ["serde"] }
+peniko = "0.6"
+thiserror = "2"
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+base64 = "0.22"
+log = "0.4"
+proptest = "1"
+qrcode = { version = "0.14", default-features = false }
+
+# rendering / formats
+vello_cpu = "0.2"
+# Filter types (Gaussian blur, drop shadow) are not re-exported by vello_cpu 0.2.
+vello_common = { version = "0.2", default-features = false }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
+skrifa = "0.44"
+# SVG import (Apache-2.0 OR MIT); without text so it needs no font database and builds for wasm
+usvg = { version = "0.45", default-features = false }
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+
+# ui
+egui = "0.36"
+eframe = { version = "0.36", default-features = false }
+rfd = { version = "0.17", default-features = false, features = ["xdg-portal"] }
+env_logger = { version = "0.11", default-features = false, features = ["auto-color", "humantime"] }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+# GenHa never crashes: shipped code returns `Result`/`Option` instead of panicking (see
+# AGENTS.md › Never crash). Tests may unwrap (clippy.toml).
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

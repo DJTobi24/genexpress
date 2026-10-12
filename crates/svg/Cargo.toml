@@ -1,0 +1,25 @@
+[package]
+name = "genha-svg"
+description = "GenHa SVG export: pages as hand-written SVG with embedded pictures"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+genha-doc = { workspace = true }
+genha-geom = { workspace = true }
+genha-color = { workspace = true }
+genha-text = { workspace = true }
+genha-effects = { workspace = true }
+genha-render = { workspace = true }
+base64 = { workspace = true }
+kurbo = { workspace = true }
+thiserror = { workspace = true }
+usvg = { workspace = true }
+
+[dev-dependencies]
+image = { workspace = true }
+
+[lints]
+workspace = true
