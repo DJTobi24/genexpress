@@ -1,0 +1,29 @@
+[package]
+name = "genexpress-ui-egui"
+description = "GenExpress user interface (egui): home screen, editor, panels, canvas"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+genexpress-engine = { workspace = true }
+genexpress-doc = { workspace = true }
+genexpress-geom = { workspace = true }
+genexpress-color = { workspace = true }
+genexpress-text = { workspace = true }
+genexpress-render = { workspace = true }
+genexpress-effects = { workspace = true }
+genexpress-layout = { workspace = true }
+genexpress-templates = { workspace = true }
+genexpress-tools = { workspace = true }
+egui = { workspace = true }
+serde_json = { workspace = true }
+base64 = { workspace = true }
+log = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rfd = { workspace = true }
+
+[lints]
+workspace = true

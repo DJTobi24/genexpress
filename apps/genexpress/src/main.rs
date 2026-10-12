@@ -1,0 +1,116 @@
+//! The GenExpress desktop app.
+//!
+//! `genexpress [--control PORT] [--dark] [FILE…]`
+
+use std::sync::Arc;
+
+use genexpress_ui_egui::{App, AppOptions, control::ControlServer};
+
+const USAGE: &str = "usage: genexpress [--control PORT] [--dark] [FILE.genexpress | PICTURE …]
+
+  --control PORT   accept JSON-lines automation on 127.0.0.1:PORT (see docs/control-protocol.md)
+  --dark           start in dark mode";
+
+struct Shell {
+    app: App,
+    title: String,
+    confirm_close: bool,
+    allow_close: bool,
+}
+
+impl eframe::App for Shell {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+        self.app.ui(ui);
+        // Window title follows the design.
+        let title = match self.app.session.active() {
+            Some(d) => format!("{}{} — GenExpress", d.display_name(), if d.dirty { " •" } else { "" }),
+            None => "GenExpress".to_string(),
+        };
+        if title != self.title {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
+            self.title = title;
+        }
+        // Ask before closing with unsaved changes.
+        let dirty = self.app.session.docs.iter().any(|d| d.dirty);
+        if ctx.input(|i| i.viewport().close_requested()) && dirty && !self.allow_close {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            self.confirm_close = true;
+        }
+        if self.confirm_close {
+            egui::Window::new("Unsaved changes").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO).show(
+                &ctx,
+                |ui| {
+                    ui.label("Some designs have changes that are not saved.");
+                    ui.horizontal(|ui| {
+                        if ui.button("Quit without saving").clicked() {
+                            self.allow_close = true;
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                        }
+                        if ui.button("Cancel").clicked() {
+                            self.confirm_close = false;
+                        }
+                    });
+                },
+            );
+        }
+    }
+}
+
+fn main() -> std::process::ExitCode {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    let mut opts = AppOptions::default();
+    let mut port = None;
+    let mut args = std::env::args().skip(1);
+    while let Some(a) = args.next() {
+        match a.as_str() {
+            "--control" => match args.next().and_then(|p| p.parse::<u16>().ok()) {
+                Some(p) => port = Some(p),
+                None => {
+                    eprintln!("--control needs a port number\n\n{USAGE}");
+                    return std::process::ExitCode::FAILURE;
+                }
+            },
+            "--dark" => opts.dark = Some(true),
+            "-h" | "--help" => {
+                println!("{USAGE}");
+                return std::process::ExitCode::SUCCESS;
+            }
+            f => opts.open.push(f.into()),
+        }
+    }
+    let fonts = Arc::new(genexpress_text::FontBook::system());
+    log::info!("{} font families found", fonts.families().len());
+    let native = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_title("GenExpress")
+            .with_inner_size([1440.0, 900.0])
+            .with_min_inner_size([960.0, 600.0])
+            .with_drag_and_drop(true),
+        ..Default::default()
+    };
+    let result = eframe::run_native(
+        "GenExpress",
+        native,
+        Box::new(move |cc| {
+            let mut app = App::new(fonts, opts);
+            if let Some(port) = port {
+                match ControlServer::start(port, cc.egui_ctx.clone()) {
+                    Ok(c) => {
+                        log::info!("control channel on 127.0.0.1:{port}");
+                        app.control = Some(c);
+                    }
+                    Err(e) => log::error!("control channel: could not bind 127.0.0.1:{port}: {e}"),
+                }
+            }
+            Ok(Box::new(Shell { app, title: String::new(), confirm_close: false, allow_close: false }))
+        }),
+    );
+    match result {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("GenExpress could not start: {e}");
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
