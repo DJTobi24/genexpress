@@ -19,5 +19,5 @@ Every known shortfall, most valuable first. Pick work from the top unless the us
 | 11 | Animation playback and GIF/MP4 export | Video | model already stores animations and page durations |
 | 12 | SVG and PDF import | Formats | |
 | 13 | Screen reader support (AccessKit) and UI translations (German first) | Accessibility | |
-| 14 | Template library growth (target 100+ original templates) and template search tags | Content | |
+| 14 | Template library growth (target 100+ original templates) | Content | 65 templates with search tags, 114 icons, 25 text styles, 40 palettes (M2.3); still short of the target library |
 | 15 | Rendering off the UI thread, tiles for very large pages | Performance | |

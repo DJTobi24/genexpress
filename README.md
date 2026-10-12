@@ -21,9 +21,9 @@ and exports; ~20–25% of the target feature set by our own (low) estimate — s
 
 What works today:
 
-- **Start**: 35 size presets (social, video, print, marketing, documents) or a custom size; 17 original templates; open pictures as a design.
+- **Start**: 35 size presets (social, video, print, marketing, documents) or a custom size; 65 original templates (posts, carousels, stories, covers, flyers, posters, cards, invitations, decks, resumes, logos, ads); open pictures as a design.
 - **Edit**: multi-page designs (pages of different sizes), select/move/resize/rotate with smart snapping, groups, layer order, lock/hide, align & distribute, copy/paste (also style), undo/redo.
-- **Content**: text with styles, presets and effects (shadow, outline, highlight); shapes and 25 original icons; QR codes; collages; brand kit (colours, fonts, palettes, colours from a photo).
+- **Content**: text with styles, presets and effects (shadow, outline, highlight); 25 text styles; shapes and 114 original icons in 11 categories; QR codes; 40 palettes; collages; brand kit (colours, fonts, palettes, colours from a photo).
 - **Pictures**: place, crop, fit, crop to shape, corner radius, border, adjustments, 14 filters, background removal (colour-based).
 - **Smart resize**: re-lay out a page for another size, or add a resized copy.
 - **Export**: PNG (also transparent and 2×), JPEG, SVG, multi-page PDF. Native `.genha` files.

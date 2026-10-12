@@ -46,17 +46,47 @@ fn colors_and_fonts(doc: &Document) -> (Vec<Color>, HashSet<String>) {
 #[test]
 fn catalog_is_complete() {
     let cat = catalog();
-    assert!(cat.len() >= 16, "{} templates", cat.len());
+    assert!(cat.len() >= 45, "{} templates", cat.len());
     let mut ids = HashSet::new();
     for t in &cat {
         assert!(ids.insert(t.id), "duplicate template {}", t.id);
-        assert!(!t.name.is_empty() && !t.category.is_empty() && !t.tags.is_empty());
+        assert!(!t.name.is_empty() && !t.category.is_empty() && t.tags.len() >= 3, "{}: name, category and tags", t.id);
+        for tag in t.tags {
+            assert_eq!(*tag, tag.to_lowercase(), "{}: tags are matched in lower case", t.id);
+        }
         let p = preset::find(t.preset).unwrap_or_else(|| panic!("{}: unknown preset {}", t.id, t.preset));
         assert!((t.width, t.height) == (p.width, p.height) || (t.width, t.height) == (p.height, p.width), "{}: size does not match its preset", t.id);
     }
-    for wanted in
-        ["instagram-post", "instagram-story", "youtube-thumbnail", "facebook-post", "linkedin-banner", "flyer-a4", "poster-a3", "business-card"]
-    {
+    for wanted in [
+        "instagram-post",
+        "instagram-portrait",
+        "instagram-story",
+        "tiktok-video",
+        "youtube-thumbnail",
+        "youtube-banner",
+        "x-header",
+        "facebook-post",
+        "facebook-cover",
+        "linkedin-post",
+        "linkedin-banner",
+        "pinterest-pin",
+        "flyer-a4",
+        "flyer-a5",
+        "flyer-letter",
+        "poster-a3",
+        "poster-18x24",
+        "business-card",
+        "business-card-us",
+        "invitation-5x7",
+        "postcard",
+        "logo",
+        "banner-leaderboard",
+        "banner-rectangle",
+        "email-header",
+        "presentation",
+        "presentation-4x3",
+        "resume",
+    ] {
         assert!(cat.iter().any(|t| t.preset == wanted), "no template for {wanted}");
     }
     assert!(instantiate("no-such-template", None).is_none());
@@ -108,9 +138,18 @@ fn templates_are_well_formed() {
 
 #[test]
 fn presentation_has_two_slides_and_templates_look_different() {
-    let deck = instantiate("team-presentation", None).unwrap();
-    assert_eq!(deck.pages.len(), 2);
-    assert!(deck.pages.iter().all(|p| !p.notes.is_empty()));
+    for (id, pages) in [("team-presentation", 2), ("pitch-deck", 5), ("annual-report-deck", 4)] {
+        let deck = instantiate(id, None).unwrap();
+        assert_eq!(deck.pages.len(), pages, "{id}");
+        assert!(deck.pages.iter().all(|p| !p.notes.is_empty()), "{id}: every slide has notes");
+    }
+    assert_eq!(instantiate("garden-carousel", None).unwrap().pages.len(), 5);
+    assert_eq!(instantiate("business-card-bold", None).unwrap().pages.len(), 2);
+    // Every page of a multi-page template has its own name.
+    for (info, doc) in all_docs() {
+        let names: HashSet<&str> = doc.pages.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names.len(), doc.pages.len(), "{}: page names", info.id);
+    }
     // Every template has its own primary colour scheme.
     let primaries: HashSet<String> = all_docs()
         .iter()
@@ -175,7 +214,7 @@ fn shape_library_paths_are_valid() {
             assert!(b.width() > 40.0 && b.height() > 20.0, "{} is tiny: {b:?}", s.id);
         }
     }
-    assert!(icons >= 20, "{icons} icons");
+    assert!(icons >= 70, "{icons} icons");
     for wanted in ["rect", "rounded-rect", "circle", "triangle", "pentagon", "hexagon", "star", "line", "heart", "arrow-right", "check", "cross"] {
         assert!(ids.contains(wanted), "missing {wanted}");
     }
@@ -184,6 +223,45 @@ fn shape_library_paths_are_valid() {
     }
     for wanted in ["bell", "badge", "seal", "plus", "minus", "sparkle", "arrow-left", "arrow-up", "arrow-down"] {
         assert!(ids.contains(wanted), "missing {wanted}");
+    }
+}
+
+#[test]
+fn icons_fill_the_same_with_either_fill_rule() {
+    // Parts never overlap and holes run against their outline: every point is covered at most
+    // once, always with the same sign, so non-zero and even-odd filling agree.
+    let lib = shape_library();
+    let mut cats: Vec<&str> = vec![];
+    for s in &lib {
+        let ShapeKind::Path { d, .. } = &s.shape else { continue };
+        if !cats.contains(&s.category) {
+            cats.push(s.category);
+        }
+        let path = kurbo::BezPath::from_svg(d).unwrap();
+        let mut sign = 0;
+        let mut covered = 0;
+        for iy in 0..60 {
+            for ix in 0..60 {
+                let p = kurbo::Point::new(0.4137 + f64::from(ix) * 99.2 / 60.0, 0.2913 + f64::from(iy) * 99.2 / 60.0);
+                let w = kurbo::Shape::winding(&path, p);
+                assert!(w.abs() <= 1, "{}: winding {w} at {p:?}", s.id);
+                if w != 0 {
+                    covered += 1;
+                    assert!(sign == 0 || sign == w, "{}: a hole runs the wrong way at {p:?}", s.id);
+                    sign = w;
+                }
+            }
+        }
+        assert!(covered > 200, "{}: covers only {covered} samples", s.id);
+    }
+    assert!(cats.len() >= 8, "icon categories: {cats:?}");
+    // Categories are contiguous, so the panel shows each once.
+    let mut seen: Vec<&str> = vec![];
+    for s in &lib {
+        if seen.last() != Some(&s.category) {
+            assert!(!seen.contains(&s.category), "{} is split", s.category);
+            seen.push(s.category);
+        }
     }
 }
 
@@ -228,12 +306,13 @@ fn text_presets_cover_the_basics() {
         assert!(ids.contains(wanted), "missing {wanted}");
     }
     assert!(presets.iter().all(|p| !p.sample.is_empty() && p.style.font_size > 0.0));
+    assert!(presets.len() >= 25, "{} text presets", presets.len());
 }
 
 #[test]
 fn palettes_are_distinct() {
     let ps = palettes();
-    assert!(ps.len() >= 16);
+    assert!(ps.len() >= 40, "{} palettes", ps.len());
     let mut ids = HashSet::new();
     let mut sets = HashSet::new();
     for p in &ps {

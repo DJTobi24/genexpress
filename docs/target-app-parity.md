@@ -13,7 +13,7 @@ Legend: ✅ works (basic form) · 🟡 partial · ⬜ not yet (milestone in [roa
 | Area | Score | Notes |
 |---|---|---|
 | 1. Editor & canvas | ~40% (estimated) | pages of any size, select/move/resize/rotate, groups, order, lock/hide, undo/redo, snapping; no comments, co-editing, version history yet |
-| 2. Templates & content | ~15% (estimated) | 17 original templates, shape & icon library in code; no stock library (by design: open content later) |
+| 2. Templates & content | ~25% (estimated) | 65 original templates in 6 categories, 114 icons, 40 palettes, all generated in code; no stock library (by design: open content later) |
 | 3. Text | ~35% (estimated) | text boxes, styles, presets, shadow/outline/highlight effects, system fonts; no curved text, spellcheck, translate |
 | 4. Pictures & AI | ~25% (estimated) | place, crop, fit, crop-to-shape, adjustments, filter presets, classic background removal, convert/resize quick actions; no generative AI yet |
 | 5. Video | 0% | model has page durations and animations; no timeline or video export yet |
@@ -49,10 +49,10 @@ Sources: https://www.adobe.com/express/feature · https://www.adobe.com/express/
 
 | Feature | Status | GenHa |
 |---|---|---|
-| Templates by category (social, marketing, print, documents) | 🟡 | 17 original templates generated in code (`template.list/use`) |
-| Template search / filters | 🟡 | category + tags |
+| Templates by category (social, marketing, print, documents) | 🟡 | 65 original templates generated in code (`template.list/use`): social posts, carousels, stories, video covers, banners, pins, flyers, posters, menus, price lists, business cards, invitations, greeting cards, certificates, vouchers, coupons, tickets, multi-slide decks, resumes, logos, web ads, email headers; all take brand colours and fonts. Far fewer than the target app's library |
+| Template search / filters | 🟡 | category + lower-case search tags on every template (at least 3 each) |
 | Stock photos, video, audio | ➖/⬜ | no proprietary stock; M6: optional open-content sources (CC0 libraries) and local folders |
-| Icons, shapes, design assets | 🟡 | 10 basic shapes + 25 original icons as paths (`library.list/addShape`) |
+| Icons, shapes, design assets | 🟡 | 10 basic shapes + 114 original filled icons as paths in 11 categories (arrows, interface, people & messages, media, business, food, nature, travel, celebration, badges, decorative: blobs, dividers, frames, brush stroke) (`library.list/addShape`) |
 | Backgrounds (solid, gradient) | ✅ | page background fill |
 | Photo grids / collages, frames | 🟡 | `layout.collage` (layouts for 1–9 pictures); crop-to-shape frames |
 | Text-to-template, generate similar | ⬜ | M8 (pluggable local/remote AI providers) |
@@ -64,7 +64,7 @@ Sources: https://www.adobe.com/express/feature/design/text-effects/curved · htt
 | Feature | Status | GenHa |
 |---|---|---|
 | Add text, font, size, colour, alignment, spacing, line height | ✅ | `text.add`, `text.setStyle` |
-| Text presets (heading/subheading/body…) | ✅ | 11 presets, `text.addPreset` |
+| Text presets (heading/subheading/body…) | ✅ | 25 presets (display, serif, mono, kicker, tracked capitals, quotes, big numbers, price tag, button, outline, shadow, glow, highlight), `text.addPreset` |
 | Shadow, outline, shape-behind-text (highlight) | ✅ | `text.setEffect` |
 | Curved / grid text | ⬜ | M3 |
 | Document-wide text styles | ⬜ | M3 |
