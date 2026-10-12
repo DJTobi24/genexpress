@@ -1,0 +1,17 @@
+[package]
+name = "genha-motion"
+description = "GenHa motion: element animations (entrances, loops, exits) evaluated at a point in time"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+genha-doc = { workspace = true }
+genha-geom = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

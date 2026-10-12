@@ -19,6 +19,9 @@ pub struct Tokens {
     pub handle_fill: Color32,
     pub guide: Color32,
     pub danger: Color32,
+    /// Present mode: the backdrop around the page and the text drawn on it.
+    pub stage: Color32,
+    pub stage_text: Color32,
 }
 
 impl Tokens {
@@ -38,6 +41,8 @@ impl Tokens {
         handle_fill: Color32::WHITE,
         guide: Color32::from_rgb(0xff, 0x3d, 0x8b),
         danger: Color32::from_rgb(0xd9, 0x30, 0x30),
+        stage: Color32::BLACK,
+        stage_text: Color32::from_gray(150),
     };
 
     pub const DARK: Tokens = Tokens {
@@ -56,6 +61,8 @@ impl Tokens {
         handle_fill: Color32::from_rgb(0x21, 0x20, 0x2c),
         guide: Color32::from_rgb(0xff, 0x5c, 0xa0),
         danger: Color32::from_rgb(0xff, 0x6b, 0x6b),
+        stage: Color32::BLACK,
+        stage_text: Color32::from_gray(150),
     };
 
     pub fn get(ctx: &egui::Context) -> Tokens {

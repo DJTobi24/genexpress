@@ -78,13 +78,13 @@ pub fn process(app: &mut App, ctx: &egui::Context) {
         ctx.request_repaint_after(std::time::Duration::from_millis(100));
     }
     for r in reqs {
-        let result = handle(app, &r.method, &r.params);
+        let result = handle(app, ctx, &r.method, &r.params);
         // The client may have gone away; nothing to do then.
         let _ = r.reply.send(result);
     }
 }
 
-fn handle(app: &mut App, method: &str, params: &Value) -> Result<Value, String> {
+fn handle(app: &mut App, ctx: &egui::Context, method: &str, params: &Value) -> Result<Value, String> {
     match method {
         "engine.execute" => {
             let cmd = params.get("command").and_then(Value::as_str).ok_or("missing `command`")?;
@@ -120,7 +120,33 @@ fn handle(app: &mut App, method: &str, params: &Value) -> Result<Value, String> 
             "zoom": app.view.zoom,
             "left_tab": app.left_tab.label(),
             "status": app.status.as_ref().map(|s| s.0.clone()),
+            "playing": app.motion.playing.is_some(),
+            "presenting": app.motion.present.as_ref().map(|p| p.page),
         })),
+        "ui.play" => {
+            app.session.active().ok_or("no document open")?;
+            if params.get("stop").and_then(Value::as_bool).unwrap_or(false) {
+                crate::motion::stop(app);
+            } else {
+                crate::motion::play(app, ctx);
+            }
+            Ok(json!({"playing": app.motion.playing.is_some()}))
+        }
+        "ui.present" => {
+            let pages = app.session.active().ok_or("no document open")?.doc.pages.len();
+            if params.get("stop").and_then(Value::as_bool).unwrap_or(false) {
+                crate::motion::stop_presenting(app, ctx);
+                return Ok(json!({"presenting": null}));
+            }
+            if app.motion.present.is_none() {
+                crate::motion::start_presenting(app, ctx);
+            }
+            if let Some(i) = params.get("page").and_then(Value::as_u64) {
+                let i = usize::try_from(i).ok().filter(|i| *i < pages).ok_or("no such page")?;
+                crate::motion::present_page(app, ctx, i);
+            }
+            Ok(json!({"presenting": app.motion.present.as_ref().map(|p| p.page)}))
+        }
         "ui.home" => {
             app.screen = crate::Screen::Home;
             Ok(json!({}))

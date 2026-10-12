@@ -394,24 +394,64 @@ pub struct GroupEl {
 
 // ---------- animation ----------
 
+/// How an element enters (and, mirrored, leaves) the page. Played by `genha-motion`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum AnimationKind {
     Fade,
+    /// Moves leftwards into place (comes in from the right).
     SlideLeft,
+    /// Moves upwards into place (comes in from below).
     SlideUp,
     Rise,
     Pop,
     Zoom,
     Bounce,
     Typewriter,
+    /// Moves rightwards into place (comes in from the left).
+    SlideRight,
+    /// Moves downwards into place (comes in from above).
+    SlideDown,
+    /// Turns and grows into place.
+    Spin,
+    /// Unfolds horizontally, like a card turning over.
+    Flip,
+}
+
+/// A movement repeated while the element is on screen, between its entrance and its exit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LoopKind {
+    /// Grows and shrinks a little.
+    Pulse,
+    /// Drifts up and down.
+    Float,
+    /// Tilts left and right.
+    Sway,
+    /// Dims and brightens.
+    Blink,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Animation {
+    /// The entrance.
     pub kind: AnimationKind,
-    /// Seconds.
+    /// Seconds (entrance, and exit when there is one).
     pub duration: f64,
+    /// Seconds from the start of the page to the start of the entrance.
     #[serde(default)]
     pub delay: f64,
+    /// Repeated between the entrance and the exit.
+    #[serde(default, rename = "loop", skip_serializing_if = "Option::is_none")]
+    pub looping: Option<LoopKind>,
+    /// Played at the end of the page, so the element leaves before the next one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit: Option<AnimationKind>,
+}
+
+impl Animation {
+    /// An entrance of `kind` (no loop, no exit).
+    pub fn new(kind: AnimationKind, duration: f64, delay: f64) -> Self {
+        Animation { kind, duration, delay, looping: None, exit: None }
+    }
 }

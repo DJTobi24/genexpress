@@ -16,7 +16,7 @@ Every known shortfall, most valuable first. Pick work from the top unless the us
 | 8 | Snapping while resizing; distance hints between objects | Editor | multi-select handles and crop page to content landed |
 | 9 | Charts and tables | Documents | |
 | 10 | Version history across devices (sync) | Editor | local version history, recent files and Data Recovery landed |
-| 11 | Animation playback and GIF/MP4 export | Video | model already stores animations and page durations |
+| 11 | MP4 export, timeline with scenes, audio | Video | animations, playback, present mode and GIF/animated PNG export landed (`crates/motion`); MP4 needs a pure-Rust encoder |
 | 12 | PDF import; text inside imported SVGs | Formats | SVG shapes, gradients and borders import (`genha_svg::import`) |
 | 13 | Screen reader support (AccessKit) and UI translations (German first) | Accessibility | |
 | 14 | Template library growth (target 100+ original templates) and template search tags | Content | |

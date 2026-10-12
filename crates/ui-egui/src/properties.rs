@@ -4,15 +4,19 @@ use serde_json::{Value, json};
 
 use crate::App;
 use crate::theme::{Tokens, from_egui, to_egui};
-use genha_doc::{Element, ElementKind, Fill, Page, ShapeKind, TextAlign, TextEffect};
+use genha_doc::{AnimationKind, Element, ElementKind, Fill, Page, ShapeKind, TextAlign, TextEffect};
 
 /// Commands to run after drawing (the panel reads a snapshot, then acts).
 #[derive(Default)]
-struct Actions(Vec<(&'static str, Value)>);
+struct Actions {
+    commands: Vec<(&'static str, Value)>,
+    /// Play the page's animation on the canvas afterwards (UI only).
+    preview: bool,
+}
 
 impl Actions {
     fn run(&mut self, id: &'static str, p: Value) {
-        self.0.push((id, p));
+        self.commands.push((id, p));
     }
 }
 
@@ -23,18 +27,132 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     let brand: Vec<genha_color::Color> = d.doc.brand.colors.iter().map(|c| c.color).collect();
     let families = app.font_families().to_vec();
     let mut acts = Actions::default();
+    let mut choices = app.motion.panel;
     match selected.as_slice() {
         [] => {
             if let Some(p) = &page {
                 page_props(ui, t, p, &brand, &mut acts);
+                page_animation(ui, t, p, &mut choices, &mut acts);
             }
         }
         [el] => element_props(ui, t, el, &brand, &families, &mut acts),
         many => multi_props(ui, t, many, &mut acts),
     }
-    for (id, p) in acts.0 {
+    app.motion.panel = choices;
+    for (id, p) in acts.commands {
         app.run(id, &p);
     }
+    if acts.preview {
+        crate::motion::play(app, ui.ctx());
+    }
+}
+
+/// An entrance picker; a non-empty `none` adds that choice for "no animation". Returns the new
+/// choice when changed.
+fn kind_combo(ui: &mut egui::Ui, id: &str, current: Option<AnimationKind>, none: &str) -> Option<Option<AnimationKind>> {
+    let mut out = None;
+    let text = current.map(genha_motion::kind_label).unwrap_or(none);
+    egui::ComboBox::from_id_salt(id).selected_text(text).width(150.0).show_ui(ui, |ui| {
+        if !none.is_empty() && ui.selectable_label(current.is_none(), none).clicked() {
+            out = Some(None);
+        }
+        for (k, _, label) in genha_motion::ENTRANCES {
+            if ui.selectable_label(current == Some(*k), *label).clicked() {
+                out = Some(Some(*k));
+            }
+        }
+    });
+    out
+}
+
+/// The selected object's animation: entrance, timing, loop, exit and a preview.
+fn element_animation(ui: &mut egui::Ui, t: &Tokens, el: &Element, acts: &mut Actions) {
+    let id = el.id.0;
+    section(ui, t, "ANIMATION");
+    let a = el.animation.as_ref();
+    ui.horizontal(|ui| {
+        ui.label("Entrance");
+        if let Some(choice) = kind_combo(ui, &format!("anim_in_{id}"), a.map(|a| a.kind), "None") {
+            let kind = choice.map(genha_motion::kind_id).unwrap_or("none");
+            acts.run("animation.set", json!({"kind": kind}));
+        }
+    });
+    let Some(a) = a else {
+        ui.label(egui::RichText::new("Pick an entrance to animate this object.").size(11.0).color(t.text_dim));
+        return;
+    };
+    let (mut duration, mut delay) = (a.duration, a.delay);
+    if ui.add(egui::Slider::new(&mut duration, 0.1..=5.0).text("Duration (s)").max_decimals(1)).changed() {
+        acts.run("animation.set", json!({"duration": duration, "merge_key": format!("animdur:{id}")}));
+    }
+    if ui.add(egui::Slider::new(&mut delay, 0.0..=10.0).text("Delay (s)").max_decimals(1)).changed() {
+        acts.run("animation.set", json!({"delay": delay, "merge_key": format!("animdelay:{id}")}));
+    }
+    ui.horizontal(|ui| {
+        ui.label("Loop");
+        let text = a.looping.map(genha_motion::loop_label).unwrap_or("None");
+        egui::ComboBox::from_id_salt(format!("anim_loop_{id}")).selected_text(text).width(150.0).show_ui(ui, |ui| {
+            if ui.selectable_label(a.looping.is_none(), "None").clicked() {
+                acts.run("animation.set", json!({"loop": "none"}));
+            }
+            for (k, kid, label) in genha_motion::LOOPS {
+                if ui.selectable_label(a.looping == Some(*k), *label).clicked() {
+                    acts.run("animation.set", json!({"loop": kid}));
+                }
+            }
+        });
+    });
+    ui.horizontal(|ui| {
+        ui.label("Exit");
+        if let Some(choice) = kind_combo(ui, &format!("anim_out_{id}"), a.exit, "None") {
+            acts.run("animation.set", json!({"exit": choice.map(genha_motion::kind_id).unwrap_or("none")}));
+        }
+    });
+    if ui.button("Preview").on_hover_text("Play this page's animations on the canvas").clicked() {
+        acts.preview = true;
+    }
+}
+
+/// The page's animation: animate everything at once, and how long the page plays.
+fn page_animation(ui: &mut egui::Ui, t: &Tokens, p: &Page, choices: &mut crate::motion::PanelChoices, acts: &mut Actions) {
+    section(ui, t, "ANIMATION");
+    ui.horizontal(|ui| {
+        ui.label("Style");
+        if let Some(Some(k)) = kind_combo(ui, "anim_all_kind", Some(choices.kind), "") {
+            choices.kind = k;
+        }
+    });
+    ui.add(egui::Slider::new(&mut choices.stagger, 0.0..=1.5).text("Stagger (s)").max_decimals(2));
+    ui.horizontal_wrapped(|ui| {
+        if ui.button("Animate all elements").on_hover_text("One after another; backgrounds stay still").clicked() {
+            acts.run("animation.applyToPage", json!({"kind": genha_motion::kind_id(choices.kind), "stagger": choices.stagger}));
+            acts.preview = true;
+        }
+        if genha_motion::is_animated(p) {
+            if ui.button("Remove all").clicked() {
+                acts.run("animation.applyToPage", json!({"kind": "none", "include_background": true}));
+            }
+            if ui.button("Preview").clicked() {
+                acts.preview = true;
+            }
+        }
+    });
+    let mut fixed = p.duration.is_some();
+    let mut seconds = genha_motion::page_duration(p);
+    ui.horizontal(|ui| {
+        if ui.checkbox(&mut fixed, "Fixed length").on_hover_text("Off: the page plays until its animations finish").changed() {
+            let value = if fixed { json!((seconds * 10.0).round() / 10.0) } else { Value::Null };
+            acts.run("page.setDuration", json!({"seconds": value}));
+        }
+        if fixed {
+            let r = ui.add(egui::DragValue::new(&mut seconds).range(0.5..=genha_motion::MAX_PAGE_DURATION).speed(0.1).suffix(" s"));
+            if r.changed() {
+                acts.run("page.setDuration", json!({"seconds": seconds, "merge_key": format!("pagedur:{}", p.id.0)}));
+            }
+        } else {
+            ui.label(egui::RichText::new(format!("Plays for {seconds:.1} s")).color(t.text_dim));
+        }
+    });
 }
 
 fn title(ui: &mut egui::Ui, text: &str) {
@@ -349,6 +467,7 @@ fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genha_col
             }
         }
     }
+    element_animation(ui, t, el, acts);
     common(ui, t, el, acts);
 }
 

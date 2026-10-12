@@ -6,6 +6,7 @@ pub mod create;
 pub mod edit;
 pub mod export;
 pub mod file;
+pub mod motion;
 pub mod object;
 pub mod page;
 pub mod query;
@@ -113,6 +114,7 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(style::specs());
         v.extend(brand::specs());
         v.extend(export::specs());
+        v.extend(motion::specs());
         v.extend(content::specs());
         v.extend(versions::specs());
         v.extend(recovery::specs());

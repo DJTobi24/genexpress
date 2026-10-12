@@ -21,8 +21,8 @@ use std::collections::BTreeMap;
 pub use asset::{Asset, AssetId, Bytes};
 pub use brand::{BrandColor, BrandKit};
 pub use element::{
-    Adjustments, Animation, AnimationKind, CropRect, Element, ElementKind, Fill, GradientStop, GroupEl, ImageEl, Shadow, ShapeEl, ShapeKind,
-    StrokeStyle, TextAlign, TextEffect, TextEl, TextStyle,
+    Adjustments, Animation, AnimationKind, CropRect, Element, ElementKind, Fill, GradientStop, GroupEl, ImageEl, LoopKind, Shadow, ShapeEl,
+    ShapeKind, StrokeStyle, TextAlign, TextEffect, TextEl, TextStyle,
 };
 pub use genha_color::Color;
 pub use genha_geom::{Fit, Frame};
