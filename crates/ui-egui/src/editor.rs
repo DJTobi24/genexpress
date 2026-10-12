@@ -156,13 +156,14 @@ fn resize_menu(app: &mut App, ui: &mut egui::Ui) {
 
 fn download_menu(app: &mut App, ui: &mut egui::Ui) {
     let name = app.session.active().map(|d| io::file_stem(&d.doc.title)).unwrap_or_else(|| "design".into());
-    let entries: [(&str, &str, &str, Value); 6] = [
+    let entries: [(&str, &str, &str, Value); 7] = [
         ("PNG", "export.png", "png", json!({})),
         ("PNG — transparent background", "export.png", "png", json!({"transparent": true})),
         ("PNG — 2× size", "export.png", "png", json!({"scale": 2.0})),
         ("JPEG", "export.jpeg", "jpg", json!({})),
         ("SVG", "export.svg", "svg", json!({})),
         ("PDF — all pages", "export.pdf", "pdf", json!({})),
+        ("PDF — print (300 dpi, bleed, crop marks)", "export.pdf", "pdf", json!({"print": true})),
     ];
     for (label, cmd, ext, extra) in entries {
         if ui.button(label).clicked() {

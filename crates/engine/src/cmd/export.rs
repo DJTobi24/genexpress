@@ -31,7 +31,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Download PDF…",
             ["File", "Download"],
             None,
-            "{path, dpi?: 36–600 = 150, pages?: [indexes], quality?: 1–100 = 88}",
+            "{path, dpi?: 36–600 = 150, pages?: [indexes], quality?: 1–100 = 88, text_layer?: bool = true (searchable, selectable text), print?: bool (300 dpi, 3 mm bleed, crop marks), bleed?: mm, crop_marks?: bool}",
             has_doc,
             export_pdf
         ),
@@ -79,7 +79,15 @@ pub fn pdf_bytes(s: &Session, p: &Value) -> Result<Vec<u8>> {
         Some(Value::Array(a)) => Some(a.iter().filter_map(Value::as_u64).filter_map(|v| usize::try_from(v).ok()).collect()),
         _ => None,
     };
-    let opts = genha_pdf::PdfOptions { dpi: f64_or(p, "dpi", 150.0), pages, jpeg_quality: f64_or(p, "quality", 88.0).clamp(1.0, 100.0) as u8 };
+    let base = if bool_or(p, "print", false) { genha_pdf::PdfOptions::print() } else { genha_pdf::PdfOptions::default() };
+    let opts = genha_pdf::PdfOptions {
+        dpi: f64_or(p, "dpi", base.dpi),
+        pages,
+        jpeg_quality: f64_or(p, "quality", f64::from(base.jpeg_quality)).clamp(1.0, 100.0) as u8,
+        text_layer: bool_or(p, "text_layer", base.text_layer),
+        bleed_mm: f64_or(p, "bleed", base.bleed_mm),
+        crop_marks: bool_or(p, "crop_marks", base.crop_marks),
+    };
     genha_pdf::export_pdf(&d.doc, &s.fonts, &opts).map_err(|e| EngineError::Other(e.to_string()))
 }
 

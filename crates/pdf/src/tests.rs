@@ -53,7 +53,7 @@ fn writes_a_valid_pdf() {
     assert!(pdf.ends_with(b"%%EOF\n"));
     assert_eq!(count(&pdf, b"/Type /Page /Parent"), 2);
     assert!(find(&pdf, b"/Count 2").is_some());
-    assert_eq!(check_xref(&pdf), 3 + 2 * 3);
+    assert_eq!(check_xref(&pdf), 4 + 2 * 3);
     // Page sizes in points, different per page.
     assert!(find(&pdf, b"/MediaBox [0 0 150 75]").is_some());
     assert!(find(&pdf, b"/MediaBox [0 0 37.5 90]").is_some());
@@ -72,14 +72,15 @@ fn writes_a_valid_pdf() {
 #[test]
 fn page_selection_and_resolution() {
     let d = doc();
-    let pdf = export_pdf(&d, &FontBook::new(), &PdfOptions { dpi: 192.0, pages: Some(vec![1]), jpeg_quality: 50 }).unwrap();
+    let pdf = export_pdf(&d, &FontBook::new(), &PdfOptions { dpi: 192.0, pages: Some(vec![1]), jpeg_quality: 50, ..PdfOptions::default() }).unwrap();
     assert_eq!(count(&pdf, b"/Type /Page /Parent"), 1);
     assert!(find(&pdf, b"/Width 100 /Height 240").is_some());
     check_xref(&pdf);
     // Resolution is clamped.
-    let pdf = export_pdf(&d, &FontBook::new(), &PdfOptions { dpi: 1e9, pages: Some(vec![1]), jpeg_quality: 0 }).unwrap();
+    let pdf = export_pdf(&d, &FontBook::new(), &PdfOptions { dpi: 1e9, pages: Some(vec![1]), jpeg_quality: 0, ..PdfOptions::default() }).unwrap();
     assert!(find(&pdf, b"/Width 313 /Height 750").is_some());
-    let pdf = export_pdf(&d, &FontBook::new(), &PdfOptions { dpi: f64::NAN, pages: Some(vec![1]), jpeg_quality: 200 }).unwrap();
+    let pdf =
+        export_pdf(&d, &FontBook::new(), &PdfOptions { dpi: f64::NAN, pages: Some(vec![1]), jpeg_quality: 200, ..PdfOptions::default() }).unwrap();
     check_xref(&pdf);
     assert!(matches!(export_pdf(&d, &FontBook::new(), &PdfOptions { pages: Some(vec![0, 5]), ..Default::default() }), Err(PdfError::NoPage(5))));
     assert!(matches!(export_pdf(&d, &FontBook::new(), &PdfOptions { pages: Some(vec![]), ..Default::default() }), Err(PdfError::NoPages)));
@@ -100,4 +101,55 @@ fn strings() {
     assert_eq!(pdf_string("Café"), "<FEFF00430061006600E9>");
     assert_eq!(num(37.5), "37.5");
     assert_eq!(num(810.0), "810");
+}
+
+#[test]
+fn text_layer_and_print_boxes() {
+    use genha_doc::{TextEffect, TextEl, TextStyle};
+    let mut d = Document::new("Flyer", 400.0, 300.0);
+    let id = d.alloc_id();
+    d.pages[0].elements.push(Element::new(
+        id,
+        Frame::new(20.0, 20.0, 360.0, 60.0),
+        ElementKind::Text(TextEl {
+            text: "Hello (world) café".into(),
+            style: TextStyle { font_size: 20.0, ..TextStyle::default() },
+            effect: TextEffect::None,
+        }),
+    ));
+    let fonts = genha_text::FontBook::system();
+    let pdf = export_pdf(&d, &fonts, &PdfOptions { dpi: 40.0, ..PdfOptions::default() }).unwrap();
+    assert!(find(&pdf, b"/BaseFont /Helvetica").is_some());
+    assert!(find(&pdf, b"3 Tr").is_some(), "invisible text");
+    assert!(find(&pdf, b"(Hello \\(world\\) caf\\351)").is_some(), "escaped WinAnsi text");
+    assert!(find(&pdf, b"/TrimBox").is_none());
+    check_xref(&pdf);
+
+    let print = export_pdf(&d, &fonts, &PdfOptions { dpi: 40.0, ..PdfOptions::print() }).unwrap();
+    check_xref(&print);
+    // 3 mm bleed + 10 mm slug on each side: 400 px = 300 pt wide trim.
+    let bleed = 3.0 * 72.0 / 25.4;
+    let slug = 10.0 * 72.0 / 25.4;
+    let media_w = 300.0 + 2.0 * (bleed + slug);
+    let text = String::from_utf8_lossy(&print);
+    let mb = text.split("/MediaBox [0 0 ").nth(1).unwrap();
+    let w: f64 = mb.split_whitespace().next().unwrap().parse().unwrap();
+    assert!((w - media_w).abs() < 0.01, "{w} vs {media_w}");
+    assert!(text.contains("/TrimBox") && text.contains("/BleedBox"));
+    assert!(count(&print, b" l S") == 8, "eight crop mark lines");
+}
+
+#[test]
+fn bleed_extends_edge_shapes() {
+    let mut d = Document::new("x", 100.0, 100.0);
+    let id = d.alloc_id();
+    d.pages[0].elements.push(Element::new(
+        id,
+        Frame::new(0.0, 50.0, 100.0, 50.0),
+        ElementKind::Shape(ShapeEl { shape: ShapeKind::Rect { corner_radius: 0.0 }, fill: Fill::solid(Color::BLACK), stroke: None, shadow: None }),
+    ));
+    let p = with_bleed(&d.pages[0], 10.0);
+    assert_eq!((p.width, p.height), (120.0, 120.0));
+    let f = p.elements[0].frame;
+    assert_eq!((f.x, f.y, f.width, f.height), (0.0, 60.0, 120.0, 60.0));
 }

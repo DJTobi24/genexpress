@@ -107,7 +107,7 @@ Sources: https://helpx.adobe.com/express/using/charts.html · https://helpx.adob
 
 | Feature | Status | GenHa |
 |---|---|---|
-| Multi-page PDF export | ✅ | `export.pdf` (raster pages); vector PDF M4 |
+| Multi-page PDF export | ✅ | `export.pdf`: pages as pictures with an invisible text layer (search, select, copy); vector PDF M4 |
 | Presentations (pages + notes, present mode) | 🟡 | pages + notes; present mode M5 |
 | PDF edit / combine / import | ⬜ | M9 (shared with the PDFCraft sibling) |
 | Charts, tables | ⬜ | M5 |
@@ -144,7 +144,7 @@ Sources: https://www.adobe.com/express/feature · https://helpx.adobe.com/expres
 |---|---|---|
 | PNG (transparent), JPEG | ✅ | `export.png/jpeg`, scale option |
 | SVG | ✅ | `export.svg` |
-| PDF (standard), print PDF with bleed/CMYK | 🟡 | standard; print options M4 |
+| PDF (standard), print PDF with bleed/CMYK | 🟡 | standard and print (`print: true`: 300 dpi, 3 mm bleed, crop marks, Trim/BleedBox); no CMYK yet |
 | MP4 / GIF | ⬜ | M6 |
 | Share links, publish to web | ⬜ | M7 / M9 |
 | Print ordering | ➖ | not planned (third-party service) |
@@ -178,5 +178,6 @@ Source: https://www.adobe.com/accessibility/compliance/adobe-express-android-202
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | PDF text layer and print PDF (bleed, crop marks) |
 | 2026-10-12 | minor | Version history, crop page to content, Data Recovery, recent files, SVG import |
 | 2026-10-12 | major | First inventory from public sources and first self-assessment |

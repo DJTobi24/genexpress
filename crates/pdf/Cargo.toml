@@ -10,6 +10,7 @@ rust-version.workspace = true
 genha-doc = { workspace = true }
 genha-text = { workspace = true }
 genha-render = { workspace = true }
+genha-geom = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
