@@ -1,4 +1,4 @@
-//! Picture effects for GenExpress (layer L2): decoding with limits, photo adjustments, filter
+//! Picture effects for GenHa (layer L2): decoding with limits, photo adjustments, filter
 //! presets, crop/resize/convert and the image quick actions.
 //!
 //! Pictures are [`RgbaImage`]s with straight (not premultiplied) alpha.
@@ -19,7 +19,7 @@ pub use filters::{FilterPreset, MAX_DOMINANT, blend_preset, dominant_colors, fil
 pub use image::RgbaImage;
 pub use transform::{auto_crop, flip, resize, rotate};
 
-use genexpress_doc::{Adjustments, CropRect};
+use genha_doc::{Adjustments, CropRect};
 
 /// Largest picture side accepted when decoding.
 pub const MAX_SIDE: u32 = 16_384;

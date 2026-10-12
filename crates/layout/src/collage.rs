@@ -1,6 +1,6 @@
 //! Photo-grid / collage layouts.
 
-use genexpress_geom::{Frame, Rect};
+use genha_geom::{Frame, Rect};
 
 /// Most photos a collage layout holds.
 pub const MAX_COLLAGE: usize = 9;

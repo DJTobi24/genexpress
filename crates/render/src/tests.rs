@@ -1,10 +1,10 @@
 use std::sync::OnceLock;
 
-use genexpress_doc::{
+use genha_doc::{
     Adjustments, Asset, Bytes, CropRect, Element, ElementKind, Fill, GroupEl, ImageEl, NodeId, Shadow, ShapeEl, ShapeKind, StrokeStyle, TextAlign,
     TextEffect, TextEl, TextStyle,
 };
-use genexpress_geom::Fit;
+use genha_geom::Fit;
 use kurbo::Shape;
 
 use super::*;
@@ -90,7 +90,7 @@ fn background_fills() {
     assert_eq!(t.pixel(10, 10).map(|p| p[3]), Some(0));
 }
 
-use genexpress_doc::GradientStop;
+use genha_doc::GradientStop;
 
 #[test]
 fn gradient_shape_fill() {
@@ -270,7 +270,7 @@ fn broken_pictures_draw_placeholders() {
     add_image(&mut d, b"not a picture".to_vec(), Frame::new(10.0, 10.0, 40.0, 40.0), Fit::Cover);
     let id = d.alloc_id();
     // Refers to an asset that does not exist.
-    d.pages[0].elements.push(Element::new(id, Frame::new(0.0, 50.0, 10.0, 10.0), ElementKind::Image(ImageEl::new(genexpress_doc::AssetId(9999)))));
+    d.pages[0].elements.push(Element::new(id, Frame::new(0.0, 50.0, 10.0, 10.0), ElementKind::Image(ImageEl::new(genha_doc::AssetId(9999)))));
     let r = render(&d);
     let p = PLACEHOLDER;
     assert_eq!(r.pixel(30, 30), Some([p.r, p.g, p.b, 255]));

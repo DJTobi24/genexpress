@@ -2,8 +2,8 @@
 
 use std::collections::BTreeMap;
 
-use genexpress_color::Color;
-use genexpress_doc::Adjustments;
+use genha_color::Color;
+use genha_doc::Adjustments;
 use image::RgbaImage;
 
 /// A named look made of photo adjustments.

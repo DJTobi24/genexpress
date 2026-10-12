@@ -4,7 +4,7 @@ use image::{ImageEncoder, RgbImage, RgbaImage};
 
 use crate::{EffectError, Result};
 
-/// A picture file format GenExpress can write.
+/// A picture file format GenHa can write.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OutputFormat {
     Png,

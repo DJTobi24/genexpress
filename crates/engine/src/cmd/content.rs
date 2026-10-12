@@ -5,8 +5,8 @@ use serde_json::{Value, json};
 
 use super::{always, bad, cmd, color_param, f64_or, has_doc, has_multi, has_selection, ok, str_param, str_req, targets};
 use crate::{CommandSpec, EngineError, Result, Session};
-use genexpress_doc::{Asset, AssetId, BrandColor, Bytes, Color, Element, ElementKind, Fill, Frame, ImageEl, NodeId, ShapeEl, TextEl};
-use genexpress_geom::Rect;
+use genha_doc::{Asset, AssetId, BrandColor, Bytes, Color, Element, ElementKind, Fill, Frame, ImageEl, NodeId, ShapeEl, TextEl};
+use genha_geom::Rect;
 
 pub(crate) fn specs() -> Vec<CommandSpec> {
     vec![
@@ -93,7 +93,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
 fn template_list(_: &mut Session, p: &Value) -> Result<Value> {
     let cat = str_param(p, "category").map(str::to_lowercase);
     let q = str_param(p, "query").map(str::to_lowercase);
-    let list: Vec<Value> = genexpress_templates::catalog()
+    let list: Vec<Value> = genha_templates::catalog()
         .into_iter()
         .filter(|t| cat.as_ref().is_none_or(|c| t.category.to_lowercase() == *c))
         .filter(|t| q.as_ref().is_none_or(|q| t.name.to_lowercase().contains(q) || t.tags.iter().any(|g| g.contains(q.as_str()))))
@@ -108,7 +108,7 @@ fn template_use(s: &mut Session, p: &Value) -> Result<Value> {
     let id = str_req(p, "id", "template.use")?;
     let as_page = super::bool_or(p, "as_page", false) && s.active().is_some();
     let brand = if super::bool_or(p, "brand", false) { s.active().map(|d| d.doc.brand.clone()) } else { None };
-    let tdoc = genexpress_templates::instantiate(id, brand.as_ref())
+    let tdoc = genha_templates::instantiate(id, brand.as_ref())
         .ok_or_else(|| bad("template.use", format!("unknown template `{id}` (see template.list)")))?;
     if !as_page {
         let index = s.open_document(tdoc);
@@ -141,7 +141,7 @@ fn template_use(s: &mut Session, p: &Value) -> Result<Value> {
 fn library_list(_: &mut Session, p: &Value) -> Result<Value> {
     let cat = str_param(p, "category");
     Ok(json!(
-        genexpress_templates::shape_library()
+        genha_templates::shape_library()
             .into_iter()
             .filter(|s| cat.is_none_or(|c| c.eq_ignore_ascii_case(s.category)))
             .map(|s| json!({"id": s.id, "label": s.label, "category": s.category}))
@@ -151,7 +151,7 @@ fn library_list(_: &mut Session, p: &Value) -> Result<Value> {
 
 fn library_add(s: &mut Session, p: &Value) -> Result<Value> {
     let id = str_req(p, "id", "library.addShape")?;
-    let item = genexpress_templates::shape_library()
+    let item = genha_templates::shape_library()
         .into_iter()
         .find(|x| x.id == id)
         .ok_or_else(|| bad("library.addShape", format!("unknown shape `{id}` (see library.list)")))?;
@@ -165,7 +165,7 @@ fn library_add(s: &mut Session, p: &Value) -> Result<Value> {
 
 fn text_presets_list(_: &mut Session, _: &Value) -> Result<Value> {
     Ok(json!(
-        genexpress_templates::text_presets()
+        genha_templates::text_presets()
             .into_iter()
             .map(|t| json!({"id": t.id, "label": t.label, "sample": t.sample, "style": t.style, "effect": t.effect}))
             .collect::<Vec<_>>()
@@ -174,7 +174,7 @@ fn text_presets_list(_: &mut Session, _: &Value) -> Result<Value> {
 
 fn text_add_preset(s: &mut Session, p: &Value) -> Result<Value> {
     let id = str_req(p, "id", "text.addPreset")?;
-    let pr = genexpress_templates::text_presets()
+    let pr = genha_templates::text_presets()
         .into_iter()
         .find(|t| t.id == id)
         .ok_or_else(|| bad("text.addPreset", format!("unknown text style `{id}`")))?;
@@ -195,8 +195,8 @@ fn text_add_preset(s: &mut Session, p: &Value) -> Result<Value> {
     super::create::add_element(s, "Add Text", el)
 }
 
-fn scale_effect(e: &mut genexpress_doc::TextEffect, k: f64) {
-    use genexpress_doc::TextEffect::*;
+fn scale_effect(e: &mut genha_doc::TextEffect, k: f64) {
+    use genha_doc::TextEffect::*;
     match e {
         Shadow { offset_x, offset_y, blur, .. } => {
             *offset_x *= k;
@@ -213,15 +213,12 @@ fn scale_effect(e: &mut genexpress_doc::TextEffect, k: f64) {
 }
 
 fn palettes_list(_: &mut Session, _: &Value) -> Result<Value> {
-    Ok(json!(genexpress_templates::palettes().into_iter().map(|p| json!({"id": p.id, "name": p.name, "colors": p.colors})).collect::<Vec<_>>()))
+    Ok(json!(genha_templates::palettes().into_iter().map(|p| json!({"id": p.id, "name": p.name, "colors": p.colors})).collect::<Vec<_>>()))
 }
 
 fn filters_list(_: &mut Session, _: &Value) -> Result<Value> {
     Ok(json!(
-        genexpress_effects::filter_presets()
-            .into_iter()
-            .map(|f| json!({"id": f.id, "label": f.label, "adjustments": f.adjustments}))
-            .collect::<Vec<_>>()
+        genha_effects::filter_presets().into_iter().map(|f| json!({"id": f.id, "label": f.label, "adjustments": f.adjustments})).collect::<Vec<_>>()
     ))
 }
 
@@ -233,12 +230,12 @@ fn page_resize(s: &mut Session, p: &Value) -> Result<Value> {
     let page = d.doc.pages.get(i).cloned().ok_or_else(|| bad("page.resize", format!("no page {i}")))?;
     let (w, h) = super::page::size_params(p, "page.resize", (page.width, page.height))?;
     let copy = super::bool_or(p, "copy", false);
-    if copy && d.doc.pages.len() >= genexpress_doc::MAX_PAGES {
+    if copy && d.doc.pages.len() >= genha_doc::MAX_PAGES {
         return Err(bad("page.resize", "too many pages"));
     }
-    let preset_name = str_param(p, "preset").and_then(genexpress_doc::preset::find).map(|x| x.label);
+    let preset_name = str_param(p, "preset").and_then(genha_doc::preset::find).map(|x| x.label);
     let index = s.edit(if copy { "Duplicate & Resize" } else { "Resize" }, |doc, cx| {
-        let mut resized = genexpress_layout::smart_resize(&page, w, h);
+        let mut resized = genha_layout::smart_resize(&page, w, h);
         if copy {
             doc.reassign_page_ids(&mut resized);
             resized.name = match preset_name {
@@ -277,7 +274,7 @@ fn apply_frames(s: &mut Session, label: &str, ids: &[NodeId], frames: Vec<Frame>
 
 fn align(s: &mut Session, p: &Value) -> Result<Value> {
     let how_s = str_req(p, "how", "object.align")?;
-    let how = genexpress_layout::Align::from_id(how_s).ok_or_else(|| bad("object.align", format!("unknown alignment `{how_s}`")))?;
+    let how = genha_layout::Align::from_id(how_s).ok_or_else(|| bad("object.align", format!("unknown alignment `{how_s}`")))?;
     let ids = targets(s, p, "object.align")?;
     let frames = frames_of(s, &ids)?;
     let d = s.doc()?;
@@ -288,18 +285,18 @@ fn align(s: &mut Session, p: &Value) -> Result<Value> {
         Some(o) => return Err(bad("object.align", format!("`to` must be page or selection, not `{o}`"))),
         None => ids.len() == 1,
     };
-    let out = genexpress_layout::align(&frames, how, if to_page { page } else { None });
+    let out = genha_layout::align(&frames, how, if to_page { page } else { None });
     apply_frames(s, "Align", &ids, out)
 }
 
 fn distribute(s: &mut Session, p: &Value) -> Result<Value> {
-    let axis: genexpress_layout::Axis = super::parse(p, "axis", "object.distribute")?;
+    let axis: genha_layout::Axis = super::parse(p, "axis", "object.distribute")?;
     let ids = targets(s, p, "object.distribute")?;
     if ids.len() < 3 {
         return Err(bad("object.distribute", "select three or more objects"));
     }
     let frames = frames_of(s, &ids)?;
-    let out = genexpress_layout::distribute(&frames, axis);
+    let out = genha_layout::distribute(&frames, axis);
     apply_frames(s, "Distribute", &ids, out)
 }
 
@@ -313,7 +310,7 @@ fn collage(s: &mut Session, p: &Value) -> Result<Value> {
         return Err(bad("layout.collage", "select pictures"));
     }
     let layout_id = str_req(p, "layout", "layout.collage")?;
-    let layout = genexpress_layout::collage_layouts(ids.len())
+    let layout = genha_layout::collage_layouts(ids.len())
         .into_iter()
         .find(|l| l.id == layout_id)
         .ok_or_else(|| bad("layout.collage", format!("no layout `{layout_id}` for {} pictures", ids.len())))?;
@@ -322,14 +319,14 @@ fn collage(s: &mut Session, p: &Value) -> Result<Value> {
     let d = s.doc()?;
     let (pw, ph) = d.doc.pages.get(d.page).map(|pg| (pg.width, pg.height)).unwrap_or((1080.0, 1080.0));
     let area = Rect::new(margin, margin, (pw - margin).max(margin + 1.0), (ph - margin).max(margin + 1.0));
-    let cells = genexpress_layout::cells_in(area, &layout, gap);
+    let cells = genha_layout::cells_in(area, &layout, gap);
     let n = ids.len().min(cells.len());
     s.edit("Collage", |doc, _| {
         for (id, f) in ids.iter().zip(cells.iter()).take(n) {
             let el = doc.element_mut(*id)?;
             el.frame = *f;
             if let ElementKind::Image(img) = &mut el.kind {
-                img.fit = genexpress_doc::Fit::Cover;
+                img.fit = genha_doc::Fit::Cover;
             }
         }
         Ok(())
@@ -349,9 +346,9 @@ fn image_targets(s: &Session, p: &Value, cmd: &str) -> Result<Vec<NodeId>> {
 
 fn image_filter(s: &mut Session, p: &Value) -> Result<Value> {
     let id = str_req(p, "preset", "image.filter")?;
-    let preset = genexpress_effects::filter_preset(id).ok_or_else(|| bad("image.filter", format!("unknown filter `{id}` (see filters.list)")))?;
+    let preset = genha_effects::filter_preset(id).ok_or_else(|| bad("image.filter", format!("unknown filter `{id}` (see filters.list)")))?;
     let intensity = f64_or(p, "intensity", 100.0).clamp(0.0, 100.0) as f32;
-    let adj = genexpress_effects::blend_preset(&preset, intensity);
+    let adj = genha_effects::blend_preset(&preset, intensity);
     let ids = image_targets(s, p, "image.filter")?;
     s.edit("Filter", |doc, _| {
         for id in &ids {
@@ -366,8 +363,8 @@ fn image_filter(s: &mut Session, p: &Value) -> Result<Value> {
 }
 
 /// A PNG asset from pixels.
-fn png_asset(name: &str, img: &genexpress_effects::RgbaImage) -> Result<Asset> {
-    let data = genexpress_effects::encode(img, genexpress_effects::OutputFormat::Png)?;
+fn png_asset(name: &str, img: &genha_effects::RgbaImage) -> Result<Asset> {
+    let data = genha_effects::encode(img, genha_effects::OutputFormat::Png)?;
     Ok(Asset { name: name.to_string(), mime: "image/png".into(), width: img.width(), height: img.height(), data: Bytes::new(data) })
 }
 
@@ -382,8 +379,8 @@ fn remove_background(s: &mut Session, p: &Value) -> Result<Value> {
             && !done.contains_key(&img.asset)
         {
             let src = d.doc.asset(img.asset)?;
-            let pixels = genexpress_effects::decode(&src.data)?;
-            let cut = genexpress_effects::remove_background(&pixels, tolerance);
+            let pixels = genha_effects::decode(&src.data)?;
+            let cut = genha_effects::remove_background(&pixels, tolerance);
             let stem = src.name.rsplit_once('.').map(|(a, _)| a).unwrap_or(&src.name);
             done.insert(img.asset, png_asset(&format!("{stem}-cutout.png"), &cut)?);
         }
@@ -421,7 +418,7 @@ fn place_asset(s: &mut Session, p: &Value) -> Result<Value> {
 fn qr_code(s: &mut Session, p: &Value) -> Result<Value> {
     let text = str_req(p, "text", "element.qrCode")?;
     let color = color_param(p, "color", "element.qrCode")?.unwrap_or(Color::BLACK);
-    let shape = genexpress_templates::qr_code(text, color).map_err(|e| bad("element.qrCode", e.to_string()))?;
+    let shape = genha_templates::qr_code(text, color).map_err(|e| bad("element.qrCode", e.to_string()))?;
     let d = s.doc()?;
     let (pw, ph) = d.doc.pages.get(d.page).map(|pg| (pg.width, pg.height)).unwrap_or((1080.0, 1080.0));
     let size = f64_or(p, "size", pw.min(ph) * 0.3).max(16.0);
@@ -433,7 +430,7 @@ fn qr_code(s: &mut Session, p: &Value) -> Result<Value> {
         NodeId(0),
         frame,
         ElementKind::Shape(ShapeEl {
-            shape: genexpress_doc::ShapeKind::Rect { corner_radius: size * 0.04 },
+            shape: genha_doc::ShapeKind::Rect { corner_radius: size * 0.04 },
             fill: Fill::solid(Color::WHITE),
             stroke: None,
             shadow: None,
@@ -446,7 +443,7 @@ fn qr_code(s: &mut Session, p: &Value) -> Result<Value> {
         plate.name = "QR background".into();
         code.id = doc.alloc_id();
         let gid = doc.alloc_id();
-        let mut g = Element::new(gid, frame, ElementKind::Group(genexpress_doc::GroupEl { children: vec![plate, code] }));
+        let mut g = Element::new(gid, frame, ElementKind::Group(genha_doc::GroupEl { children: vec![plate, code] }));
         g.name = "QR code".into();
         doc.page_mut(cx.page)?.elements.push(g);
         cx.selection = vec![gid];
@@ -464,8 +461,8 @@ fn brand_from_picture(s: &mut Session, p: &Value) -> Result<Value> {
     let Some(ElementKind::Image(img)) = ids.first().and_then(|id| d.doc.element(*id).ok()).map(|e| &e.kind) else {
         return Err(bad("brand.fromPicture", "select a picture"));
     };
-    let pixels = genexpress_effects::decode(&d.doc.asset(img.asset)?.data)?;
-    let mut colors = genexpress_effects::dominant_colors(&pixels, count);
+    let pixels = genha_effects::decode(&d.doc.asset(img.asset)?.data)?;
+    let mut colors = genha_effects::dominant_colors(&pixels, count);
     // Darkest last-but-one and lightest last, so templates' "dark"/"light" slots read well.
     colors.sort_by(|a, b| b.luminance().total_cmp(&a.luminance()));
     let names = ["Primary", "Secondary", "Accent", "Accent 2", "Accent 3", "Accent 4", "Dark", "Light"];
@@ -489,10 +486,8 @@ fn brand_from_picture(s: &mut Session, p: &Value) -> Result<Value> {
 
 fn brand_use_palette(s: &mut Session, p: &Value) -> Result<Value> {
     let id = str_req(p, "id", "brand.usePalette")?;
-    let pal = genexpress_templates::palettes()
-        .into_iter()
-        .find(|x| x.id == id)
-        .ok_or_else(|| bad("brand.usePalette", format!("unknown palette `{id}`")))?;
+    let pal =
+        genha_templates::palettes().into_iter().find(|x| x.id == id).ok_or_else(|| bad("brand.usePalette", format!("unknown palette `{id}`")))?;
     let names = ["Primary", "Secondary", "Dark", "Light", "Accent", "Accent 2", "Accent 3", "Accent 4"];
     let list: Vec<BrandColor> =
         pal.colors.iter().enumerate().map(|(i, c)| BrandColor { name: names.get(i).copied().unwrap_or("Colour").to_string(), color: *c }).collect();
@@ -507,7 +502,7 @@ fn brand_use_palette(s: &mut Session, p: &Value) -> Result<Value> {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn quick_image(_: &mut Session, p: &Value) -> Result<Value> {
-    use genexpress_effects as fx;
+    use genha_effects as fx;
     let action = str_req(p, "action", "quick.image")?;
     let input = str_req(p, "input", "quick.image")?;
     let output = str_req(p, "output", "quick.image")?;
@@ -538,8 +533,7 @@ fn quick_image(_: &mut Session, p: &Value) -> Result<Value> {
             if !w.is_finite() || !h.is_finite() {
                 return Err(bad("quick.image", "invalid size"));
             }
-            let fit: genexpress_geom::Fit =
-                if p.get("fit").is_some() { super::parse(p, "fit", "quick.image")? } else { genexpress_geom::Fit::Stretch };
+            let fit: genha_geom::Fit = if p.get("fit").is_some() { super::parse(p, "fit", "quick.image")? } else { genha_geom::Fit::Stretch };
             fx::resize(&img, w.round().clamp(1.0, 16384.0) as u32, h.round().clamp(1.0, 16384.0) as u32, fit)?
         }
         "convert" => img,

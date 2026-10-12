@@ -4,7 +4,7 @@ use serde_json::json;
 
 use crate::theme::Tokens;
 use crate::{App, io, thumbs};
-use genexpress_doc::preset;
+use genha_doc::preset;
 
 pub struct HomeState {
     pub query: String,
@@ -57,7 +57,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
 
 fn header(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("GenExpress").size(30.0).strong().color(t.accent));
+        ui.label(egui::RichText::new("GenHa").size(30.0).strong().color(t.accent));
         ui.add_space(8.0);
         ui.label(egui::RichText::new("Design anything — open source, made in Rust.").size(15.0).color(t.text_dim));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -198,7 +198,7 @@ fn templates(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     ui.label(egui::RichText::new("Start from a template").size(20.0).strong());
     ui.add_space(6.0);
     let q = app.home.query.to_lowercase();
-    let list: Vec<_> = genexpress_templates::catalog()
+    let list: Vec<_> = genha_templates::catalog()
         .into_iter()
         .filter(|tp| {
             let preset_cat = preset::find(tp.preset).map(|p| p.category);
@@ -218,8 +218,8 @@ fn templates(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     rows(ui, list, 198.0, |ui, tp| {
         let fonts = app.session.fonts.clone();
         let tex = app.thumbs.get(&ctx, &format!("template:{}", tp.id), 0, || {
-            let doc = genexpress_templates::instantiate(tp.id, None)?;
-            genexpress_render::render_thumbnail(&doc, 0, &fonts, 360).ok()
+            let doc = genha_templates::instantiate(tp.id, None)?;
+            genha_render::render_thumbnail(&doc, 0, &fonts, 360).ok()
         });
         if template_card(ui, t, tp.name, tp.category, tp.width as f32, tp.height as f32, tex.as_ref()).clicked() {
             chosen = Some(tp.id);

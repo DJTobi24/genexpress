@@ -1,0 +1,17 @@
+[package]
+name = "genha-cli"
+description = "GenHa command line: export, scripts, quick actions and the MCP server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+genha-engine = { workspace = true }
+genha-text = { workspace = true }
+genha-render = { workspace = true }
+genha-mcp = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

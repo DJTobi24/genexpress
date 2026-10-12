@@ -1,8 +1,8 @@
-# GenExpress
+# GenHa
 
 **Design anything — open source, made in Rust.**
 
-GenExpress is a free, open-source design app for quick content: social posts and stories, flyers,
+GenHa is a free, open-source design app for quick content: social posts and stories, flyers,
 posters, logos, business cards, presentations, resumes and invitations. It aims at the feature set
 of Adobe Express — and beyond — as an **independent, clean-room project**: its own name, its own UI,
 its own templates and artwork, 100% Rust, MIT OR Apache-2.0, no account, everything runs locally.
@@ -11,7 +11,7 @@ It follows the conventions of the ArtCraft apps (VectorCraft, PhotoCraft, PDFCra
 workspace, "everything is a command", a never-crash policy, and first-class automation for AI agents
 (control channel, CLI and an MCP server).
 
-![The GenExpress editor](docs/images/editor.png)
+![The GenHa editor](docs/images/editor.png)
 
 ## Status
 
@@ -26,26 +26,26 @@ What works today:
 - **Content**: text with styles, presets and effects (shadow, outline, highlight); shapes and 25 original icons; QR codes; collages; brand kit (colours, fonts, palettes, colours from a photo).
 - **Pictures**: place, crop, fit, crop to shape, corner radius, border, adjustments, 14 filters, background removal (colour-based).
 - **Smart resize**: re-lay out a page for another size, or add a resized copy.
-- **Export**: PNG (also transparent and 2×), JPEG, SVG, multi-page PDF. Native `.genexpress` files.
+- **Export**: PNG (also transparent and 2×), JPEG, SVG, multi-page PDF. Native `.genha` files.
 - **Quick actions** (file in, file out): remove background, resize, convert PNG/JPEG/WebP, trim, black & white.
 - **Automation**: 102 commands reachable from the UI, the CLI, a JSON-lines control channel and MCP.
 
 ## Run it
 
 ```sh
-cargo run --release -p genexpress                       # the desktop app
-cargo run --release -p genexpress-cli -- --help         # the command line
+cargo run --release -p genha                       # the desktop app
+cargo run --release -p genha-cli -- --help         # the command line
 ```
 
 Command-line examples:
 
 ```sh
-genexpress-cli templates
-genexpress-cli new --template event-night -o party.genexpress
-genexpress-cli export party.genexpress -o party.pdf
-genexpress-cli quick remove-background photo.jpg -o cutout.png
-genexpress-cli run script.json --export out.png         # script: [{"command": "...", "params": {...}}]
-genexpress-cli mcp                                      # MCP server for AI assistants
+genha-cli templates
+genha-cli new --template event-night -o party.genha
+genha-cli export party.genha -o party.pdf
+genha-cli quick remove-background photo.jpg -o cutout.png
+genha-cli run script.json --export out.png         # script: [{"command": "...", "params": {...}}]
+genha-cli mcp                                      # MCP server for AI assistants
 ```
 
 ## For contributors and agents
@@ -58,5 +58,5 @@ genexpress-cli mcp                                      # MCP server for AI assi
 ## Licence
 
 Code and original assets: MIT OR Apache-2.0 (see `LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`).
-GenExpress is not affiliated with Adobe Inc.; "Adobe Express" is their trademark, named only to
+GenHa is not affiliated with Adobe Inc.; "Adobe Express" is their trademark, named only to
 describe the feature set this project covers.

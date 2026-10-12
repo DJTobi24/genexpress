@@ -84,19 +84,19 @@ fn cmd_layers() -> Result<(), String> {
 
 /// Crates that must build for the browser (everything up to the engine, plus the MCP-free UI).
 const WASM_CRATES: &[&str] = &[
-    "genexpress-geom",
-    "genexpress-color",
-    "genexpress-doc",
-    "genexpress-text",
-    "genexpress-effects",
-    "genexpress-layout",
-    "genexpress-templates",
-    "genexpress-render",
-    "genexpress-svg",
-    "genexpress-pdf",
-    "genexpress-format",
-    "genexpress-tools",
-    "genexpress-engine",
+    "genha-geom",
+    "genha-color",
+    "genha-doc",
+    "genha-text",
+    "genha-effects",
+    "genha-layout",
+    "genha-templates",
+    "genha-render",
+    "genha-svg",
+    "genha-pdf",
+    "genha-format",
+    "genha-tools",
+    "genha-engine",
 ];
 
 fn wasm() -> Result<(), String> {
@@ -110,7 +110,7 @@ fn wasm() -> Result<(), String> {
     }
     let mut args = vec!["check", "--target", "wasm32-unknown-unknown", "-q"];
     for c in WASM_CRATES {
-        if root().join("crates").join(c.trim_start_matches("genexpress-")).exists() {
+        if root().join("crates").join(c.trim_start_matches("genha-")).exists() {
             args.push("-p");
             args.push(c);
         }

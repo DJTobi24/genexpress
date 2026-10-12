@@ -1,11 +1,11 @@
-//! The GenExpress renderer (layer L3): pages to pixels with [`vello_cpu`], thumbnails, and PNG /
+//! The GenHa renderer (layer L3): pages to pixels with [`vello_cpu`], thumbnails, and PNG /
 //! JPEG encoding.
 //!
 //! A page draws its background, then its elements bottom to top, each in its frame (position,
 //! size, rotation, flips) with its opacity. Shapes are filled (solid or gradient) and stroked; a
 //! shape's drop shadow is blurred with a vello_cpu filter layer (a plain offset copy when the blur
-//! is tiny). Text is laid out by `genexpress-text` and drawn as glyph outlines, with its shadow,
-//! outline or highlight effect. Pictures are decoded, cropped and adjusted by `genexpress-effects`,
+//! is tiny). Text is laid out by `genha-text` and drawn as glyph outlines, with its shadow,
+//! outline or highlight effect. Pictures are decoded, cropped and adjusted by `genha-effects`,
 //! fitted into the frame and clipped to it (or to their mask shape); a picture that is missing or
 //! cannot be decoded draws as a grey placeholder instead of failing the page.
 //!
@@ -15,10 +15,10 @@
 mod paint;
 mod pictures;
 
-use genexpress_color::Color;
-use genexpress_doc::{Document, Element, ElementKind, Fill, ImageEl, Shadow, ShapeEl, ShapeKind, StrokeStyle, TextEffect, TextEl};
-use genexpress_geom::{Frame, Size, fit, rounded_rect};
-use genexpress_text::FontBook;
+use genha_color::Color;
+use genha_doc::{Document, Element, ElementKind, Fill, ImageEl, Shadow, ShapeEl, ShapeKind, StrokeStyle, TextEffect, TextEl};
+use genha_geom::{Frame, Size, fit, rounded_rect};
+use genha_text::FontBook;
 use kurbo::{Affine, BezPath, Rect, Stroke};
 use vello_common::filter_effects::{EdgeMode, Filter, FilterPrimitive};
 use vello_cpu::peniko;
@@ -349,7 +349,7 @@ impl Draw<'_> {
     }
 
     fn text(&mut self, ctx: &mut RenderContext, t: &TextEl, frame: &Frame, local: Affine) {
-        let layout = genexpress_text::layout(self.fonts, &t.text, &t.style, frame.width);
+        let layout = genha_text::layout(self.fonts, &t.text, &t.style, frame.width);
         let mut glyphs = BezPath::new();
         for line in &layout.lines {
             glyphs.extend(line.path.iter());
@@ -404,7 +404,7 @@ impl Draw<'_> {
         let [a, b, c, d, _, _] = device.as_coeffs();
         let px_per_unit = (a * d - b * c).abs().sqrt();
         let asset = self.doc.assets.get(&im.asset);
-        let probe_w = asset.and_then(|a| genexpress_effects::probe(&a.data).ok()).map(|i| (f64::from(i.width), f64::from(i.height)));
+        let probe_w = asset.and_then(|a| genha_effects::probe(&a.data).ok()).map(|i| (f64::from(i.width), f64::from(i.height)));
         let shown_w = probe_w.map_or(w, |(pw, ph)| {
             let c = im.crop.sanitized();
             fit(Size::new(pw * c.width, ph * c.height), frame_rect, im.fit).width()
@@ -448,7 +448,7 @@ impl Draw<'_> {
 }
 
 /// The box behind a highlighted line.
-fn highlight_rect(line: &genexpress_text::LineLayout, pad: f64) -> Rect {
+fn highlight_rect(line: &genha_text::LineLayout, pad: f64) -> Rect {
     Rect::new(line.x - pad, line.top - pad * 0.25, line.x + line.width + pad, line.top + line.height + pad * 0.25)
 }
 

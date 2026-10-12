@@ -1,4 +1,4 @@
-//! The MCP tools GenExpress offers.
+//! The MCP tools GenHa offers.
 
 use serde_json::{Value, json};
 
@@ -8,12 +8,12 @@ pub fn tool_definitions() -> Value {
     json!([
         {
             "name": "list_commands",
-            "description": "List GenExpress commands (id, label, parameter description, whether enabled now). Every action in the app is a command.",
+            "description": "List GenHa commands (id, label, parameter description, whether enabled now). Every action in the app is a command.",
             "inputSchema": {"type": "object", "properties": {"prefix": {"type": "string", "description": "Only ids starting with this, e.g. `text.` or `page.`"}}}
         },
         {
             "name": "run_command",
-            "description": "Run one GenExpress command, e.g. {command: \"shape.add\", params: {shape: \"star\", fill: \"#ffcc00\"}}. Start with `file.new` (params {preset: \"instagram-post\"}) or `template.use`. Returns the command's result (new object ids etc.).",
+            "description": "Run one GenHa command, e.g. {command: \"shape.add\", params: {shape: \"star\", fill: \"#ffcc00\"}}. Start with `file.new` (params {preset: \"instagram-post\"}) or `template.use`. Returns the command's result (new object ids etc.).",
             "inputSchema": {"type": "object", "properties": {"command": {"type": "string"}, "params": {"type": "object"}}, "required": ["command"]}
         },
         {

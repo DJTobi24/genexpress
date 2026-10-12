@@ -1,4 +1,4 @@
-//! Layout for GenExpress (layer L2): pure functions over the document model that arrange things.
+//! Layout for GenHa (layer L2): pure functions over the document model that arrange things.
 //!
 //! - [`smart_resize`]: resize a page to another size while keeping the design readable;
 //! - [`align`], [`distribute`], [`tidy_grid`]: arrange a selection;

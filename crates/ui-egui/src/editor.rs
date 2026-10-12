@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 use crate::theme::{Tokens, to_egui};
 use crate::{App, LeftTab, io, thumbs};
-use genexpress_doc::{ElementKind, NodeId, preset};
+use genha_doc::{ElementKind, NodeId, preset};
 
 #[derive(Default)]
 pub struct EditorState {
@@ -45,7 +45,7 @@ fn top_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         .frame(egui::Frame::new().fill(t.panel).inner_margin(egui::Margin::symmetric(12, 8)).stroke(egui::Stroke::new(1.0, t.border)))
         .show(ui, |ui| {
             ui.horizontal_centered(|ui| {
-                if ui.button(egui::RichText::new("GenExpress").strong().color(t.accent)).on_hover_text("Home").clicked() {
+                if ui.button(egui::RichText::new("GenHa").strong().color(t.accent)).on_hover_text("Home").clicked() {
                     app.screen = crate::Screen::Home;
                 }
                 ui.separator();
@@ -114,7 +114,7 @@ fn top_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 }
 
 fn tools(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    use genexpress_tools::ToolId;
+    use genha_tools::ToolId;
     for tool in ToolId::ALL {
         let icon = tool.label();
         let on = app.session.tools.tool == tool;
@@ -181,7 +181,7 @@ pub fn save(app: &mut App, save_as: bool) {
         return;
     }
     let name = app.session.active().map(|d| io::file_stem(&d.doc.title)).unwrap_or_else(|| "design".into());
-    if let Some(path) = io::pick_save(&format!("{name}.genexpress"), io::DESIGNS)
+    if let Some(path) = io::pick_save(&format!("{name}.genha"), io::DESIGNS)
         && app.run("file.saveAs", &json!({"path": path.display().to_string()})).is_some()
     {
         app.set_status(format!("Saved {}", path.display()));
@@ -233,7 +233,7 @@ fn page_strip(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                         let fonts = app.session.fonts.clone();
                         let stamp = if i == current { revision } else { 0 };
                         let key = format!("page:{}:{}", d_key(&doc), page.id.0);
-                        let tex = app.thumbs.get(&ctx, &key, stamp, || genexpress_render::render_thumbnail(&doc, i, &fonts, 160).ok());
+                        let tex = app.thumbs.get(&ctx, &key, stamp, || genha_render::render_thumbnail(&doc, i, &fonts, 160).ok());
                         let size = thumbs::fit_size(page.width as f32, page.height as f32, egui::vec2(110.0, 72.0));
                         let (rect, r) = ui.allocate_exact_size(egui::vec2(116.0, 92.0), egui::Sense::click());
                         let img = egui::Rect::from_center_size(egui::pos2(rect.center().x, rect.top() + 40.0), size);
@@ -298,7 +298,7 @@ fn page_strip(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 }
 
 /// A key that changes when another document is active (thumbnails per document).
-fn d_key(doc: &std::sync::Arc<genexpress_doc::Document>) -> u64 {
+fn d_key(doc: &std::sync::Arc<genha_doc::Document>) -> u64 {
     doc.pages.first().map(|p| p.id.0).unwrap_or(0) ^ (doc.next_id << 20)
 }
 
@@ -349,7 +349,7 @@ fn templates_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     let ctx = ui.ctx().clone();
     let mut chosen: Option<(&'static str, bool)> = None;
     ui.horizontal_wrapped(|ui| {
-        for tp in genexpress_templates::catalog() {
+        for tp in genha_templates::catalog() {
             if !q.is_empty()
                 && !tp.name.to_lowercase().contains(&q)
                 && !tp.category.to_lowercase().contains(&q)
@@ -359,8 +359,8 @@ fn templates_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             }
             let fonts = app.session.fonts.clone();
             let tex = app.thumbs.get(&ctx, &format!("template:{}", tp.id), 0, || {
-                let doc = genexpress_templates::instantiate(tp.id, None)?;
-                genexpress_render::render_thumbnail(&doc, 0, &fonts, 360).ok()
+                let doc = genha_templates::instantiate(tp.id, None)?;
+                genha_render::render_thumbnail(&doc, 0, &fonts, 360).ok()
             });
             let size = thumbs::fit_size(tp.width as f32, tp.height as f32, egui::vec2(122.0, 122.0));
             let (rect, r) = ui.allocate_exact_size(egui::vec2(126.0, 126.0), egui::Sense::click());
@@ -395,7 +395,7 @@ fn elements_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     heading(ui, "Shapes & icons");
     let ctx = ui.ctx().clone();
     let mut add: Option<&'static str> = None;
-    let lib = genexpress_templates::shape_library();
+    let lib = genha_templates::shape_library();
     let mut cats: Vec<&str> = vec![];
     for s in &lib {
         if !cats.contains(&s.category) {
@@ -409,25 +409,25 @@ fn elements_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 let fonts = app.session.fonts.clone();
                 let accent = crate::theme::from_egui(t.accent);
                 let tex = app.thumbs.get(&ctx, &format!("shape:{}:{}", item.id, t.dark), 0, || {
-                    let mut doc = genexpress_doc::Document::new("shape", 100.0, 100.0);
+                    let mut doc = genha_doc::Document::new("shape", 100.0, 100.0);
                     if let Some(p) = doc.pages.first_mut() {
-                        p.background = genexpress_doc::Fill::None;
+                        p.background = genha_doc::Fill::None;
                     }
                     let id = doc.alloc_id();
-                    let is_line = matches!(item.shape, genexpress_doc::ShapeKind::Line);
-                    let shape = genexpress_doc::ShapeEl {
+                    let is_line = matches!(item.shape, genha_doc::ShapeKind::Line);
+                    let shape = genha_doc::ShapeEl {
                         shape: item.shape.clone(),
-                        fill: if is_line { genexpress_doc::Fill::None } else { genexpress_doc::Fill::solid(accent) },
-                        stroke: is_line.then(|| genexpress_doc::StrokeStyle { color: accent, width: 8.0, dash: vec![] }),
+                        fill: if is_line { genha_doc::Fill::None } else { genha_doc::Fill::solid(accent) },
+                        stroke: is_line.then(|| genha_doc::StrokeStyle { color: accent, width: 8.0, dash: vec![] }),
                         shadow: None,
                     };
-                    let el = genexpress_doc::Element::new(
+                    let el = genha_doc::Element::new(
                         id,
-                        genexpress_doc::Frame::new(10.0, if is_line { 46.0 } else { 10.0 }, 80.0, if is_line { 8.0 } else { 80.0 }),
+                        genha_doc::Frame::new(10.0, if is_line { 46.0 } else { 10.0 }, 80.0, if is_line { 8.0 } else { 80.0 }),
                         ElementKind::Shape(shape),
                     );
                     doc.pages.first_mut()?.elements.push(el);
-                    genexpress_render::render_thumbnail(&doc, 0, &fonts, 96).ok()
+                    genha_render::render_thumbnail(&doc, 0, &fonts, 96).ok()
                 });
                 let (rect, r) = ui.allocate_exact_size(egui::vec2(54.0, 54.0), egui::Sense::click());
                 if r.hovered() {
@@ -466,7 +466,7 @@ fn elements_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     } else {
         let mut chosen = None;
         ui.horizontal_wrapped(|ui| {
-            for l in genexpress_layout::collage_layouts(pictures) {
+            for l in genha_layout::collage_layouts(pictures) {
                 let (rect, r) = ui.allocate_exact_size(egui::vec2(60.0, 60.0), egui::Sense::click());
                 ui.painter().rect_filled(rect, 6, t.panel_alt);
                 for c in &l.cells {
@@ -502,7 +502,7 @@ fn text_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     }
     ui.separator();
     heading(ui, "Text styles");
-    for p in genexpress_templates::text_presets() {
+    for p in genha_templates::text_presets() {
         let color = to_egui(p.style.color);
         let mut rt = egui::RichText::new(p.sample).size((p.style.font_size as f32 / 4.0).clamp(11.0, 26.0));
         if p.style.bold {
@@ -542,10 +542,10 @@ fn media_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     ui.horizontal_wrapped(|ui| {
         for (id, name, w, h) in assets {
             let tex = app.thumbs.get(&ctx, &format!("asset:{}:{id}", d_key(&doc)), 0, || {
-                let a = doc.assets.get(&genexpress_doc::AssetId(id))?;
-                let img = genexpress_effects::decode(&a.data).ok()?;
-                let img = genexpress_effects::resize(&img, 160, 160, genexpress_geom::Fit::Contain).ok()?;
-                Some(genexpress_render::Raster { width: img.width(), height: img.height(), rgba: img.into_raw() })
+                let a = doc.assets.get(&genha_doc::AssetId(id))?;
+                let img = genha_effects::decode(&a.data).ok()?;
+                let img = genha_effects::resize(&img, 160, 160, genha_geom::Fit::Contain).ok()?;
+                Some(genha_render::Raster { width: img.width(), height: img.height(), rgba: img.into_raw() })
             });
             let (rect, r) = ui.allocate_exact_size(egui::vec2(80.0, 80.0), egui::Sense::click());
             ui.painter().rect_filled(rect, 6, t.panel_alt);
@@ -575,7 +575,7 @@ fn brand_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     ui.label(egui::RichText::new(&brand.name).strong());
     ui.add_space(4.0);
     ui.label(egui::RichText::new("Colours").color(t.text_dim));
-    let mut set: Option<(usize, genexpress_color::Color)> = None;
+    let mut set: Option<(usize, genha_color::Color)> = None;
     let mut remove = None;
     for (i, c) in brand.colors.iter().enumerate() {
         ui.horizontal(|ui| {
@@ -601,7 +601,7 @@ fn brand_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         ui.color_edit_button_srgba(&mut col);
         app.editor.new_brand_color = [col.r(), col.g(), col.b()];
         if ui.button("Add colour").clicked() {
-            let c = genexpress_color::Color::rgb(col.r(), col.g(), col.b());
+            let c = genha_color::Color::rgb(col.r(), col.g(), col.b());
             app.run("brand.addColor", &json!({"color": c.to_hex()}));
         }
     });
@@ -628,7 +628,7 @@ fn brand_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     ui.separator();
     heading(ui, "Palettes");
     let mut chosen = None;
-    for p in genexpress_templates::palettes() {
+    for p in genha_templates::palettes() {
         let r = ui
             .horizontal(|ui| {
                 for c in &p.colors {
@@ -736,7 +736,7 @@ fn shortcuts(app: &mut App, ctx: &egui::Context) {
     let mut todo: Vec<(&'static str, Value)> = vec![];
     // Single keys without modifiers: tools.
     ctx.input_mut(|i| {
-        for spec in genexpress_engine::command_specs() {
+        for spec in genha_engine::command_specs() {
             let Some(sc) = spec.shortcut.and_then(parse_shortcut) else { continue };
             if sc.modifiers.is_none() && sc.logical_key != egui::Key::Delete && sc.logical_key != egui::Key::Escape {
                 continue; // single letters are tool keys, handled below
@@ -745,7 +745,7 @@ fn shortcuts(app: &mut App, ctx: &egui::Context) {
                 todo.push((spec.id, json!({})));
             }
         }
-        for tool in genexpress_tools::ToolId::ALL {
+        for tool in genha_tools::ToolId::ALL {
             if let Some(k) = egui::Key::from_name(tool.shortcut())
                 && i.consume_key(egui::Modifiers::NONE, k)
             {
@@ -793,7 +793,7 @@ fn shortcuts(app: &mut App, ctx: &egui::Context) {
             }
             "edit.delete" | "object.move" if app.session.active().is_none_or(|d| d.selection.is_empty()) => {}
             _ => {
-                let enabled = genexpress_engine::find_command(id).is_some_and(|s| (s.enabled)(&app.session).is_ok());
+                let enabled = genha_engine::find_command(id).is_some_and(|s| (s.enabled)(&app.session).is_ok());
                 if enabled {
                     app.run(id, &p);
                 }
@@ -820,7 +820,7 @@ fn palette(app: &mut App, ctx: &egui::Context, t: &Tokens) {
             let q = app.editor.palette_query.to_lowercase();
             egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
                 let mut first = None;
-                for spec in genexpress_engine::command_specs() {
+                for spec in genha_engine::command_specs() {
                     if spec.menu.is_empty() || !(spec.label.to_lowercase().contains(&q) || spec.id.contains(&q)) {
                         continue;
                     }

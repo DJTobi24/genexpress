@@ -1,6 +1,6 @@
 # Control protocol
 
-Start the desktop app with `--control <port>` (e.g. `genexpress --control 7979`). It listens on
+Start the desktop app with `--control <port>` (e.g. `genha --control 7979`). It listens on
 `127.0.0.1:<port>` for newline-delimited JSON: one request per line, one reply per line.
 
 ```json

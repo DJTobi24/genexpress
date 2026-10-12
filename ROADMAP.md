@@ -1,4 +1,4 @@
-# GenExpress Roadmap
+# GenHa Roadmap
 
 **Stage: pre-alpha** · next: alpha (M2–M3: web build, curved text, document styles, version history, crop page) · ~20–25% of the target feature set (estimated)
 
@@ -9,7 +9,7 @@
 | Dimension | Value | Measured / estimated |
 |---|---|---|
 | Feature parity with the target (all areas) | ~20–25% | estimated, see [target-app-parity.md](docs/target-app-parity.md) |
-| Commands (UI = CLI = MCP) | 102 | measured (`genexpress-cli exec engine.commands`) |
+| Commands (UI = CLI = MCP) | 102 | measured (`genha-cli exec engine.commands`) |
 | Templates / size presets / icons / text styles / palettes / filters | 17 / 35 / 25 (+10 basic shapes) / 11 / 16 / 14 | measured |
 | Tests | 126 | measured (`cargo test --workspace`) |
 | Rust lines | ~16k | measured |

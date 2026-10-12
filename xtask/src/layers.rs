@@ -10,7 +10,7 @@ pub enum Class {
     Exempt,
 }
 
-/// Package names without the `genexpress-` prefix.
+/// Package names without the `genha-` prefix.
 pub const TABLE: &[(&str, Class)] = &[
     ("geom", Class::Layer(0)),
     ("color", Class::Layer(0)),
@@ -28,7 +28,7 @@ pub const TABLE: &[(&str, Class)] = &[
     ("ui-egui", Class::Layer(6)),
     ("mcp", Class::Layer(6)),
     // L7 apps and tooling
-    ("genexpress", Class::Exempt),
+    ("genha", Class::Exempt),
     ("cli", Class::Exempt),
     ("web", Class::Exempt),
     ("xtask", Class::Exempt),
@@ -43,7 +43,7 @@ pub const UI_CRATES: &[&str] = &["egui", "eframe", "winit", "egui_extras", "egui
 pub const UI_MIN_LAYER: u8 = 6;
 
 pub fn short_name(pkg: &str) -> &str {
-    pkg.strip_prefix("genexpress-").unwrap_or(pkg)
+    pkg.strip_prefix("genha-").unwrap_or(pkg)
 }
 
 pub fn classify(pkg: &str) -> Option<Class> {
@@ -97,7 +97,7 @@ pub fn check(crates: &[Crate]) -> Vec<String> {
             if UI_CRATES.contains(&dep.as_str()) && layer < UI_MIN_LAYER {
                 errors.push(format!("{} (L{layer}) depends on the UI crate {dep}", c.name));
             }
-            if !dep.starts_with("genexpress-") {
+            if !dep.starts_with("genha-") {
                 continue;
             }
             match classify(dep) {
@@ -121,13 +121,13 @@ mod tests {
 
     #[test]
     fn rules() {
-        assert!(check(&[c("genexpress-doc", &["genexpress-geom", "serde"])]).is_empty());
-        assert_eq!(check(&[c("genexpress-doc", &["genexpress-engine"])]).len(), 1);
-        assert_eq!(check(&[c("genexpress-engine", &["egui"])]).len(), 1);
-        assert!(check(&[c("genexpress-ui-egui", &["egui", "genexpress-engine"])]).is_empty());
-        assert!(check(&[c("genexpress-svg", &["genexpress-render"])]).is_empty());
-        assert_eq!(check(&[c("genexpress-render", &["genexpress-svg"])]).len(), 1);
-        assert!(check(&[c("genexpress-color", &["genexpress-geom"])]).is_empty());
-        assert_eq!(check(&[c("genexpress-mystery", &[])]).len(), 1);
+        assert!(check(&[c("genha-doc", &["genha-geom", "serde"])]).is_empty());
+        assert_eq!(check(&[c("genha-doc", &["genha-engine"])]).len(), 1);
+        assert_eq!(check(&[c("genha-engine", &["egui"])]).len(), 1);
+        assert!(check(&[c("genha-ui-egui", &["egui", "genha-engine"])]).is_empty());
+        assert!(check(&[c("genha-svg", &["genha-render"])]).is_empty());
+        assert_eq!(check(&[c("genha-render", &["genha-svg"])]).len(), 1);
+        assert!(check(&[c("genha-color", &["genha-geom"])]).is_empty());
+        assert_eq!(check(&[c("genha-mystery", &[])]).len(), 1);
     }
 }

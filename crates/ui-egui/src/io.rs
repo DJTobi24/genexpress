@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 pub const PICTURES: (&str, &[&str]) = ("Pictures", &["png", "jpg", "jpeg", "webp", "gif", "bmp"]);
-pub const DESIGNS: (&str, &[&str]) = ("GenExpress designs", &["genexpress"]);
+pub const DESIGNS: (&str, &[&str]) = ("GenHa designs", &["genha", "genexpress"]);
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn pick_open(filters: &[(&str, &[&str])]) -> Option<PathBuf> {

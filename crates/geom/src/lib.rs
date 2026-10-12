@@ -1,4 +1,4 @@
-//! Geometry for GenExpress (layer L0).
+//! Geometry for GenHa (layer L0).
 //!
 //! Re-exports [`kurbo`] and adds the few design-tool notions the rest of the workspace shares: the
 //! [`Frame`] every element sits in (position, size, rotation), fitting one box into another

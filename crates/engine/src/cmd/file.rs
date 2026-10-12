@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 use super::{always, bad, cmd, f64_or, has_doc, ok, str_param, str_req, usize_param};
 use crate::{CommandSpec, EngineError, Result, Session};
-use genexpress_doc::{Document, MAX_PAGE_SIDE, preset};
+use genha_doc::{Document, MAX_PAGE_SIDE, preset};
 
 pub(crate) fn specs() -> Vec<CommandSpec> {
     vec![
@@ -17,7 +17,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             always,
             file_new
         ),
-        cmd!("file.open", "Open…", ["File"], Some("Cmd+O"), "{path: .genexpress file, or a picture to start a design from}", always, file_open),
+        cmd!("file.open", "Open…", ["File"], Some("Cmd+O"), "{path: .genha file, or a picture to start a design from}", always, file_open),
         cmd!("file.save", "Save", ["File"], Some("Cmd+S"), "{path?: defaults to the document's file}", has_doc, file_save),
         cmd!("file.saveAs", "Save As…", ["File"], Some("Cmd+Shift+S"), "{path, compress?: bool = true}", has_doc, file_save_as),
         cmd!("file.close", "Close", ["File"], Some("Cmd+W"), "{index?: document index, default active}", has_doc, file_close),
@@ -46,28 +46,25 @@ fn file_new(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(ok(json!({"document": index, "width": w, "height": h})))
 }
 
-/// Opens document bytes (a `.genexpress` file, or a picture), as from a file or a drop.
+/// Opens document bytes (a `.genha` file, or a picture), as from a file or a drop.
 pub fn open_bytes(s: &mut Session, name: &str, bytes: &[u8]) -> Result<Value> {
-    if genexpress_effects::probe(bytes).is_ok() {
-        let info = genexpress_effects::probe(bytes)?;
+    if genha_effects::probe(bytes).is_ok() {
+        let info = genha_effects::probe(bytes)?;
         let (w, h) = (f64::from(info.width).clamp(1.0, MAX_PAGE_SIDE), f64::from(info.height).clamp(1.0, MAX_PAGE_SIDE));
         let mut doc = Document::new(name, w, h);
         let asset = super::create::asset_from_bytes(name, bytes)?;
         let aid = doc.add_asset(asset);
         let id = doc.alloc_id();
         if let Some(page) = doc.pages.first_mut() {
-            let mut el = genexpress_doc::Element::new(
-                id,
-                genexpress_doc::Frame::new(0.0, 0.0, w, h),
-                genexpress_doc::ElementKind::Image(genexpress_doc::ImageEl::new(aid)),
-            );
+            let mut el =
+                genha_doc::Element::new(id, genha_doc::Frame::new(0.0, 0.0, w, h), genha_doc::ElementKind::Image(genha_doc::ImageEl::new(aid)));
             el.name = name.to_string();
             page.elements.push(el);
         }
         let index = s.open_document(doc);
         return Ok(ok(json!({"document": index, "picture": true})));
     }
-    let (doc, notes) = genexpress_format::from_bytes(bytes)?;
+    let (doc, notes) = genha_format::from_bytes(bytes)?;
     for n in &notes {
         s.post(format!("{name}: {n}"));
     }
@@ -79,13 +76,14 @@ pub fn open_bytes(s: &mut Session, name: &str, bytes: &[u8]) -> Result<Value> {
 fn file_open(s: &mut Session, p: &Value) -> Result<Value> {
     let path = std::path::PathBuf::from(str_req(p, "path", "file.open")?);
     let meta = std::fs::metadata(&path).map_err(|e| EngineError::Other(format!("cannot open {}: {e}", path.display())))?;
-    if meta.len() > genexpress_format::MAX_FILE_BYTES {
+    if meta.len() > genha_format::MAX_FILE_BYTES {
         return Err(EngineError::Other(format!("{} is too large", path.display())));
     }
     let bytes = std::fs::read(&path).map_err(|e| EngineError::Other(format!("cannot read {}: {e}", path.display())))?;
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let r = open_bytes(s, &name, &bytes)?;
-    let is_native = path.extension().is_some_and(|e| e.eq_ignore_ascii_case(genexpress_format::EXTENSION));
+    let is_native =
+        path.extension().is_some_and(|e| e.eq_ignore_ascii_case(genha_format::EXTENSION) || e.eq_ignore_ascii_case(genha_format::LEGACY_EXTENSION));
     if let Some(d) = s.active_mut()
         && is_native
     {
@@ -110,15 +108,15 @@ fn file_save(s: &mut Session, p: &Value) -> Result<Value> {
 fn file_save_as(s: &mut Session, p: &Value) -> Result<Value> {
     let mut path = std::path::PathBuf::from(str_req(p, "path", "file.saveAs")?);
     if path.extension().is_none() {
-        path.set_extension(genexpress_format::EXTENSION);
+        path.set_extension(genha_format::EXTENSION);
     }
     save_to(s, &path, super::bool_or(p, "compress", true))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 fn save_to(s: &mut Session, path: &std::path::Path, compress: bool) -> Result<Value> {
-    let bytes = genexpress_format::to_bytes(&s.doc()?.doc, compress)?;
-    genexpress_format::write_atomic(path, &bytes)?;
+    let bytes = genha_format::to_bytes(&s.doc()?.doc, compress)?;
+    genha_format::write_atomic(path, &bytes)?;
     let d = s.doc_mut()?;
     d.path = Some(path.to_path_buf());
     d.dirty = false;

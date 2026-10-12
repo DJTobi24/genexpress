@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 use super::{always, cmd, has_doc, str_param};
 use crate::{CommandSpec, EngineError, Result, Session, inspect};
-use genexpress_doc::preset;
+use genha_doc::preset;
 
 pub(crate) fn specs() -> Vec<CommandSpec> {
     vec![
@@ -45,7 +45,7 @@ fn document_json(s: &mut Session, _: &Value) -> Result<Value> {
 }
 
 fn element_get(s: &mut Session, p: &Value) -> Result<Value> {
-    let id = p.get("id").and_then(Value::as_u64).map(genexpress_doc::NodeId).ok_or_else(|| super::bad("element.get", "missing `id`"))?;
+    let id = p.get("id").and_then(Value::as_u64).map(genha_doc::NodeId).ok_or_else(|| super::bad("element.get", "missing `id`"))?;
     let el = s.doc()?.doc.element(id)?;
     serde_json::to_value(el).map_err(|e| EngineError::Other(e.to_string()))
 }

@@ -19,10 +19,10 @@ fn run_frames(app: &mut App, ctx: &egui::Context, n: usize) {
 #[test]
 fn home_and_editor_frames_run() {
     let ctx = egui::Context::default();
-    let mut app = App::new(Arc::new(genexpress_text::FontBook::new()), AppOptions::default());
+    let mut app = App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default());
     run_frames(&mut app, &ctx, 3);
     assert_eq!(app.screen, Screen::Home);
-    app.run("template.use", &json!({"id": genexpress_templates::catalog()[0].id}));
+    app.run("template.use", &json!({"id": genha_templates::catalog()[0].id}));
     assert_eq!(app.screen, Screen::Editor);
     for tab in crate::LeftTab::ALL {
         app.left_tab = tab;

@@ -1,15 +1,15 @@
 [package]
-name = "genexpress-effects"
-description = "GenExpress picture effects: decoding, adjustments, filters, crop/resize and quick actions"
+name = "genha-effects"
+description = "GenHa picture effects: decoding, adjustments, filters, crop/resize and quick actions"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-genexpress-doc = { workspace = true }
-genexpress-geom = { workspace = true }
-genexpress-color = { workspace = true }
+genha-doc = { workspace = true }
+genha-geom = { workspace = true }
+genha-color = { workspace = true }
 image = { workspace = true }
 thiserror = { workspace = true }
 

@@ -16,8 +16,8 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use crate::{EngineError, Result, Session};
-use genexpress_color::Color;
-use genexpress_doc::NodeId;
+use genha_color::Color;
+use genha_doc::NodeId;
 
 pub type Run = fn(&mut Session, &Value) -> Result<Value>;
 pub type Enabled = fn(&Session) -> std::result::Result<(), String>;

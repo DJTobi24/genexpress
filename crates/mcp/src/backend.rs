@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use serde_json::{Value, json};
 
-use genexpress_engine::{Session, guard, inspect};
+use genha_engine::{Session, guard, inspect};
 
 /// A control-channel endpoint: `method` + `params` in, a result or an error message out.
 pub trait Backend {
@@ -102,8 +102,7 @@ impl Remote {
 
     fn connect(&mut self) -> Result<&mut (BufReader<TcpStream>, TcpStream), String> {
         if self.conn.is_none() {
-            let stream =
-                TcpStream::connect(&self.addr).map_err(|e| format!("cannot reach GenExpress at {} (start it with --control): {e}", self.addr))?;
+            let stream = TcpStream::connect(&self.addr).map_err(|e| format!("cannot reach GenHa at {} (start it with --control): {e}", self.addr))?;
             stream.set_read_timeout(Some(Duration::from_secs(120))).map_err(|e| e.to_string())?;
             let reader = BufReader::new(stream.try_clone().map_err(|e| e.to_string())?);
             self.conn = Some((reader, stream));

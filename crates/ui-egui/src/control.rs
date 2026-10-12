@@ -103,10 +103,10 @@ fn handle(app: &mut App, method: &str, params: &Value) -> Result<Value, String> 
             let d = app.session.active().ok_or("no document open")?;
             let page = params.get("page").and_then(Value::as_u64).map(|p| p as usize).unwrap_or(d.page);
             let scale = params.get("scale").and_then(Value::as_f64).filter(|v| v.is_finite()).unwrap_or(1.0).clamp(0.05, 8.0);
-            let opts = genexpress_render::RenderOptions { scale, transparent_background: false };
+            let opts = genha_render::RenderOptions { scale, transparent_background: false };
             let doc = d.doc.clone();
             let r = app.renderer.render_page(&doc, page, &app.session.fonts, &opts).map_err(|e| e.to_string())?;
-            let png = genexpress_render::encode_png(&r).map_err(|e| e.to_string())?;
+            let png = genha_render::encode_png(&r).map_err(|e| e.to_string())?;
             match params.get("path").and_then(Value::as_str) {
                 Some(path) => write(path, &png).map(|_| json!({"path": path, "width": r.width, "height": r.height})),
                 None => {

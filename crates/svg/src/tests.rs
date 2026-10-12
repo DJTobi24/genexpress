@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use genexpress_doc::{
+use genha_doc::{
     Adjustments, Asset, Bytes, Element, ElementKind, Fill, Frame, GradientStop, GroupEl, ImageEl, Shadow, ShapeEl, ShapeKind, StrokeStyle,
     TextEffect, TextEl, TextStyle,
 };
@@ -42,7 +42,7 @@ fn check_tags(svg: &str) -> Vec<String> {
     names
 }
 
-fn push(d: &mut Document, frame: Frame, kind: ElementKind) -> genexpress_doc::NodeId {
+fn push(d: &mut Document, frame: Frame, kind: ElementKind) -> genha_doc::NodeId {
     let id = d.alloc_id();
     d.pages[0].elements.push(Element::new(id, frame, kind));
     id
@@ -181,7 +181,7 @@ fn pictures_are_embedded() {
     edited.border = Some(StrokeStyle { color: Color::WHITE, width: 3.0, dash: vec![] });
     push(&mut d, Frame::new(100.0, 0.0, 100.0, 100.0), ElementKind::Image(edited));
     // Missing picture: placeholder.
-    push(&mut d, Frame::new(0.0, 0.0, 10.0, 10.0), ElementKind::Image(ImageEl::new(genexpress_doc::AssetId(4242))));
+    push(&mut d, Frame::new(0.0, 0.0, 10.0, 10.0), ElementKind::Image(ImageEl::new(genha_doc::AssetId(4242))));
     let svg = export_page(&d, 0, &FontBook::new(), &SvgOptions::default()).unwrap();
     check_tags(&svg);
     let original = base64::engine::general_purpose::STANDARD.encode(&bytes);

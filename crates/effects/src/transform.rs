@@ -1,6 +1,6 @@
 //! Resizing, rotating, flipping and trimming pictures.
 
-use genexpress_geom::Fit;
+use genha_geom::Fit;
 use image::{Rgba, RgbaImage, imageops::FilterType};
 
 use crate::{EffectError, MAX_PIXELS, MAX_SIDE, Result};

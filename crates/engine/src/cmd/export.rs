@@ -56,18 +56,18 @@ pub fn page_bytes(s: &Session, page: usize, format: Format, p: &Value) -> Result
     match format {
         Format::Png | Format::Jpeg => {
             let transparent = format == Format::Png && bool_or(p, "transparent", false);
-            let opts = genexpress_render::RenderOptions { scale, transparent_background: transparent };
-            let r = genexpress_render::render_page(&d.doc, page, &s.fonts, &opts).map_err(|e| EngineError::Other(e.to_string()))?;
+            let opts = genha_render::RenderOptions { scale, transparent_background: transparent };
+            let r = genha_render::render_page(&d.doc, page, &s.fonts, &opts).map_err(|e| EngineError::Other(e.to_string()))?;
             let bytes = if format == Format::Png {
-                genexpress_render::encode_png(&r)
+                genha_render::encode_png(&r)
             } else {
-                genexpress_render::encode_jpeg(&r, f64_or(p, "quality", 90.0).clamp(1.0, 100.0) as u8)
+                genha_render::encode_jpeg(&r, f64_or(p, "quality", 90.0).clamp(1.0, 100.0) as u8)
             };
             bytes.map_err(|e| EngineError::Other(e.to_string()))
         }
         Format::Svg => {
-            let opts = genexpress_svg::SvgOptions { text_as_paths: bool_or(p, "text_as_paths", false) };
-            genexpress_svg::export_page(&d.doc, page, &s.fonts, &opts).map(String::into_bytes).map_err(|e| EngineError::Other(e.to_string()))
+            let opts = genha_svg::SvgOptions { text_as_paths: bool_or(p, "text_as_paths", false) };
+            genha_svg::export_page(&d.doc, page, &s.fonts, &opts).map(String::into_bytes).map_err(|e| EngineError::Other(e.to_string()))
         }
     }
 }
@@ -79,13 +79,13 @@ pub fn pdf_bytes(s: &Session, p: &Value) -> Result<Vec<u8>> {
         Some(Value::Array(a)) => Some(a.iter().filter_map(Value::as_u64).filter_map(|v| usize::try_from(v).ok()).collect()),
         _ => None,
     };
-    let opts = genexpress_pdf::PdfOptions { dpi: f64_or(p, "dpi", 150.0), pages, jpeg_quality: f64_or(p, "quality", 88.0).clamp(1.0, 100.0) as u8 };
-    genexpress_pdf::export_pdf(&d.doc, &s.fonts, &opts).map_err(|e| EngineError::Other(e.to_string()))
+    let opts = genha_pdf::PdfOptions { dpi: f64_or(p, "dpi", 150.0), pages, jpeg_quality: f64_or(p, "quality", 88.0).clamp(1.0, 100.0) as u8 };
+    genha_pdf::export_pdf(&d.doc, &s.fonts, &opts).map_err(|e| EngineError::Other(e.to_string()))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn write(path: &str, bytes: &[u8]) -> Result<()> {
-    genexpress_format::write_atomic(std::path::Path::new(path), bytes).map_err(|e| EngineError::Other(format!("cannot write {path}: {e}")))
+    genha_format::write_atomic(std::path::Path::new(path), bytes).map_err(|e| EngineError::Other(format!("cannot write {path}: {e}")))
 }
 
 #[cfg(target_arch = "wasm32")]

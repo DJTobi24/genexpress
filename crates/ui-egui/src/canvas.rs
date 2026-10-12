@@ -1,4 +1,4 @@
-//! The canvas: the current page rendered by `genexpress-render`, with selection handles, snapping
+//! The canvas: the current page rendered by `genha-render`, with selection handles, snapping
 //! guides and gesture previews drawn on top. Pointer input goes to the engine's tools.
 
 use std::sync::Arc;
@@ -7,9 +7,9 @@ use serde_json::json;
 
 use crate::App;
 use crate::theme::Tokens;
-use genexpress_doc::{Document, ElementKind, NodeId};
-use genexpress_geom::{Frame, Point};
-use genexpress_tools::{Handle, PointerEvent, PointerKind, ToolId};
+use genha_doc::{Document, ElementKind, NodeId};
+use genha_geom::{Frame, Point};
+use genha_tools::{Handle, PointerEvent, PointerKind, ToolId};
 
 #[derive(Default)]
 pub struct CanvasState {
@@ -68,7 +68,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 
     // Overlays.
     let preview = app.session.preview.clone();
-    let hovered = resp.hover_pos().and_then(|p| genexpress_tools::hit_test(page, to_page(p)).map(|e| e.id));
+    let hovered = resp.hover_pos().and_then(|p| genha_tools::hit_test(page, to_page(p)).map(|e| e.id));
     if let Some(h) = hovered.filter(|h| !selection.contains(h))
         && app.session.tools.tool == ToolId::Select
         && let Some(el) = page.find(h)
@@ -162,8 +162,8 @@ fn update_texture(app: &mut App, ctx: &egui::Context, doc: &Arc<Document>, page:
         return;
     }
     // A page without background shows the checkerboard; any other background is drawn.
-    let transparent = matches!(pg.background, genexpress_doc::Fill::None);
-    let opts = genexpress_render::RenderOptions { scale: f64::from(scale), transparent_background: transparent };
+    let transparent = matches!(pg.background, genha_doc::Fill::None);
+    let opts = genha_render::RenderOptions { scale: f64::from(scale), transparent_background: transparent };
     match app.renderer.render_page(doc, page, &app.session.fonts, &opts) {
         Ok(r) => {
             let img = crate::thumbs::to_color_image(&r);
@@ -244,7 +244,7 @@ fn pointer_input(
     if double && resp.hovered() && app.session.tools.tool == ToolId::Select {
         let pt = to_page(pos);
         if let Some(pg) = doc.pages.get(page)
-            && let Some(el) = genexpress_tools::hit_test(pg, pt)
+            && let Some(el) = genha_tools::hit_test(pg, pt)
             && let ElementKind::Text(t) = &el.kind
             && !el.locked
         {
@@ -299,7 +299,7 @@ fn snap_lines(app: &App, doc: &Document, page: usize) -> (Vec<f64>, Vec<f64>) {
     }
     let Some(pg) = doc.pages.get(page) else { return (vec![], vec![]) };
     let sel = app.session.active().map(|d| d.selection.clone()).unwrap_or_default();
-    let g = genexpress_layout::snap_guides(pg, &sel);
+    let g = genha_layout::snap_guides(pg, &sel);
     (g.xs, g.ys)
 }
 

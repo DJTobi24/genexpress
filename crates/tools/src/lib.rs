@@ -6,8 +6,8 @@
 //! undoable, journaled and reachable by agents.
 #![forbid(unsafe_code)]
 
-use genexpress_doc::{Document, Element, NodeId, Page};
-use genexpress_geom::{Frame, Point, Rect, Vec2};
+use genha_doc::{Document, Element, NodeId, Page};
+use genha_geom::{Frame, Point, Rect, Vec2};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -480,7 +480,7 @@ fn snap_delta(cx: &ToolContext, frames: &[(NodeId, Frame)], d: Vec2) -> (f64, f6
     let best = |cands: [f64; 3], targets: &[f64]| -> Option<(f64, f64)> {
         let mut best: Option<(f64, f64)> = None;
         for c in cands {
-            let (snapped, hit) = genexpress_geom::snap(c, targets, threshold);
+            let (snapped, hit) = genha_geom::snap(c, targets, threshold);
             if let Some(t) = hit {
                 let adj = snapped - c;
                 if best.is_none_or(|(a, _)| adj.abs() < a.abs()) {

@@ -1,4 +1,4 @@
-//! Built-in content for GenExpress (layer L2), all original and generated in code:
+//! Built-in content for GenHa (layer L2), all original and generated in code:
 //!
 //! - [`catalog`] / [`instantiate`]: ready-made designs (social posts, flyers, cards, slides…) built
 //!   only from shapes, gradients and text, optionally re-coloured with a [`BrandKit`];
@@ -22,7 +22,7 @@ pub use shapes::{LibraryShape, shape_library};
 pub use text::{TextPreset, text_presets};
 
 #[doc(no_inline)]
-pub use genexpress_doc::BrandKit;
+pub use genha_doc::BrandKit;
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum TemplateError {

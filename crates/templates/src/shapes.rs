@@ -5,7 +5,7 @@
 
 use std::fmt::Write as _;
 
-use genexpress_doc::ShapeKind;
+use genha_doc::ShapeKind;
 
 /// One entry of the shape panel.
 #[derive(Clone, Debug, PartialEq)]

@@ -1,12 +1,12 @@
-//! The GenExpress desktop app.
+//! The GenHa desktop app.
 //!
-//! `genexpress [--control PORT] [--dark] [FILE…]`
+//! `genha [--control PORT] [--dark] [FILE…]`
 
 use std::sync::Arc;
 
-use genexpress_ui_egui::{App, AppOptions, control::ControlServer};
+use genha_ui_egui::{App, AppOptions, control::ControlServer};
 
-const USAGE: &str = "usage: genexpress [--control PORT] [--dark] [FILE.genexpress | PICTURE …]
+const USAGE: &str = "usage: genha [--control PORT] [--dark] [FILE.genha | PICTURE …]
 
   --control PORT   accept JSON-lines automation on 127.0.0.1:PORT (see docs/control-protocol.md)
   --dark           start in dark mode";
@@ -24,8 +24,8 @@ impl eframe::App for Shell {
         self.app.ui(ui);
         // Window title follows the design.
         let title = match self.app.session.active() {
-            Some(d) => format!("{}{} — GenExpress", d.display_name(), if d.dirty { " •" } else { "" }),
-            None => "GenExpress".to_string(),
+            Some(d) => format!("{}{} — GenHa", d.display_name(), if d.dirty { " •" } else { "" }),
+            None => "GenHa".to_string(),
         };
         if title != self.title {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
@@ -79,18 +79,18 @@ fn main() -> std::process::ExitCode {
             f => opts.open.push(f.into()),
         }
     }
-    let fonts = Arc::new(genexpress_text::FontBook::system());
+    let fonts = Arc::new(genha_text::FontBook::system());
     log::info!("{} font families found", fonts.families().len());
     let native = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("GenExpress")
+            .with_title("GenHa")
             .with_inner_size([1440.0, 900.0])
             .with_min_inner_size([960.0, 600.0])
             .with_drag_and_drop(true),
         ..Default::default()
     };
     let result = eframe::run_native(
-        "GenExpress",
+        "GenHa",
         native,
         Box::new(move |cc| {
             let mut app = App::new(fonts, opts);
@@ -109,7 +109,7 @@ fn main() -> std::process::ExitCode {
     match result {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("GenExpress could not start: {e}");
+            eprintln!("GenHa could not start: {e}");
             std::process::ExitCode::FAILURE
         }
     }

@@ -1,17 +1,17 @@
-//! The GenExpress command line.
+//! The GenHa command line.
 
 use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use genexpress_engine::Session;
+use genha_engine::Session;
 
-const USAGE: &str = "usage: genexpress-cli <command> …
+const USAGE: &str = "usage: genha-cli <command> …
 
-  new (--preset ID | --template ID | --width W --height H) -o OUT.genexpress
+  new (--preset ID | --template ID | --width W --height H) -o OUT.genha
   info FILE                          the design as JSON (pages, objects, brand)
   export FILE -o OUT.png|jpg|svg|pdf [--page N] [--scale S] [--all-pages] [--transparent]
-  run SCRIPT.json [--open FILE] [--save OUT.genexpress] [--export OUT.png|jpg|svg|pdf]
+  run SCRIPT.json [--open FILE] [--save OUT.genha] [--export OUT.png|jpg|svg|pdf]
                                      SCRIPT: [{\"command\": \"shape.add\", \"params\": {…}}, …]
   quick ACTION IN -o OUT [--scale S] [--width W] [--height H] [--preset P] [--tolerance T]
                                      ACTION: remove-background, resize, convert, auto-crop, filter, rotate, flip
@@ -45,7 +45,7 @@ fn num(args: &[String], name: &str) -> Result<Option<f64>, String> {
 }
 
 fn session() -> Session {
-    Session::with_fonts(Arc::new(genexpress_text::FontBook::system()))
+    Session::with_fonts(Arc::new(genha_text::FontBook::system()))
 }
 
 fn exec(s: &mut Session, cmd: &str, params: Value) -> Result<Value, String> {
@@ -121,7 +121,7 @@ fn run(args: &[String]) -> Result<(), String> {
             Ok(())
         }
         "new" => {
-            let out = opt(rest, "-o").ok_or("new needs -o OUT.genexpress")?;
+            let out = opt(rest, "-o").ok_or("new needs -o OUT.genha")?;
             let mut s = session();
             if let Some(t) = opt(rest, "--template") {
                 exec(&mut s, "template.use", json!({"id": t}))?;
@@ -218,17 +218,17 @@ fn run(args: &[String]) -> Result<(), String> {
             let stdin = std::io::stdin();
             let stdout = std::io::stdout();
             match opt(rest, "--attach") {
-                Some(addr) => genexpress_mcp::Server::new(genexpress_mcp::Remote::new(addr)).serve(stdin.lock(), stdout.lock()),
+                Some(addr) => genha_mcp::Server::new(genha_mcp::Remote::new(addr)).serve(stdin.lock(), stdout.lock()),
                 None => {
-                    let hook: genexpress_mcp::RenderHook = Box::new(|s: &Session, page: usize, scale: f64| {
+                    let hook: genha_mcp::RenderHook = Box::new(|s: &Session, page: usize, scale: f64| {
                         let d = s.active().ok_or("no document open")?;
-                        let opts = genexpress_render::RenderOptions { scale, transparent_background: false };
-                        let r = genexpress_render::render_page(&d.doc, page, &s.fonts, &opts).map_err(|e| e.to_string())?;
-                        genexpress_render::encode_png(&r).map_err(|e| e.to_string())
+                        let opts = genha_render::RenderOptions { scale, transparent_background: false };
+                        let r = genha_render::render_page(&d.doc, page, &s.fonts, &opts).map_err(|e| e.to_string())?;
+                        genha_render::encode_png(&r).map_err(|e| e.to_string())
                     });
-                    let mut backend = genexpress_mcp::Headless::new(Some(hook));
-                    backend.session.fonts = Arc::new(genexpress_text::FontBook::system());
-                    genexpress_mcp::Server::new(backend).serve(stdin.lock(), stdout.lock())
+                    let mut backend = genha_mcp::Headless::new(Some(hook));
+                    backend.session.fonts = Arc::new(genha_text::FontBook::system());
+                    genha_mcp::Server::new(backend).serve(stdin.lock(), stdout.lock())
                 }
             }
             .map_err(|e| e.to_string())

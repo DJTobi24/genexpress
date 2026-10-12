@@ -2,8 +2,8 @@
 
 use std::fmt::Write as _;
 
-use genexpress_color::{Color, contrast_ratio};
-use genexpress_doc::ShapeKind;
+use genha_color::{Color, contrast_ratio};
+use genha_doc::ShapeKind;
 
 use crate::TemplateError;
 

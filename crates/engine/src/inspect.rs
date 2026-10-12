@@ -3,7 +3,7 @@
 use serde_json::{Value, json};
 
 use crate::{DocState, Session};
-use genexpress_doc::{Element, ElementKind, Fill, ShapeKind, TextEffect};
+use genha_doc::{Element, ElementKind, Fill, ShapeKind, TextEffect};
 
 /// One element as a compact JSON summary.
 pub fn element_summary(e: &Element) -> Value {

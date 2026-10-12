@@ -1,7 +1,7 @@
 //! One-click text styles for the "Add text" panel.
 
-use genexpress_color::Color;
-use genexpress_doc::{TextAlign, TextEffect, TextStyle};
+use genha_color::Color;
+use genha_doc::{TextAlign, TextEffect, TextStyle};
 
 use crate::build::hex;
 

@@ -54,8 +54,8 @@ impl<B: Backend> Server<B> {
             "initialize" => Ok(json!({
                 "protocolVersion": PROTOCOL_VERSION,
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "genexpress", "version": env!("CARGO_PKG_VERSION")},
-                "instructions": "GenExpress is an open-source design app (social posts, flyers, presentations…). Every action is a command: list them with list_commands, run them with run_command, check your work with look."
+                "serverInfo": {"name": "genha", "version": env!("CARGO_PKG_VERSION")},
+                "instructions": "GenHa is an open-source design app (social posts, flyers, presentations…). Every action is a command: list them with list_commands, run them with run_command, check your work with look."
             })),
             "ping" => Ok(json!({})),
             "tools/list" => Ok(json!({"tools": tool_definitions()})),

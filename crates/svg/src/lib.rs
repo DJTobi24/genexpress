@@ -1,4 +1,4 @@
-//! SVG export for GenExpress (layer L3).
+//! SVG export for GenHa (layer L3).
 //!
 //! Writes one page as a self-contained SVG document by hand: the page background, then every
 //! element in a `<g transform="matrix(…)">` (its frame, rotation and flips) with its opacity.
@@ -13,11 +13,11 @@
 use std::fmt::Write as _;
 
 use base64::Engine as _;
-use genexpress_color::Color;
-use genexpress_doc::{Document, Element, ElementKind, Fill, ImageEl, Shadow, ShapeEl, ShapeKind, StrokeStyle, TextAlign, TextEffect, TextEl};
-use genexpress_geom::{Size, fit, rounded_rect};
-use genexpress_render::{Raster, encode_png, linear_points, radial_radius, shape_path};
-use genexpress_text::FontBook;
+use genha_color::Color;
+use genha_doc::{Document, Element, ElementKind, Fill, ImageEl, Shadow, ShapeEl, ShapeKind, StrokeStyle, TextAlign, TextEffect, TextEl};
+use genha_geom::{Size, fit, rounded_rect};
+use genha_render::{Raster, encode_png, linear_points, radial_radius, shape_path};
+use genha_text::FontBook;
 use kurbo::{Affine, BezPath, PathEl, Rect, Shape};
 
 /// Deepest group nesting written.
@@ -323,7 +323,7 @@ impl Writer<'_> {
     }
 
     fn text(&mut self, t: &TextEl, w: f64, local: Affine) {
-        let layout = genexpress_text::layout(self.fonts, &t.text, &t.style, w);
+        let layout = genha_text::layout(self.fonts, &t.text, &t.style, w);
         let st = &t.style;
         let mut glyphs = BezPath::new();
         for line in &layout.lines {
@@ -356,7 +356,7 @@ impl Writer<'_> {
             } else {
                 "normal"
             };
-            let size = sane(st.font_size, 0.0, genexpress_text::MAX_FONT_SIZE);
+            let size = sane(st.font_size, 0.0, genha_text::MAX_FONT_SIZE);
             let mut s = format!(
                 r#"<text xml:space="preserve" font-family="{}" font-size="{}" font-weight="{weight}" font-style="{}""#,
                 esc(&family.join(", ")),
@@ -460,7 +460,7 @@ impl Writer<'_> {
 
 /// ` stroke-width="…"` and dashes for `s`.
 fn stroke_geometry(s: &StrokeStyle) -> String {
-    let mut a = format!(r#" stroke-width="{}""#, num(s.width.min(genexpress_render::MAX_STROKE_WIDTH)));
+    let mut a = format!(r#" stroke-width="{}""#, num(s.width.min(genha_render::MAX_STROKE_WIDTH)));
     let dash: Vec<f64> = s.dash.iter().take(64).copied().filter(|d| d.is_finite() && *d >= 0.0).collect();
     if !dash.is_empty() && dash.iter().sum::<f64>() >= 0.5 {
         let _ = write!(a, r#" stroke-dasharray="{}""#, dash.iter().map(|d| num(*d)).collect::<Vec<_>>().join(" "));
@@ -472,15 +472,15 @@ fn stroke_geometry(s: &StrokeStyle) -> String {
 /// when it is missing or cannot be read.
 fn picture(doc: &Document, im: &ImageEl) -> Option<(String, f64, f64)> {
     let asset = doc.assets.get(&im.asset)?;
-    let info = genexpress_effects::probe(&asset.data).ok()?;
+    let info = genha_effects::probe(&asset.data).ok()?;
     let b64 = |bytes: &[u8]| base64::engine::general_purpose::STANDARD.encode(bytes);
     if im.crop.is_full() && im.adjustments.is_identity() {
         // The original file, as it is.
         return Some((format!("data:{};base64,{}", info.mime, b64(&asset.data)), f64::from(info.width), f64::from(info.height)));
     }
-    let img = genexpress_effects::decode(&asset.data).ok()?;
-    let mut img = genexpress_effects::crop(&img, &im.crop);
-    genexpress_effects::apply_adjustments(&mut img, &im.adjustments);
+    let img = genha_effects::decode(&asset.data).ok()?;
+    let mut img = genha_effects::crop(&img, &im.crop);
+    genha_effects::apply_adjustments(&mut img, &im.adjustments);
     let (width, height) = img.dimensions();
     let png = encode_png(&Raster { width, height, rgba: img.into_raw() }).ok()?;
     Some((format!("data:image/png;base64,{}", b64(&png)), f64::from(width), f64::from(height)))

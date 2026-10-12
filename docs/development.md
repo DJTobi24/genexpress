@@ -3,8 +3,8 @@
 ## Build and run
 
 ```sh
-cargo run --release -p genexpress                 # desktop app
-cargo run --release -p genexpress-cli -- --help   # headless CLI
+cargo run --release -p genha                 # desktop app
+cargo run --release -p genha-cli -- --help   # headless CLI
 cargo xtask ci                                    # everything a commit must pass
 ```
 
@@ -18,7 +18,7 @@ metrics) but draws nothing.
 (including the no-panic lints), `cargo test --workspace`, `cargo xtask layers`, `cargo xtask assets`,
 `cargo xtask cleanroom` and `cargo xtask wasm` (needs `rustup target add wasm32-unknown-unknown`).
 
-## Robustness: GenExpress never crashes
+## Robustness: GenHa never crashes
 
 See [`AGENTS.md`](../AGENTS.md) › Never crash. In short: return `Result`, never index with numbers that
 came from data, cap sizes, check floats, and fuzz every parser (`proptest`).
@@ -26,7 +26,7 @@ came from data, cap sizes, check floats, and fuzz every parser (`proptest`).
 ## Adding a feature
 
 1. Model: if the document needs new data, add it to `crates/doc` with `#[serde(default)]` so older files
-   still open (bump `genexpress_format::VERSION` only for breaking changes, and keep reading old ones).
+   still open (bump `genha_format::VERSION` only for breaking changes, and keep reading old ones).
 2. Behaviour: a command in `crates/engine/src/cmd/<area>.rs` with a params doc and tests.
 3. Rendering/export: `crates/render`, `crates/svg`, `crates/pdf`.
 4. UI: a panel or button in `crates/ui-egui` that calls the command (`app.run(id, params)`).

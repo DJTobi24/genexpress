@@ -1,10 +1,10 @@
 //! A small builder that keeps template code short: every element gets a fresh id and a name.
 
-use genexpress_color::Color;
-use genexpress_doc::{
+use genha_color::Color;
+use genha_doc::{
     BrandKit, Document, Element, ElementKind, Fill, GroupEl, NodeId, Page, ShapeEl, ShapeKind, StrokeStyle, TextAlign, TextEffect, TextEl, TextStyle,
 };
-use genexpress_geom::Frame;
+use genha_geom::Frame;
 
 /// The four role colours and two fonts a template is designed with; a brand kit replaces them.
 #[derive(Clone, Debug, PartialEq)]

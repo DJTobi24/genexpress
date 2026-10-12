@@ -938,31 +938,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "genexpress"
+name = "genha"
 version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
  "env_logger",
- "genexpress-engine",
- "genexpress-text",
- "genexpress-ui-egui",
+ "genha-engine",
+ "genha-text",
+ "genha-ui-egui",
  "log",
 ]
 
 [[package]]
-name = "genexpress-cli"
+name = "genha-cli"
 version = "0.1.0"
 dependencies = [
- "genexpress-engine",
- "genexpress-mcp",
- "genexpress-render",
- "genexpress-text",
+ "genha-engine",
+ "genha-mcp",
+ "genha-render",
+ "genha-text",
  "serde_json",
 ]
 
 [[package]]
-name = "genexpress-color"
+name = "genha-color"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -970,45 +970,45 @@ dependencies = [
 ]
 
 [[package]]
-name = "genexpress-doc"
+name = "genha-doc"
 version = "0.1.0"
 dependencies = [
  "base64",
- "genexpress-color",
- "genexpress-geom",
+ "genha-color",
+ "genha-geom",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
 ]
 
 [[package]]
-name = "genexpress-effects"
+name = "genha-effects"
 version = "0.1.0"
 dependencies = [
- "genexpress-color",
- "genexpress-doc",
- "genexpress-geom",
+ "genha-color",
+ "genha-doc",
+ "genha-geom",
  "image",
  "thiserror 2.0.21",
 ]
 
 [[package]]
-name = "genexpress-engine"
+name = "genha-engine"
 version = "0.1.0"
 dependencies = [
  "base64",
- "genexpress-color",
- "genexpress-doc",
- "genexpress-effects",
- "genexpress-format",
- "genexpress-geom",
- "genexpress-layout",
- "genexpress-pdf",
- "genexpress-render",
- "genexpress-svg",
- "genexpress-templates",
- "genexpress-text",
- "genexpress-tools",
+ "genha-color",
+ "genha-doc",
+ "genha-effects",
+ "genha-format",
+ "genha-geom",
+ "genha-layout",
+ "genha-pdf",
+ "genha-render",
+ "genha-svg",
+ "genha-templates",
+ "genha-text",
+ "genha-tools",
  "image",
  "log",
  "proptest",
@@ -1018,11 +1018,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "genexpress-format"
+name = "genha-format"
 version = "0.1.0"
 dependencies = [
  "flate2",
- "genexpress-doc",
+ "genha-doc",
  "proptest",
  "serde",
  "serde_json",
@@ -1030,7 +1030,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "genexpress-geom"
+name = "genha-geom"
 version = "0.1.0"
 dependencies = [
  "kurbo",
@@ -1039,47 +1039,47 @@ dependencies = [
 ]
 
 [[package]]
-name = "genexpress-layout"
+name = "genha-layout"
 version = "0.1.0"
 dependencies = [
- "genexpress-color",
- "genexpress-doc",
- "genexpress-geom",
+ "genha-color",
+ "genha-doc",
+ "genha-geom",
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "genexpress-mcp"
+name = "genha-mcp"
 version = "0.1.0"
 dependencies = [
  "base64",
- "genexpress-doc",
- "genexpress-engine",
+ "genha-doc",
+ "genha-engine",
  "log",
  "serde_json",
 ]
 
 [[package]]
-name = "genexpress-pdf"
+name = "genha-pdf"
 version = "0.1.0"
 dependencies = [
- "genexpress-doc",
- "genexpress-render",
- "genexpress-text",
+ "genha-doc",
+ "genha-render",
+ "genha-text",
  "image",
  "thiserror 2.0.21",
 ]
 
 [[package]]
-name = "genexpress-render"
+name = "genha-render"
 version = "0.1.0"
 dependencies = [
- "genexpress-color",
- "genexpress-doc",
- "genexpress-effects",
- "genexpress-geom",
- "genexpress-text",
+ "genha-color",
+ "genha-doc",
+ "genha-effects",
+ "genha-geom",
+ "genha-text",
  "image",
  "kurbo",
  "thiserror 2.0.21",
@@ -1088,28 +1088,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "genexpress-svg"
+name = "genha-svg"
 version = "0.1.0"
 dependencies = [
  "base64",
- "genexpress-color",
- "genexpress-doc",
- "genexpress-effects",
- "genexpress-geom",
- "genexpress-render",
- "genexpress-text",
+ "genha-color",
+ "genha-doc",
+ "genha-effects",
+ "genha-geom",
+ "genha-render",
+ "genha-text",
  "image",
  "kurbo",
  "thiserror 2.0.21",
 ]
 
 [[package]]
-name = "genexpress-templates"
+name = "genha-templates"
 version = "0.1.0"
 dependencies = [
- "genexpress-color",
- "genexpress-doc",
- "genexpress-geom",
+ "genha-color",
+ "genha-doc",
+ "genha-geom",
  "kurbo",
  "qrcode",
  "serde_json",
@@ -1117,42 +1117,42 @@ dependencies = [
 ]
 
 [[package]]
-name = "genexpress-text"
+name = "genha-text"
 version = "0.1.0"
 dependencies = [
- "genexpress-doc",
- "genexpress-geom",
+ "genha-doc",
+ "genha-geom",
  "kurbo",
  "skrifa",
  "thiserror 2.0.21",
 ]
 
 [[package]]
-name = "genexpress-tools"
+name = "genha-tools"
 version = "0.1.0"
 dependencies = [
- "genexpress-doc",
- "genexpress-geom",
+ "genha-doc",
+ "genha-geom",
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "genexpress-ui-egui"
+name = "genha-ui-egui"
 version = "0.1.0"
 dependencies = [
  "base64",
  "egui",
- "genexpress-color",
- "genexpress-doc",
- "genexpress-effects",
- "genexpress-engine",
- "genexpress-geom",
- "genexpress-layout",
- "genexpress-render",
- "genexpress-templates",
- "genexpress-text",
- "genexpress-tools",
+ "genha-color",
+ "genha-doc",
+ "genha-effects",
+ "genha-engine",
+ "genha-geom",
+ "genha-layout",
+ "genha-render",
+ "genha-templates",
+ "genha-text",
+ "genha-tools",
  "log",
  "rfd",
  "serde_json",

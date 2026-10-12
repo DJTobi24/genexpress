@@ -1,7 +1,7 @@
 //! Smart guides: snapping a moving element to the page and to other elements.
 
-use genexpress_doc::{ElementKind, NodeId, Page};
-use genexpress_geom::{Frame, Rect};
+use genha_doc::{ElementKind, NodeId, Page};
+use genha_geom::{Frame, Rect};
 
 /// Positions an element may snap to: vertical guide lines (`xs`) and horizontal ones (`ys`),
 /// sorted and without duplicates.
@@ -14,7 +14,7 @@ pub struct SnapGuides {
 /// Most elements considered for guides (keeps dragging fast on crowded pages).
 const MAX_GUIDE_ELEMENTS: usize = 2000;
 
-fn contains_any(el: &genexpress_doc::Element, exclude: &[NodeId]) -> bool {
+fn contains_any(el: &genha_doc::Element, exclude: &[NodeId]) -> bool {
     if exclude.contains(&el.id) {
         return true;
     }
@@ -50,7 +50,7 @@ pub fn snap_guides(page: &Page, exclude: &[NodeId]) -> SnapGuides {
 fn best(edges: [f64; 3], guides: &[f64], threshold: f64) -> Option<(f64, f64)> {
     let mut found: Option<(f64, f64)> = None;
     for e in edges {
-        let (_, hit) = genexpress_geom::snap(e, guides, threshold);
+        let (_, hit) = genha_geom::snap(e, guides, threshold);
         if let Some(g) = hit
             && found.is_none_or(|(d, _)| (g - e).abs() < d.abs())
         {
@@ -84,8 +84,8 @@ pub fn snap_frame(frame: Frame, guides: &SnapGuides, threshold: f64) -> (Frame, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use genexpress_color::Color;
-    use genexpress_doc::{Element, Fill, ShapeEl, ShapeKind};
+    use genha_color::Color;
+    use genha_doc::{Element, Fill, ShapeEl, ShapeKind};
 
     fn page() -> Page {
         let mut p = Page::new(NodeId(1), "P", 1000.0, 800.0);

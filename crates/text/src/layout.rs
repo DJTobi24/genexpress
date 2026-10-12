@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use genexpress_doc::{TextAlign, TextStyle};
+use genha_doc::{TextAlign, TextStyle};
 use kurbo::{BezPath, Rect, Shape};
 use skrifa::charmap::Charmap;
 use skrifa::instance::{LocationRef, Size};

@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 use crate::App;
 use crate::theme::{Tokens, from_egui, to_egui};
-use genexpress_doc::{Element, ElementKind, Fill, Page, ShapeKind, TextAlign, TextEffect};
+use genha_doc::{Element, ElementKind, Fill, Page, ShapeKind, TextAlign, TextEffect};
 
 /// Commands to run after drawing (the panel reads a snapshot, then acts).
 #[derive(Default)]
@@ -20,7 +20,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     let Some(d) = app.session.active() else { return };
     let selected: Vec<Element> = d.selected_elements().into_iter().cloned().collect();
     let page = d.doc.pages.get(d.page).cloned();
-    let brand: Vec<genexpress_color::Color> = d.doc.brand.colors.iter().map(|c| c.color).collect();
+    let brand: Vec<genha_color::Color> = d.doc.brand.colors.iter().map(|c| c.color).collect();
     let families = app.font_families().to_vec();
     let mut acts = Actions::default();
     match selected.as_slice() {
@@ -49,7 +49,7 @@ fn section(ui: &mut egui::Ui, t: &Tokens, text: &str) {
 }
 
 /// A colour button plus brand swatches; returns the new colour when changed.
-fn color_row(ui: &mut egui::Ui, color: genexpress_color::Color, brand: &[genexpress_color::Color]) -> Option<genexpress_color::Color> {
+fn color_row(ui: &mut egui::Ui, color: genha_color::Color, brand: &[genha_color::Color]) -> Option<genha_color::Color> {
     let mut out = None;
     ui.horizontal_wrapped(|ui| {
         let mut c = to_egui(color);
@@ -68,7 +68,7 @@ fn color_row(ui: &mut egui::Ui, color: genexpress_color::Color, brand: &[genexpr
     out
 }
 
-fn page_props(ui: &mut egui::Ui, t: &Tokens, p: &Page, brand: &[genexpress_color::Color], acts: &mut Actions) {
+fn page_props(ui: &mut egui::Ui, t: &Tokens, p: &Page, brand: &[genha_color::Color], acts: &mut Actions) {
     title(ui, "Page");
     let mut name = p.name.clone();
     if ui.text_edit_singleline(&mut name).changed() {
@@ -85,13 +85,13 @@ fn page_props(ui: &mut egui::Ui, t: &Tokens, p: &Page, brand: &[genexpress_color
     });
     ui.label(egui::RichText::new("Use ⇲ Resize in the top bar to re-layout for another size.").size(11.0).color(t.text_dim));
     section(ui, t, "BACKGROUND");
-    let current = p.background.primary_color().unwrap_or(genexpress_color::Color::WHITE);
+    let current = p.background.primary_color().unwrap_or(genha_color::Color::WHITE);
     if let Some(c) = color_row(ui, current, brand) {
         acts.run("page.setBackground", json!({"color": c.to_hex(), "merge_key": format!("pagebg:{}", p.id.0)}));
     }
     ui.horizontal(|ui| {
         if ui.button("Gradient").clicked() {
-            let second = brand.get(1).copied().unwrap_or(genexpress_color::Color::rgb(0xff, 0x6b, 0x5b));
+            let second = brand.get(1).copied().unwrap_or(genha_color::Color::rgb(0xff, 0x6b, 0x5b));
             acts.run("page.setBackground", json!({"fill": Fill::linear(90.0, current, second)}));
         }
         if ui.button("Transparent").clicked() {
@@ -114,7 +114,7 @@ fn page_props(ui: &mut egui::Ui, t: &Tokens, p: &Page, brand: &[genexpress_color
     });
 }
 
-fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genexpress_color::Color], families: &[String], acts: &mut Actions) {
+fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genha_color::Color], families: &[String], acts: &mut Actions) {
     let id = el.id.0;
     let key = |what: &str| format!("{what}:{id}");
     title(ui, &el.display_name());
@@ -166,12 +166,12 @@ fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genexpres
             ui.horizontal_wrapped(|ui| {
                 let effects: [(&str, TextEffect); 4] = [
                     ("None", TextEffect::None),
-                    ("Shadow", TextEffect::Shadow { color: genexpress_color::Color::rgba(0, 0, 0, 110), offset_x: 4.0, offset_y: 4.0, blur: 6.0 }),
+                    ("Shadow", TextEffect::Shadow { color: genha_color::Color::rgba(0, 0, 0, 110), offset_x: 4.0, offset_y: 4.0, blur: 6.0 }),
                     ("Outline", TextEffect::Outline { color: st.color.readable_text(), width: (st.font_size / 18.0).max(1.0) }),
                     (
                         "Highlight",
                         TextEffect::Highlight {
-                            color: brand.get(1).copied().unwrap_or(genexpress_color::Color::rgb(255, 230, 0)),
+                            color: brand.get(1).copied().unwrap_or(genha_color::Color::rgb(255, 230, 0)),
                             padding: st.font_size * 0.2,
                             corner_radius: st.font_size * 0.15,
                         },
@@ -199,13 +199,13 @@ fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genexpres
         }
         ElementKind::Shape(sh) => {
             section(ui, t, "FILL");
-            let fill = sh.fill.primary_color().unwrap_or(genexpress_color::Color::TRANSPARENT);
+            let fill = sh.fill.primary_color().unwrap_or(genha_color::Color::TRANSPARENT);
             if let Some(c) = color_row(ui, fill, brand) {
                 acts.run("style.fill", json!({"color": c.to_hex(), "merge_key": key("fill")}));
             }
             ui.horizontal(|ui| {
                 if ui.button("Gradient").clicked() {
-                    let second = brand.iter().find(|b| **b != fill).copied().unwrap_or(genexpress_color::Color::WHITE);
+                    let second = brand.iter().find(|b| **b != fill).copied().unwrap_or(genha_color::Color::WHITE);
                     acts.run("style.fill", json!({"fill": Fill::linear(45.0, fill, second)}));
                 }
                 if ui.button("No fill").clicked() {
@@ -264,7 +264,7 @@ fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genexpres
             section(ui, t, "FILTERS");
             let current = img.filter.clone();
             ui.horizontal_wrapped(|ui| {
-                for f in genexpress_effects::filter_presets() {
+                for f in genha_effects::filter_presets() {
                     if ui.add(egui::Button::new(f.label).selected(current.as_deref() == Some(f.id))).clicked() {
                         acts.run("image.filter", json!({"preset": f.id, "intensity": 100}));
                     }

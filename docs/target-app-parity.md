@@ -4,7 +4,7 @@
 
 The feature inventory of the target app, compiled from **public sources only** (help pages, product
 and pricing pages, press releases, developer docs; URLs per area below), in our own words, feature
-names only. Next to each feature: what GenExpress does today. Scores are self-assessed and err low.
+names only. Next to each feature: what GenHa does today. Scores are self-assessed and err low.
 
 Legend: ✅ works (basic form) · 🟡 partial · ⬜ not yet (milestone in [roadmap.md](roadmap.md)) · ➖ out of scope / replaced by an open alternative
 
@@ -28,7 +28,7 @@ Legend: ✅ works (basic form) · 🟡 partial · ⬜ not yet (milestone in [roa
 
 Sources: https://helpx.adobe.com/express/web/organize-your-designs/arrange-layers-and-pages/change-page-size.html · https://helpx.adobe.com/express/web/arrange-layers-and-pages/version-history.html · https://www.adobe.com/express/learn/blog/collaboration-share
 
-| Feature | Status | GenExpress |
+| Feature | Status | GenHa |
 |---|---|---|
 | Multi-page designs, pages of different sizes | ✅ | `page.add/duplicate/delete/move/goto`, per-page size |
 | Resize page (presets or custom) | ✅ | `page.setSize`, presets (`presets.list`) |
@@ -47,7 +47,7 @@ Sources: https://helpx.adobe.com/express/web/organize-your-designs/arrange-layer
 
 Sources: https://www.adobe.com/express/feature · https://www.adobe.com/express/pricing
 
-| Feature | Status | GenExpress |
+| Feature | Status | GenHa |
 |---|---|---|
 | Templates by category (social, marketing, print, documents) | 🟡 | 17 original templates generated in code (`template.list/use`) |
 | Template search / filters | 🟡 | category + tags |
@@ -61,7 +61,7 @@ Sources: https://www.adobe.com/express/feature · https://www.adobe.com/express/
 
 Sources: https://www.adobe.com/express/feature/design/text-effects/curved · https://helpx.adobe.com/express/web/create-and-customize-text/translate-technical-requirements.html
 
-| Feature | Status | GenExpress |
+| Feature | Status | GenHa |
 |---|---|---|
 | Add text, font, size, colour, alignment, spacing, line height | ✅ | `text.add`, `text.setStyle` |
 | Text presets (heading/subheading/body…) | ✅ | 11 presets, `text.addPreset` |
@@ -76,7 +76,7 @@ Sources: https://www.adobe.com/express/feature/design/text-effects/curved · htt
 
 Sources: https://helpx.adobe.com/express/web/image-creation-and-editing/generate-and-edit-with-ai/resize-with-expand.html · https://news.adobe.com/news/2025/10/adobe-max-2025-express-ai-assistant
 
-| Feature | Status | GenExpress |
+| Feature | Status | GenHa |
 |---|---|---|
 | Place pictures (PNG, JPEG, WebP, GIF, BMP) | ✅ | `image.place`, drag & drop |
 | HEIC import | ⬜ | M4 |
@@ -84,7 +84,7 @@ Sources: https://helpx.adobe.com/express/web/image-creation-and-editing/generate
 | Adjustments (brightness, contrast, saturation, warmth, sharpen, blur) | ✅ | `image.adjust` |
 | Filters with intensity | ✅ | `image.filter` (14 original presets) |
 | Remove / change background | 🟡 | classic colour-based remover (no ML yet); ML model: M8 |
-| Quick actions: resize, crop, convert JPG/PNG/WebP | ✅ | `genexpress-cli quick …` |
+| Quick actions: resize, crop, convert JPG/PNG/WebP | ✅ | `genha-cli quick …` |
 | Convert to SVG (vectorize) | ⬜ | M4 |
 | Generative fill, expand, text-to-image | ⬜ | M8 |
 | AI assistant (chat editing) | 🟡 | any MCP-capable assistant can drive every command today |
@@ -93,7 +93,7 @@ Sources: https://helpx.adobe.com/express/web/image-creation-and-editing/generate
 
 Sources: https://helpx.adobe.com/express/create-and-edit-videos/create-videos/add-scenes.html · https://news.adobe.com/news/2025/04/adobe-introduces-new-ai-powered-video-tools-adobe-express
 
-| Feature | Status | GenExpress |
+| Feature | Status | GenHa |
 |---|---|---|
 | Scenes/timeline, trim, split, speed | ⬜ | M6 |
 | Animations (in/out/loop) | 🟡 | stored in the model (`Element::animation`); playback/export M6 |
@@ -105,7 +105,7 @@ Sources: https://helpx.adobe.com/express/create-and-edit-videos/create-videos/ad
 
 Sources: https://helpx.adobe.com/express/using/charts.html · https://helpx.adobe.com/express/using/hosting-projects.html
 
-| Feature | Status | GenExpress |
+| Feature | Status | GenHa |
 |---|---|---|
 | Multi-page PDF export | ✅ | `export.pdf` (raster pages); vector PDF M4 |
 | Presentations (pages + notes, present mode) | 🟡 | pages + notes; present mode M5 |
@@ -119,7 +119,7 @@ Sources: https://helpx.adobe.com/express/using/charts.html · https://helpx.adob
 
 Sources: https://www.adobe.com/express/learn/blog/brand-kits · https://helpx.adobe.com/express/using/template-controls.html
 
-| Feature | Status | GenExpress |
+| Feature | Status | GenHa |
 |---|---|---|
 | Brand colours, fonts, logos | ✅ | `brand.*` commands, Brand panel |
 | Apply brand to a design | ✅ | `brand.apply`, templates take brand colours |
@@ -131,7 +131,7 @@ Sources: https://www.adobe.com/express/learn/blog/brand-kits · https://helpx.ad
 
 Source: https://www.adobe.com/express/learn/blog/content-scheduler
 
-| Feature | Status | GenExpress |
+| Feature | Status | GenHa |
 |---|---|---|
 | Platform size presets | ✅ | `presets.list` |
 | Content scheduler, publishing, analytics | ⬜ | M10, optional add-on (platform APIs need user tokens) |
@@ -140,7 +140,7 @@ Source: https://www.adobe.com/express/learn/blog/content-scheduler
 
 Sources: https://www.adobe.com/express/feature · https://helpx.adobe.com/express/mobile/publish-and-share/print-and-order-designs.html
 
-| Feature | Status | GenExpress |
+| Feature | Status | GenHa |
 |---|---|---|
 | PNG (transparent), JPEG | ✅ | `export.png/jpeg`, scale option |
 | SVG | ✅ | `export.svg` |
@@ -153,11 +153,11 @@ Sources: https://www.adobe.com/express/feature · https://helpx.adobe.com/expres
 
 Sources: https://developer.adobe.com/express/add-ons/docs/references/document-sandbox/document-apis · https://developer.adobe.com/express/embed-sdk/docs/v4/
 
-| Feature | Status | GenExpress |
+| Feature | Status | GenHa |
 |---|---|---|
 | Add-ons / plugins | ⬜ | M9: sandboxed WebAssembly plug-ins calling the command registry |
 | Document API | ✅ | the command registry (JSON) via control channel, CLI and MCP |
-| MCP / chat assistants | ✅ | `genexpress-cli mcp` |
+| MCP / chat assistants | ✅ | `genha-cli mcp` |
 | Embed SDK | ⬜ | M9 (web build) |
 | Desktop apps | ✅ | native Linux/macOS/Windows (egui) |
 | Web app | ⬜ | M2 (WASM build of the same UI) |
@@ -168,7 +168,7 @@ Sources: https://developer.adobe.com/express/add-ons/docs/references/document-sa
 
 Source: https://www.adobe.com/accessibility/compliance/adobe-express-android-2025-acr.html
 
-| Feature | Status | GenExpress |
+| Feature | Status | GenHa |
 |---|---|---|
 | Keyboard shortcuts | ✅ | per command |
 | Screen reader support | ⬜ | M5 (egui AccessKit) |

@@ -1,15 +1,15 @@
 [package]
-name = "genexpress-pdf"
-description = "GenExpress PDF export: pages rasterized and embedded as JPEG images"
+name = "genha-pdf"
+description = "GenHa PDF export: pages rasterized and embedded as JPEG images"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-genexpress-doc = { workspace = true }
-genexpress-text = { workspace = true }
-genexpress-render = { workspace = true }
+genha-doc = { workspace = true }
+genha-text = { workspace = true }
+genha-render = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

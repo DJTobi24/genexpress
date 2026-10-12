@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 use super::{bad, cmd, color_req, has_doc, ok, str_param, str_req, usize_param};
 use crate::{CommandSpec, Result, Session};
-use genexpress_doc::{BrandColor, ElementKind, Fill};
+use genha_doc::{BrandColor, ElementKind, Fill};
 
 pub(crate) fn specs() -> Vec<CommandSpec> {
     vec![
@@ -117,7 +117,7 @@ fn apply(s: &mut Session, p: &Value) -> Result<Value> {
             });
             // A plain white background takes the brand's light colour.
             if let (Fill::Solid { color }, Some(light)) = (&mut page.background, brand.colors.get(3))
-                && *color == genexpress_doc::Color::WHITE
+                && *color == genha_doc::Color::WHITE
             {
                 *color = light.color;
             }

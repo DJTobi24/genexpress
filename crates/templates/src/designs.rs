@@ -4,8 +4,8 @@
 //! (heading, body), see [`Theme`]; tints are mixed from those, so applying a brand kit re-colours
 //! the whole design consistently.
 
-use genexpress_color::Color;
-use genexpress_doc::{BrandKit, Document, Fill, ShapeKind, TextEffect, preset};
+use genha_color::Color;
+use genha_doc::{BrandKit, Document, Fill, ShapeKind, TextEffect, preset};
 
 use crate::build::{B, Sty, Theme};
 use crate::shapes::library_shape;
@@ -16,7 +16,7 @@ pub struct TemplateInfo {
     pub id: &'static str,
     pub name: &'static str,
     pub category: &'static str,
-    /// The page-size preset it is designed for (see `genexpress_doc::preset`).
+    /// The page-size preset it is designed for (see `genha_doc::preset`).
     pub preset: &'static str,
     /// Page size in pixels (the preset's, turned to landscape for landscape designs).
     pub width: f64,
@@ -283,7 +283,7 @@ fn event_night(b: &mut B) {
         900.0,
         900.0,
         Fill::Radial {
-            stops: vec![genexpress_doc::GradientStop { offset: 0.0, color: t.primary }, genexpress_doc::GradientStop { offset: 1.0, color: t.dark }],
+            stops: vec![genha_doc::GradientStop { offset: 0.0, color: t.primary }, genha_doc::GradientStop { offset: 1.0, color: t.dark }],
         },
     );
     b.rect("Accent bar", 80.0, 120.0, 12.0, 300.0, 6.0, solid(t.secondary));
@@ -309,9 +309,9 @@ fn story_promo(b: &mut B) {
     b.ellipse("Sun", 220.0, 180.0, 640.0, 640.0, lin(90.0, t.secondary, t.primary));
     b.ellipse("Sun ring", 300.0, 260.0, 480.0, 480.0, Fill::None);
     if let Some(e) = b.last()
-        && let genexpress_doc::ElementKind::Shape(s) = &mut e.kind
+        && let genha_doc::ElementKind::Shape(s) = &mut e.kind
     {
-        s.stroke = Some(genexpress_doc::StrokeStyle { color: t.light.with_alpha(160), width: 6.0, dash: vec![18.0, 14.0] });
+        s.stroke = Some(genha_doc::StrokeStyle { color: t.light.with_alpha(160), width: 6.0, dash: vec![18.0, 14.0] });
     }
     b.ctext("Kicker", 900.0, 900.0, "New collection", t.b(44.0, t.dark).bold().upper().ls(250.0));
     b.ctext("Headline", 970.0, 920.0, "Fresh Drops\nEvery Friday", t.h(110.0, t.dark).lh(1.05));
@@ -446,7 +446,7 @@ fn business_card(b: &mut B) {
     let h = b.h;
     b.bg(solid(t.light));
     b.rect("Side band", 0.0, 0.0, 96.0, h, 0.0, solid(t.primary));
-    let disc = b.el("Logo disc", genexpress_geom::Frame::new(24.0, 24.0, 48.0, 48.0), crate::build::shape_el(ShapeKind::Ellipse, solid(t.secondary)));
+    let disc = b.el("Logo disc", genha_geom::Frame::new(24.0, 24.0, 48.0, 48.0), crate::build::shape_el(ShapeKind::Ellipse, solid(t.secondary)));
     let letter = b.text_el("Logo letter", 24.0, 31.0, 48.0, "A", t.h(28.0, t.primary).lh(1.0));
     b.group("Logo", vec![disc, letter]);
     b.text("Name", 116.0, 40.0, 190.0, "Alex Morgan", t.h(20.0, t.dark).left());

@@ -1,6 +1,6 @@
 //! Curated colour palettes (original combinations).
 
-use genexpress_color::Color;
+use genha_color::Color;
 
 use crate::build::hex;
 

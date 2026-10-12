@@ -1,5 +1,5 @@
 use super::*;
-use genexpress_doc::{Color, ElementKind, Fill, ShapeEl, ShapeKind};
+use genha_doc::{Color, ElementKind, Fill, ShapeEl, ShapeKind};
 
 fn doc_with_rect() -> (Document, NodeId) {
     let mut doc = Document::new("t", 1000.0, 1000.0);

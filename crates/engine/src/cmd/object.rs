@@ -4,8 +4,8 @@ use serde_json::{Value, json};
 
 use super::{bad, cmd, f64_or, has_multi, has_selection, merge, ok, str_param, targets};
 use crate::{CommandSpec, EngineError, Result, Session};
-use genexpress_doc::{Element, ElementKind, Frame, GroupEl, NodeId};
-use genexpress_geom::{Point, Rect};
+use genha_doc::{Element, ElementKind, Frame, GroupEl, NodeId};
+use genha_geom::{Point, Rect};
 
 pub(crate) fn specs() -> Vec<CommandSpec> {
     vec![
@@ -55,13 +55,13 @@ pub fn set_frame_moving_children(el: &mut Element, new: Frame) {
         let sy = if old.height > 0.0 { new.height / old.height } else { 1.0 };
         let dr = new.rotation - old.rotation;
         let (oc, nc) = (old.center(), new.center());
-        let rot = genexpress_geom::Affine::rotate_about(dr.to_radians(), nc);
+        let rot = genha_geom::Affine::rotate_about(dr.to_radians(), nc);
         for c in &mut g.children {
             let cc = c.frame.center();
             // Position relative to the old centre, scaled in the group's unrotated space.
-            let un = genexpress_geom::Affine::rotate_about(-old.rotation.to_radians(), oc) * cc;
+            let un = genha_geom::Affine::rotate_about(-old.rotation.to_radians(), oc) * cc;
             let scaled = Point::new(nc.x + (un.x - oc.x) * sx, nc.y + (un.y - oc.y) * sy);
-            let back = genexpress_geom::Affine::rotate_about(old.rotation.to_radians(), nc) * scaled;
+            let back = genha_geom::Affine::rotate_about(old.rotation.to_radians(), nc) * scaled;
             let p = rot * back;
             let (w, h) = (c.frame.width * sx, c.frame.height * sy);
             let f = Frame { x: p.x - w / 2.0, y: p.y - h / 2.0, width: w, height: h, rotation: c.frame.rotation + dr };

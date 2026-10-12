@@ -1,7 +1,7 @@
 use serde_json::json;
 
 use super::*;
-use genexpress_doc::{ElementKind, Fill};
+use genha_doc::{ElementKind, Fill};
 
 fn session() -> Session {
     let mut s = Session::new();
@@ -20,7 +20,7 @@ fn new_add_undo_redo() {
     let rid = NodeId(id(&r));
     assert_eq!(s.doc().unwrap().selection, vec![rid]);
     let el = s.doc().unwrap().doc.element(rid).unwrap().clone();
-    assert_eq!(el.frame, genexpress_geom::Frame::new(10.0, 20.0, 100.0, 50.0));
+    assert_eq!(el.frame, genha_geom::Frame::new(10.0, 20.0, 100.0, 50.0));
     s.execute("edit.undo", &json!({})).unwrap();
     assert!(s.doc().unwrap().doc.find(rid).is_none());
     s.execute("edit.redo", &json!({})).unwrap();
@@ -70,7 +70,7 @@ fn group_ungroup_and_arrange() {
     let doc = &s.doc().unwrap().doc;
     assert_eq!(doc.pages[0].elements.len(), 2);
     assert_eq!(doc.pages[0].elements[0].id.0, g);
-    assert_eq!(doc.pages[0].elements[0].frame, genexpress_geom::Frame::new(0.0, 0.0, 110.0, 110.0));
+    assert_eq!(doc.pages[0].elements[0].frame, genha_geom::Frame::new(0.0, 0.0, 110.0, 110.0));
     // Moving the group moves its children.
     s.execute("object.move", &json!({"dx": 5, "dy": 0})).unwrap();
     assert_eq!(s.doc().unwrap().doc.element(NodeId(b)).unwrap().frame.x, 105.0);
@@ -126,7 +126,7 @@ fn pages() {
     s.execute("page.goto", &json!({"index": 1})).unwrap();
     assert!(s.execute("page.goto", &json!({"index": 9})).is_err());
     let d = s.doc().unwrap();
-    assert_eq!(d.doc.pages[0].background, Fill::solid(genexpress_doc::Color::BLACK));
+    assert_eq!(d.doc.pages[0].background, Fill::solid(genha_doc::Color::BLACK));
 }
 
 #[test]
@@ -180,12 +180,12 @@ fn pictures() {
 fn save_and_open_round_trip() {
     let mut s = session();
     s.execute("text.add", &json!({"text": "Saved"})).unwrap();
-    let dir = std::env::temp_dir().join(format!("genexpress-engine-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("genha-engine-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("t");
     let r = s.execute("file.saveAs", &json!({"path": path.to_str().unwrap()})).unwrap();
     let saved = r["path"].as_str().unwrap().to_string();
-    assert!(saved.ends_with("t.genexpress"));
+    assert!(saved.ends_with("t.genha"));
     assert!(!s.doc().unwrap().dirty);
     s.execute("file.open", &json!({"path": saved})).unwrap();
     assert_eq!(s.docs.len(), 2);
@@ -195,16 +195,16 @@ fn save_and_open_round_trip() {
 
 #[test]
 fn tools_reduce_to_commands() {
-    use genexpress_tools::{PointerEvent, PointerKind, ToolId};
+    use genha_tools::{PointerEvent, PointerKind, ToolId};
     let mut s = session();
     s.tools.set_tool(ToolId::Rect);
-    let ev = |kind, x, y| PointerEvent { kind, pos: genexpress_geom::Point::new(x, y), shift: false, alt: false };
+    let ev = |kind, x, y| PointerEvent { kind, pos: genha_geom::Point::new(x, y), shift: false, alt: false };
     s.tool_event(ev(PointerKind::Down, 100.0, 100.0), 1.0, (&[], &[])).unwrap();
     s.tool_event(ev(PointerKind::Move, 200.0, 150.0), 1.0, (&[], &[])).unwrap();
     assert!(s.preview.as_ref().unwrap().creating.is_some());
     s.tool_event(ev(PointerKind::Up, 200.0, 150.0), 1.0, (&[], &[])).unwrap();
     let el = &s.doc().unwrap().doc.pages[0].elements[0];
-    assert_eq!(el.frame, genexpress_geom::Frame::new(100.0, 100.0, 100.0, 50.0));
+    assert_eq!(el.frame, genha_geom::Frame::new(100.0, 100.0, 100.0, 50.0));
     // Move it with the select tool; the preview shows in display_document.
     s.tools.set_tool(ToolId::Select);
     s.tool_event(ev(PointerKind::Down, 150.0, 120.0), 1.0, (&[], &[])).unwrap();
@@ -263,7 +263,7 @@ fn exports_write_files() {
     let mut s = session();
     s.execute("shape.add", &json!({"fill": "#ff0000"})).unwrap();
     s.execute("page.add", &json!({})).unwrap();
-    let dir = std::env::temp_dir().join(format!("genexpress-export-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("genha-export-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = |n: &str| dir.join(n).display().to_string();
     s.execute("export.png", &json!({"path": path("a.png"), "page": 0, "scale": 0.25})).unwrap();
@@ -347,7 +347,7 @@ fn picture_features() {
     let ElementKind::Image(im) = &d.doc.element(NodeId(pic)).unwrap().kind else { panic!() };
     let cut = d.doc.asset(im.asset).unwrap();
     assert!(cut.name.ends_with("-cutout.png"));
-    let decoded = genexpress_effects::decode(&cut.data).unwrap();
+    let decoded = genha_effects::decode(&cut.data).unwrap();
     assert_eq!(decoded.get_pixel(2, 2)[3], 0, "the white backdrop is gone");
     assert_eq!(decoded.get_pixel(30, 30)[3], 255, "the subject stays");
     let asset = im.asset.0;
@@ -356,10 +356,10 @@ fn picture_features() {
     // Collage of two pictures.
     let p2 = id(&s.execute("image.place", &json!({"data": data})).unwrap());
     s.execute("select.set", &json!({"ids": [pic, p2]})).unwrap();
-    let layout = genexpress_layout::collage_layouts(2)[0].id;
+    let layout = genha_layout::collage_layouts(2)[0].id;
     s.execute("layout.collage", &json!({"layout": layout})).unwrap();
     // Quick action file in, file out.
-    let dir = std::env::temp_dir().join(format!("genexpress-quick-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("genha-quick-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("in.png"), &png).unwrap();
     let r = s

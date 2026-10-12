@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use genexpress_render::Raster;
+use genha_render::Raster;
 
 #[derive(Default)]
 pub struct Thumbs {

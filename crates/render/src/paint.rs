@@ -1,8 +1,8 @@
 //! Shape outlines, fills and strokes.
 
-use genexpress_color::Color;
-use genexpress_doc::{Fill, GradientStop, ShapeKind, StrokeStyle};
-use genexpress_geom::{polygon, rounded_rect, star};
+use genha_color::Color;
+use genha_doc::{Fill, GradientStop, ShapeKind, StrokeStyle};
+use genha_geom::{polygon, rounded_rect, star};
 use kurbo::{Affine, BezPath, Point, Rect, Shape, Stroke, Vec2};
 use vello_cpu::RenderContext;
 use vello_cpu::peniko::{self, ColorStop};

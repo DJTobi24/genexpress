@@ -1,7 +1,7 @@
 //! Elements: the things on a page.
 
-use genexpress_color::Color;
-use genexpress_geom::{Fit, Frame};
+use genha_color::Color;
+use genha_geom::{Fit, Frame};
 use serde::{Deserialize, Serialize};
 
 use crate::{AssetId, NodeId};

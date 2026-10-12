@@ -5,9 +5,7 @@ use serde_json::{Value, json};
 
 use super::{bad, cmd, color_param, f64_or, has_doc, merge, ok, parse, str_param};
 use crate::{CommandSpec, EngineError, Result, Session};
-use genexpress_doc::{
-    Asset, Bytes, Color, Element, ElementKind, Fill, Frame, ImageEl, ShapeEl, ShapeKind, StrokeStyle, TextEffect, TextEl, TextStyle,
-};
+use genha_doc::{Asset, Bytes, Color, Element, ElementKind, Fill, Frame, ImageEl, ShapeEl, ShapeKind, StrokeStyle, TextEffect, TextEl, TextStyle};
 
 /// Largest picture file accepted.
 pub const MAX_PICTURE_BYTES: usize = 100 << 20;
@@ -125,7 +123,7 @@ pub(crate) fn run_shape_add(s: &mut Session, p: &Value) -> Result<Value> {
         None if is_line => Some(StrokeStyle { color: primary, width: f64_or(p, "stroke_width", 6.0).max(0.0), dash: vec![] }),
         None => None,
     };
-    let mut el = Element::new(genexpress_doc::NodeId(0), frame, ElementKind::Shape(ShapeEl { shape, fill, stroke, shadow: None }));
+    let mut el = Element::new(genha_doc::NodeId(0), frame, ElementKind::Shape(ShapeEl { shape, fill, stroke, shadow: None }));
     if let Some(n) = str_param(p, "name") {
         el.name = n.to_string();
     }
@@ -151,7 +149,7 @@ pub(crate) fn text_height(s: &Session, text: &str, style: &TextStyle, width: f64
     if s.fonts.is_empty() {
         return estimate_text_size(text, style, width).1;
     }
-    genexpress_text::layout(&s.fonts, text, style, width).height.max(style.font_size)
+    genha_text::layout(&s.fonts, text, style, width).height.max(style.font_size)
 }
 
 fn text_add(s: &mut Session, p: &Value) -> Result<Value> {
@@ -190,7 +188,7 @@ fn text_add(s: &mut Session, p: &Value) -> Result<Value> {
     let width = f64_or(p, "width", page.0 * 0.8);
     let h = text_height(s, &text, &style, width);
     let frame = frame_params(p, page, width, h);
-    let el = Element::new(genexpress_doc::NodeId(0), frame, ElementKind::Text(TextEl { text, style, effect }));
+    let el = Element::new(genha_doc::NodeId(0), frame, ElementKind::Text(TextEl { text, style, effect }));
     add_element(s, "Add Text", el)
 }
 
@@ -199,7 +197,7 @@ pub fn asset_from_bytes(name: &str, bytes: &[u8]) -> Result<Asset> {
     if bytes.len() > MAX_PICTURE_BYTES {
         return Err(EngineError::Other(format!("{name} is larger than {} MB", MAX_PICTURE_BYTES >> 20)));
     }
-    let info = genexpress_effects::probe(bytes)?;
+    let info = genha_effects::probe(bytes)?;
     Ok(Asset { name: name.to_string(), mime: info.mime.to_string(), width: info.width, height: info.height, data: Bytes::new(bytes.to_vec()) })
 }
 

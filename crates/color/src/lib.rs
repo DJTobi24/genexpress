@@ -1,4 +1,4 @@
-//! Colour for GenExpress (layer L0).
+//! Colour for GenHa (layer L0).
 //!
 //! [`Color`] is 8-bit sRGB with straight (not premultiplied) alpha and serializes as a hex string
 //! (`"#1e88e5"`, `"#1e88e580"`) so documents and agent messages stay readable. Also: HSL, WCAG

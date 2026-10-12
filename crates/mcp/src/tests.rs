@@ -10,7 +10,7 @@ fn call(s: &mut Server<Headless>, msg: Value) -> Value {
 fn protocol_round_trip() {
     let mut s = Server::new(Headless::default());
     let r = call(&mut s, json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
-    assert_eq!(r["result"]["serverInfo"]["name"], "genexpress");
+    assert_eq!(r["result"]["serverInfo"]["name"], "genha");
     assert!(s.handle_line(r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#).is_none());
     let r = call(&mut s, json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}));
     assert!(r["result"]["tools"].as_array().unwrap().len() >= 5);

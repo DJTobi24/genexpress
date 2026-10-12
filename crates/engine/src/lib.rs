@@ -1,4 +1,4 @@
-//! The GenExpress engine façade (layer L5).
+//! The GenHa engine façade (layer L5).
 //!
 //! Every user-visible action is a command with a stable id (`shape.add`, `object.group`,
 //! `page.resize`…) and JSON parameters. The egui UI, the CLI, the control channel and the MCP
@@ -16,10 +16,10 @@ use std::sync::Arc;
 use serde_json::Value;
 
 pub use cmd::{CommandInfo, CommandSpec, command_specs, find_command};
-pub use genexpress_doc as doc;
-use genexpress_doc::{Document, Element, NodeId};
-pub use genexpress_tools as tools;
-use genexpress_tools::{Invocation, Preview, ToolContext, ToolOutput, ToolState};
+pub use genha_doc as doc;
+use genha_doc::{Document, Element, NodeId};
+pub use genha_tools as tools;
+use genha_tools::{Invocation, Preview, ToolContext, ToolOutput, ToolState};
 
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
@@ -40,23 +40,23 @@ pub enum EngineError {
     Internal { cmd: String, msg: String },
 }
 
-impl From<genexpress_doc::DocError> for EngineError {
-    fn from(e: genexpress_doc::DocError) -> Self {
+impl From<genha_doc::DocError> for EngineError {
+    fn from(e: genha_doc::DocError) -> Self {
         match e {
-            genexpress_doc::DocError::NoNode(id) => EngineError::NoNode(id),
+            genha_doc::DocError::NoNode(id) => EngineError::NoNode(id),
             e => EngineError::Other(e.to_string()),
         }
     }
 }
 
-impl From<genexpress_format::FormatError> for EngineError {
-    fn from(e: genexpress_format::FormatError) -> Self {
+impl From<genha_format::FormatError> for EngineError {
+    fn from(e: genha_format::FormatError) -> Self {
         EngineError::Other(e.to_string())
     }
 }
 
-impl From<genexpress_effects::EffectError> for EngineError {
-    fn from(e: genexpress_effects::EffectError) -> Self {
+impl From<genha_effects::EffectError> for EngineError {
+    fn from(e: genha_effects::EffectError) -> Self {
         EngineError::Other(e.to_string())
     }
 }
@@ -133,7 +133,7 @@ pub struct Session {
     /// `merge_key` of the command running now (from its params).
     merge_key: Option<String>,
     /// Fonts for text layout and exports (shared with the UI).
-    pub fonts: Arc<genexpress_text::FontBook>,
+    pub fonts: Arc<genha_text::FontBook>,
 }
 
 impl Default for Session {
@@ -153,7 +153,7 @@ impl Session {
             preview: None,
             messages: vec![],
             merge_key: None,
-            fonts: Arc::new(genexpress_text::FontBook::new()),
+            fonts: Arc::new(genha_text::FontBook::new()),
         }
     }
 
@@ -166,7 +166,7 @@ impl Session {
     }
 
     /// A session using `fonts` for layout and exports.
-    pub fn with_fonts(fonts: Arc<genexpress_text::FontBook>) -> Self {
+    pub fn with_fonts(fonts: Arc<genha_text::FontBook>) -> Self {
         Session { fonts, ..Session::new() }
     }
 
@@ -283,7 +283,7 @@ impl Session {
 
     /// Feeds a pointer event to the active tool; runs the commands it emits (stopping at the first
     /// error, which is returned) and keeps its preview for the UI.
-    pub fn tool_event(&mut self, ev: genexpress_tools::PointerEvent, zoom: f64, snap: (&[f64], &[f64])) -> Result<ToolOutput> {
+    pub fn tool_event(&mut self, ev: genha_tools::PointerEvent, zoom: f64, snap: (&[f64], &[f64])) -> Result<ToolOutput> {
         let Some(d) = self.active() else { return Ok(ToolOutput::default()) };
         let doc = Arc::clone(&d.doc);
         let selection = d.selection.clone();

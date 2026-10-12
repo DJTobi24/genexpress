@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 use super::{bad, cmd, color_param, f64_or, has_selection, merge, ok, parse, str_param, targets};
 use crate::{CommandSpec, EngineError, Result, Session};
-use genexpress_doc::{Adjustments, CropRect, Element, ElementKind, Fill, Fit, NodeId, Shadow, ShapeKind, StrokeStyle, TextEffect, TextStyle};
+use genha_doc::{Adjustments, CropRect, Element, ElementKind, Fill, Fit, NodeId, Shadow, ShapeKind, StrokeStyle, TextEffect, TextStyle};
 
 /// What Copy Style takes from an object.
 #[derive(Clone, Debug)]
@@ -138,7 +138,7 @@ fn stroke(s: &mut Session, p: &Value) -> Result<Value> {
             *cur = None;
             return;
         }
-        let mut st = cur.clone().unwrap_or(StrokeStyle { color: genexpress_doc::Color::BLACK, width: 4.0, dash: vec![] });
+        let mut st = cur.clone().unwrap_or(StrokeStyle { color: genha_doc::Color::BLACK, width: 4.0, dash: vec![] });
         if let Some(c) = color {
             st.color = c;
         }

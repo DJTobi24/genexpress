@@ -1,6 +1,6 @@
 //! Brand kit: the colours, fonts and logos a project (or a team) designs with.
 
-use genexpress_color::Color;
+use genha_color::Color;
 use serde::{Deserialize, Serialize};
 
 use crate::AssetId;

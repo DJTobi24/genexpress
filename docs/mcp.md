@@ -1,16 +1,16 @@
 # MCP server
 
-GenExpress speaks the [Model Context Protocol](https://modelcontextprotocol.io) over stdio.
+GenHa speaks the [Model Context Protocol](https://modelcontextprotocol.io) over stdio.
 
 ```sh
-genexpress-cli mcp                          # headless: its own in-process session
-genexpress-cli mcp --attach 127.0.0.1:7979  # drive a running app started with --control 7979
+genha-cli mcp                          # headless: its own in-process session
+genha-cli mcp --attach 127.0.0.1:7979  # drive a running app started with --control 7979
 ```
 
 Example client configuration:
 
 ```json
-{"mcpServers": {"genexpress": {"command": "genexpress-cli", "args": ["mcp"]}}}
+{"mcpServers": {"genha": {"command": "genha-cli", "args": ["mcp"]}}}
 ```
 
 ## Tools

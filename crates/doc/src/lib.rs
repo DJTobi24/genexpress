@@ -1,4 +1,4 @@
-//! The GenExpress document model (layer L1): pure data + serde.
+//! The GenHa document model (layer L1): pure data + serde.
 //!
 //! A [`Document`] (a "project") holds pages of possibly different sizes. Each [`Page`] has a
 //! background and a z-ordered list of [`Element`]s (bottom first): shapes, text, images and groups.
@@ -23,8 +23,8 @@ pub use element::{
     Adjustments, Animation, AnimationKind, CropRect, Element, ElementKind, Fill, GradientStop, GroupEl, ImageEl, Shadow, ShapeEl, ShapeKind,
     StrokeStyle, TextAlign, TextEffect, TextEl, TextStyle,
 };
-pub use genexpress_color::Color;
-pub use genexpress_geom::{Fit, Frame};
+pub use genha_color::Color;
+pub use genha_geom::{Fit, Frame};
 pub use page::Page;
 pub use preset::{PRESETS, PagePreset};
 use serde::{Deserialize, Serialize};

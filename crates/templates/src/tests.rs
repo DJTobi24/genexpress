@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use genexpress_color::Color;
-use genexpress_doc::{BrandColor, Document, Element, ElementKind, Fill, ShapeKind, preset};
+use genha_color::Color;
+use genha_doc::{BrandColor, Document, Element, ElementKind, Fill, ShapeKind, preset};
 
 use super::*;
 
@@ -72,7 +72,7 @@ fn templates_are_well_formed() {
             assert_eq!((p.width, p.height), (info.width, info.height), "{id}: page size");
             assert!(seen.insert(p.id), "{id}: duplicate page id");
             assert!(!p.elements.is_empty(), "{id}: empty page");
-            let page = genexpress_geom::Rect::new(-0.5, -0.5, p.width + 0.5, p.height + 0.5);
+            let page = genha_geom::Rect::new(-0.5, -0.5, p.width + 0.5, p.height + 0.5);
             p.for_each(&mut |e| {
                 assert!(seen.insert(e.id), "{id}: duplicate id {}", e.id);
                 assert!(!e.name.is_empty(), "{id}: element {} has no name", e.id);
@@ -243,7 +243,7 @@ fn palettes_are_distinct() {
         assert_eq!(unique.len(), 5, "{}", p.id);
         assert!(sets.insert(p.colors.iter().map(Color::to_hex).collect::<Vec<_>>()));
         // The light colour reads under the dark one.
-        assert!(genexpress_color::contrast_ratio(p.colors[3], p.colors[4]) >= 7.0, "{}", p.id);
+        assert!(genha_color::contrast_ratio(p.colors[3], p.colors[4]) >= 7.0, "{}", p.id);
     }
 }
 

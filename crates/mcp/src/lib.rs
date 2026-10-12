@@ -1,12 +1,12 @@
-//! GenExpress's MCP server (layer L6).
+//! GenHa's MCP server (layer L6).
 //!
 //! [Model Context Protocol](https://modelcontextprotocol.io) over stdio: newline-delimited
 //! JSON-RPC 2.0, hand-written (no async runtime). The tools forward to a [`Backend`]:
 //!
 //! - [`Remote`] talks to a running desktop app through its loopback JSON-lines control channel
-//!   (`genexpress --control 7979`): one `{"id","method","params"}` line in, one
+//!   (`genha --control 7979`): one `{"id","method","params"}` line in, one
 //!   `{"id","ok","result"|"error"}` line out.
-//! - [`Headless`] hosts an in-process [`genexpress_engine::Session`] and answers the same
+//! - [`Headless`] hosts an in-process [`genha_engine::Session`] and answers the same
 //!   control-channel methods itself, so agents can design without a window.
 #![forbid(unsafe_code)]
 

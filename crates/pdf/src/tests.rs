@@ -1,4 +1,4 @@
-use genexpress_doc::{Color, Element, ElementKind, Fill, Frame, Page, ShapeEl, ShapeKind};
+use genha_doc::{Color, Element, ElementKind, Fill, Frame, Page, ShapeEl, ShapeKind};
 
 use super::*;
 

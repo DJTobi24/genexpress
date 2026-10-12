@@ -1,4 +1,4 @@
-//! The GenExpress user interface (layer L6), built on egui.
+//! The GenHa user interface (layer L6), built on egui.
 //!
 //! The UI is thin: it reads engine state and acts through [`App::run`], which executes engine
 //! commands. Two screens: [`home`] (start a design from a size, a template or a picture; quick
@@ -18,9 +18,9 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use genexpress_engine::{Session, guard};
-use genexpress_render::Renderer;
-use genexpress_text::FontBook;
+use genha_engine::{Session, guard};
+use genha_render::Renderer;
+use genha_text::FontBook;
 
 pub use thumbs::Thumbs;
 
@@ -197,7 +197,7 @@ impl App {
             let path = f.path().to_path_buf();
             if !path.as_os_str().is_empty() && path.exists() {
                 let p = path.display().to_string();
-                let is_picture = genexpress_effects::OutputFormat::from_extension(path.extension().and_then(|e| e.to_str()).unwrap_or("")).is_some();
+                let is_picture = genha_effects::OutputFormat::from_extension(path.extension().and_then(|e| e.to_str()).unwrap_or("")).is_some();
                 if is_picture && self.screen == Screen::Editor {
                     self.run("image.place", &json!({"path": p}));
                 } else {
@@ -209,7 +209,7 @@ impl App {
                     use base64::Engine as _;
                     let data = base64::engine::general_purpose::STANDARD.encode(&bytes);
                     self.run("image.place", &json!({"data": data, "name": name}));
-                } else if let Err(e) = genexpress_engine::cmd::file::open_bytes(&mut self.session, &name, &bytes) {
+                } else if let Err(e) = genha_engine::cmd::file::open_bytes(&mut self.session, &name, &bytes) {
                     self.set_status(e.to_string());
                 } else {
                     self.screen = Screen::Editor;

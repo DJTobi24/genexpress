@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 use super::{bad, cmd, color_param, f64_or, has_doc, ok, parse, str_param, str_req, usize_param};
 use crate::{CommandSpec, Result, Session};
-use genexpress_doc::{Fill, MAX_PAGE_SIDE, MAX_PAGES, Page, preset};
+use genha_doc::{Fill, MAX_PAGE_SIDE, MAX_PAGES, Page, preset};
 
 fn has_pages(s: &Session) -> std::result::Result<(), String> {
     let d = s.active().ok_or("no document open")?;

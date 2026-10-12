@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{AssetId, Element, ElementKind, Fill, NodeId};
-use genexpress_color::Color;
+use genha_color::Color;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Page {

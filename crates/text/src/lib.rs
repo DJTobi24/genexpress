@@ -1,4 +1,4 @@
-//! Text for GenExpress (layer L2): a [`FontBook`] of installed or added fonts, family matching
+//! Text for GenHa (layer L2): a [`FontBook`] of installed or added fonts, family matching
 //! with generic fallbacks ("Sans", "Serif", "Mono", "Display"), and simple line layout
 //! ([`layout`], [`measure`]) producing glyph outlines as [`kurbo::BezPath`]s.
 //!

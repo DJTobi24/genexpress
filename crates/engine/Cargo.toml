@@ -1,24 +1,24 @@
 [package]
-name = "genexpress-engine"
-description = "GenExpress engine: sessions, undo history, selection and the command registry"
+name = "genha-engine"
+description = "GenHa engine: sessions, undo history, selection and the command registry"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-genexpress-geom = { workspace = true }
-genexpress-color = { workspace = true }
-genexpress-doc = { workspace = true }
-genexpress-effects = { workspace = true }
-genexpress-format = { workspace = true }
-genexpress-tools = { workspace = true }
-genexpress-text = { workspace = true }
-genexpress-layout = { workspace = true }
-genexpress-templates = { workspace = true }
-genexpress-render = { workspace = true }
-genexpress-svg = { workspace = true }
-genexpress-pdf = { workspace = true }
+genha-geom = { workspace = true }
+genha-color = { workspace = true }
+genha-doc = { workspace = true }
+genha-effects = { workspace = true }
+genha-format = { workspace = true }
+genha-tools = { workspace = true }
+genha-text = { workspace = true }
+genha-layout = { workspace = true }
+genha-templates = { workspace = true }
+genha-render = { workspace = true }
+genha-svg = { workspace = true }
+genha-pdf = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

@@ -11,7 +11,7 @@
 //! 3. the marked pixels become transparent and the foreground's edge is feathered by about a pixel
 //!    (a 3×3 box filter over the mask) so it does not look jagged.
 
-use genexpress_color::Color;
+use genha_color::Color;
 use image::{Rgba, RgbaImage};
 
 /// Pixels at or below this alpha already count as background.

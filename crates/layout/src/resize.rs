@@ -1,7 +1,7 @@
 //! "Resize to another size" that keeps a design readable.
 
-use genexpress_doc::{Element, ElementKind, MAX_PAGE_SIDE, Page, ShapeKind, TextAlign, TextEffect};
-use genexpress_geom::{Frame, Rect};
+use genha_doc::{Element, ElementKind, MAX_PAGE_SIDE, Page, ShapeKind, TextAlign, TextEffect};
+use genha_geom::{Frame, Rect};
 
 /// Share of the old page an element must cover to count as a full-bleed background.
 const FULL_BLEED: f64 = 0.9;
@@ -231,8 +231,8 @@ fn apply(el: &mut Element, map: &Map, s: f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use genexpress_color::Color;
-    use genexpress_doc::{Fill, GroupEl, NodeId, ShapeEl, TextEl, TextStyle};
+    use genha_color::Color;
+    use genha_doc::{Fill, GroupEl, NodeId, ShapeEl, TextEl, TextStyle};
 
     fn shape(id: u64, f: Frame) -> Element {
         Element::new(
@@ -333,7 +333,7 @@ mod tests {
             Frame::new(40.0, 0.0, 40.0, 40.0),
             ElementKind::Shape(ShapeEl { shape: ShapeKind::Ellipse, fill: Fill::None, stroke: None, shadow: None }),
         ));
-        let style = TextStyle { font_size: 40.0, align: genexpress_doc::TextAlign::Left, ..TextStyle::default() };
+        let style = TextStyle { font_size: 40.0, align: genha_doc::TextAlign::Left, ..TextStyle::default() };
         p.elements.push(Element::new(
             NodeId(5),
             Frame::new(100.0, 400.0, 800.0, 50.0),
@@ -354,7 +354,7 @@ mod tests {
     fn labels_stay_on_their_buttons() {
         let mut p = Page::new(NodeId(1), "P", 1000.0, 1000.0);
         p.elements.push(shape(2, Frame::new(380.0, 900.0, 300.0, 60.0))); // a centred pill
-        let style = TextStyle { font_size: 40.0, align: genexpress_doc::TextAlign::Left, ..TextStyle::default() };
+        let style = TextStyle { font_size: 40.0, align: genha_doc::TextAlign::Left, ..TextStyle::default() };
         p.elements.push(Element::new(
             NodeId(3),
             Frame::new(400.0, 910.0, 260.0, 40.0),
@@ -366,5 +366,5 @@ mod tests {
         assert!(close(label.x - pill.x, 20.0) && close(label.y - pill.y, 10.0), "{label:?}");
     }
 
-    use genexpress_geom::Point;
+    use genha_geom::Point;
 }

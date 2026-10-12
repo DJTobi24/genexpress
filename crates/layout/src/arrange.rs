@@ -1,6 +1,6 @@
 //! Align, distribute and tidy a selection.
 
-use genexpress_geom::{Frame, Rect};
+use genha_geom::{Frame, Rect};
 use serde::{Deserialize, Serialize};
 
 /// How to align a selection.

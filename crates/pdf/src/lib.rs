@@ -1,6 +1,6 @@
-//! PDF export for GenExpress (layer L3).
+//! PDF export for GenHa (layer L3).
 //!
-//! A minimal, hand-written PDF 1.4: each page is rendered by `genexpress-render` at the requested
+//! A minimal, hand-written PDF 1.4: each page is rendered by `genha-render` at the requested
 //! resolution and embedded as a JPEG image (`DCTDecode`) filling a page of the same size in points
 //! (96 page pixels = 72 points = 1 inch). Pages may differ in size. The document title goes into
 //! the info dictionary. Text is not selectable in this first version (pictures of the pages).
@@ -8,9 +8,9 @@
 
 use std::fmt::Write as _;
 
-use genexpress_doc::Document;
-use genexpress_render::{MAX_PIXELS, MAX_SIDE, RenderError, RenderOptions, Renderer, encode_jpeg};
-use genexpress_text::FontBook;
+use genha_doc::Document;
+use genha_render::{MAX_PIXELS, MAX_SIDE, RenderError, RenderOptions, Renderer, encode_jpeg};
+use genha_text::FontBook;
 
 /// Lowest resolution accepted, in dots per inch.
 pub const MIN_DPI: f64 = 36.0;
@@ -65,7 +65,7 @@ pub fn export_pdf(doc: &Document, fonts: &FontBook, opts: &PdfOptions) -> Result
     let kids: Vec<String> = (0..n).map(|i| format!("{} 0 R", 4 + i * 3)).collect();
     pdf.object(1, b"<< /Type /Catalog /Pages 2 0 R >>");
     pdf.object(2, format!("<< /Type /Pages /Kids [{}] /Count {n} >>", kids.join(" ")).as_bytes());
-    pdf.object(3, format!("<< /Title {} /Producer (GenExpress) /Creator (GenExpress) >>", pdf_string(&doc.title)).as_bytes());
+    pdf.object(3, format!("<< /Title {} /Producer (GenHa) /Creator (GenHa) >>", pdf_string(&doc.title)).as_bytes());
     for (k, &index) in pages.iter().enumerate() {
         let page = doc.page(index).map_err(|_| PdfError::NoPage(index))?;
         let scale = fitting_scale(page.width, page.height, dpi / 96.0);

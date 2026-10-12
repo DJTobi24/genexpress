@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use genexpress_doc::{TextAlign, TextStyle};
+use genha_doc::{TextAlign, TextStyle};
 use kurbo::Shape;
 
 use super::*;

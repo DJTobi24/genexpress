@@ -63,7 +63,7 @@ impl Tokens {
     }
 }
 
-/// Applies the GenExpress look to egui's widgets.
+/// Applies the GenHa look to egui's widgets.
 pub fn apply(ctx: &egui::Context, dark: bool) {
     let t = if dark { Tokens::DARK } else { Tokens::LIGHT };
     let mut v = if dark { Visuals::dark() } else { Visuals::light() };
@@ -92,11 +92,11 @@ pub fn apply(ctx: &egui::Context, dark: bool) {
     });
 }
 
-pub fn to_egui(c: genexpress_color::Color) -> Color32 {
+pub fn to_egui(c: genha_color::Color) -> Color32 {
     Color32::from_rgba_unmultiplied(c.r, c.g, c.b, c.a)
 }
 
-pub fn from_egui(c: Color32) -> genexpress_color::Color {
+pub fn from_egui(c: Color32) -> genha_color::Color {
     let [r, g, b, a] = c.to_srgba_unmultiplied();
-    genexpress_color::Color::rgba(r, g, b, a)
+    genha_color::Color::rgba(r, g, b, a)
 }

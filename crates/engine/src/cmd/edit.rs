@@ -7,8 +7,8 @@ use serde_json::{Value, json};
 
 use super::{always, bad, can_redo, can_undo, cmd, f64_or, has_doc, has_selection, ok, str_param, targets};
 use crate::{CommandSpec, EngineError, HistoryEntry, Result, Session};
-use genexpress_doc::{Asset, AssetId, Element, ElementKind, NodeId};
-use genexpress_tools::Invocation;
+use genha_doc::{Asset, AssetId, Element, ElementKind, NodeId};
+use genha_tools::Invocation;
 
 /// Copied elements and the pictures they use (so pasting into another design works).
 #[derive(Clone, Debug, Default)]
@@ -250,7 +250,7 @@ fn select_none(s: &mut Session, _: &Value) -> Result<Value> {
 
 fn tool_set(s: &mut Session, p: &Value) -> Result<Value> {
     let id = str_param(p, "tool").ok_or_else(|| bad("tool.set", "missing `tool`"))?;
-    let t = genexpress_tools::ToolId::from_id(id).ok_or_else(|| bad("tool.set", format!("unknown tool `{id}`")))?;
+    let t = genha_tools::ToolId::from_id(id).ok_or_else(|| bad("tool.set", format!("unknown tool `{id}`")))?;
     s.tools.set_tool(t);
     s.preview = None;
     Ok(ok(json!({"tool": id})))
