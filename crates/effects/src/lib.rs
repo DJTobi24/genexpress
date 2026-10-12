@@ -2,9 +2,22 @@
 //! presets, crop/resize/convert and the image quick actions.
 //!
 //! Pictures are [`RgbaImage`]s with straight (not premultiplied) alpha.
+//!
+//! Quick actions: [`encode`] (convert to PNG/JPEG/WebP/GIF/BMP), [`resize`], [`rotate`], [`flip`],
+//! [`auto_crop`], [`remove_background`] / [`change_background`] (a classical, non-AI heuristic),
+//! filter presets ([`filter_presets`], [`blend_preset`]) and [`dominant_colors`] for palettes.
 #![forbid(unsafe_code)]
 
+mod background;
+mod encode;
+mod filters;
+mod transform;
+
+pub use background::{change_background, remove_background};
+pub use encode::{OutputFormat, encode, flatten_on_white};
+pub use filters::{FilterPreset, MAX_DOMINANT, blend_preset, dominant_colors, filter_preset, filter_presets};
 pub use image::RgbaImage;
+pub use transform::{auto_crop, flip, resize, rotate};
 
 use genexpress_doc::{Adjustments, CropRect};
 
@@ -166,6 +179,35 @@ mod tests {
         assert_eq!(c.dimensions(), (50, 25));
         let c = crop(&img, &CropRect { x: f64::NAN, y: 2.0, width: -1.0, height: 9.0 });
         assert!(c.width() >= 1 && c.height() >= 1);
+    }
+
+    #[test]
+    fn encode_round_trips() {
+        let img = RgbaImage::from_fn(6, 4, |x, _| image::Rgba([200, 100, 50, if x < 3 { 255 } else { 0 }]));
+        for fmt in [OutputFormat::Png, OutputFormat::Jpeg { quality: 80 }, OutputFormat::Webp, OutputFormat::Gif, OutputFormat::Bmp] {
+            let bytes = encode(&img, fmt).unwrap();
+            let info = probe(&bytes).unwrap();
+            assert_eq!((info.width, info.height, info.mime), (6, 4, fmt.mime()), "{fmt:?}");
+            let back = decode(&bytes).unwrap();
+            if fmt.supports_alpha() {
+                assert_eq!(back.get_pixel(5, 0)[3], 0, "{fmt:?} keeps transparency");
+            } else {
+                let p = back.get_pixel(5, 0);
+                assert!(p[3] == 255 && p[0] > 230 && p[1] > 230 && p[2] > 230, "{fmt:?} composites on white: {p:?}");
+            }
+        }
+        assert_eq!(decode(&encode(&img, OutputFormat::Png).unwrap()).unwrap(), img);
+        assert!(encode(&RgbaImage::new(0, 3), OutputFormat::Png).is_err());
+    }
+
+    #[test]
+    fn formats_from_extensions() {
+        assert_eq!(OutputFormat::from_extension(".JPG"), Some(OutputFormat::Jpeg { quality: OutputFormat::DEFAULT_JPEG_QUALITY }));
+        assert_eq!(OutputFormat::from_extension("webp"), Some(OutputFormat::Webp));
+        assert_eq!(OutputFormat::from_extension("tiff"), None);
+        for f in [OutputFormat::Png, OutputFormat::Jpeg { quality: 1 }, OutputFormat::Webp, OutputFormat::Gif, OutputFormat::Bmp] {
+            assert_eq!(OutputFormat::from_extension(f.extension()).map(|g| g.mime()), Some(f.mime()));
+        }
     }
 
     #[test]
