@@ -43,7 +43,7 @@ const MARKERS: &[&str] = &[
 ];
 
 /// Files that may name Adobe (they document the clean-room rule or the parity target).
-const ALLOWED: &[&str] = &["AGENTS.md", "CLAUDE.md", "README.md", "ROADMAP.md", "docs/", "xtask/src/checks.rs", ".github/"];
+const ALLOWED: &[&str] = &["AGENTS.md", "CLAUDE.md", "README.md", "ROADMAP.md", "NOTICE", "docs/", "xtask/src/checks.rs", ".github/"];
 
 pub fn cleanroom(root: &Path) -> Result<(), String> {
     let mut files = vec![];
