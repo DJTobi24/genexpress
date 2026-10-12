@@ -1,8 +1,8 @@
 //! Built-in content for GenHa (layer L2), all original and generated in code:
 //!
 //! - [`catalog`] / [`instantiate`]: ready-made designs (social posts, flyers, cards, slides…) built
-//!   only from shapes, gradients and text, optionally re-coloured with a [`BrandKit`];
-//! - [`shape_library`]: basic shapes and icons as SVG path data in a 100 × 100 view box;
+//!   only from shapes, gradients, library icons and text, optionally re-coloured with a [`BrandKit`];
+//! - [`shape_library`]: basic shapes and categorised icons as SVG path data in a 100 × 100 view box;
 //! - [`text_presets`]: one-click text styles;
 //! - [`palettes`]: curated colour palettes;
 //! - [`qr_code`]: QR codes as a vector shape.

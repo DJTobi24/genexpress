@@ -19,5 +19,5 @@ Every known shortfall, most valuable first. Pick work from the top unless the us
 | 11 | MP4 export, timeline with scenes, audio | Video | animations, playback, present mode and GIF/animated PNG export landed (`crates/motion`); MP4 needs a pure-Rust encoder |
 | 12 | PDF import; text inside imported SVGs | Formats | SVG shapes, gradients and borders import (`genha_svg::import`) |
 | 13 | Screen reader support (AccessKit) and UI translations (German first) | Accessibility | |
-| 14 | Template library growth (target 100+ original templates) and template search tags | Content | |
+| 14 | Template library growth (target 100+ original templates) | Content | 65 templates with search tags, 114 icons, 25 text styles, 40 palettes (M2.3); still short of the target library |
 | 15 | Rendering off the UI thread, tiles for very large pages | Performance | |
