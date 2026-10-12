@@ -14,6 +14,8 @@ genexpress-effects = { workspace = true }
 genexpress-format = { workspace = true }
 genexpress-tools = { workspace = true }
 genexpress-text = { workspace = true }
+genexpress-layout = { workspace = true }
+genexpress-templates = { workspace = true }
 genexpress-render = { workspace = true }
 genexpress-svg = { workspace = true }
 genexpress-pdf = { workspace = true }

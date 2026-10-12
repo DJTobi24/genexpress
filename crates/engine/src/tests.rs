@@ -278,3 +278,94 @@ fn exports_write_files() {
     assert!(std::fs::read(dir.join("d.pdf")).unwrap().starts_with(b"%PDF"));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn templates_and_libraries() {
+    let mut s = Session::new();
+    let list = s.execute("template.list", &json!({})).unwrap();
+    let first = list[0]["id"].as_str().unwrap().to_string();
+    assert!(list.as_array().unwrap().len() >= 10);
+    s.execute("template.use", &json!({"id": first})).unwrap();
+    let pages = s.doc().unwrap().doc.pages.len();
+    s.execute("template.use", &json!({"id": first, "as_page": true})).unwrap();
+    assert_eq!(s.docs.len(), 1);
+    assert!(s.doc().unwrap().doc.pages.len() > pages);
+    assert!(s.execute("template.use", &json!({"id": "nope"})).is_err());
+    let lib = s.execute("library.list", &json!({})).unwrap();
+    let shape = lib[0]["id"].as_str().unwrap().to_string();
+    s.execute("library.addShape", &json!({"id": shape})).unwrap();
+    let presets = s.execute("textPresets.list", &json!({})).unwrap();
+    s.execute("text.addPreset", &json!({"id": presets[0]["id"]})).unwrap();
+    let pal = s.execute("palettes.list", &json!({})).unwrap();
+    s.execute("brand.usePalette", &json!({"id": pal[0]["id"]})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.brand.colors[0].color.to_hex(), pal[0]["colors"][0].as_str().unwrap());
+    s.execute("element.qrCode", &json!({"text": "https://example.com"})).unwrap();
+    assert!(s.execute("element.qrCode", &json!({"text": ""})).is_err());
+}
+
+#[test]
+fn smart_resize_align_distribute() {
+    let mut s = session();
+    s.execute("text.add", &json!({"text": "Title", "role": "heading"})).unwrap();
+    s.execute("page.resize", &json!({"preset": "instagram-story", "copy": true})).unwrap();
+    let d = s.doc().unwrap();
+    assert_eq!(d.doc.pages.len(), 2);
+    assert_eq!((d.doc.pages[1].width, d.doc.pages[1].height), (1080.0, 1920.0));
+    assert_eq!(d.page, 1);
+    s.execute("page.resize", &json!({"width": 500, "height": 500})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.pages[1].width, 500.0);
+    let a = id(&s.execute("shape.add", &json!({"x": 0, "y": 0, "width": 10, "height": 10})).unwrap());
+    s.execute("object.align", &json!({"how": "right"})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.element(NodeId(a)).unwrap().frame.x, 490.0);
+    let b = id(&s.execute("shape.add", &json!({"x": 100, "y": 0, "width": 10, "height": 10})).unwrap());
+    let c = id(&s.execute("shape.add", &json!({"x": 130, "y": 0, "width": 10, "height": 10})).unwrap());
+    s.execute("select.set", &json!({"ids": [a, b, c]})).unwrap();
+    s.execute("object.distribute", &json!({"axis": "horizontal"})).unwrap();
+    s.execute("object.align", &json!({"how": "top"})).unwrap();
+    assert!(s.execute("object.align", &json!({"how": "diagonal"})).is_err());
+}
+
+#[test]
+fn picture_features() {
+    use base64::Engine as _;
+    let mut s = session();
+    // A red square on white: the background remover keeps the square.
+    let mut img = image::RgbaImage::from_pixel(60, 60, image::Rgba([255, 255, 255, 255]));
+    for y in 20..40 {
+        for x in 20..40 {
+            img.put_pixel(x, y, image::Rgba([220, 20, 20, 255]));
+        }
+    }
+    let mut png = vec![];
+    image::DynamicImage::ImageRgba8(img).write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
+    let data = base64::engine::general_purpose::STANDARD.encode(&png);
+    let pic = id(&s.execute("image.place", &json!({"data": data, "name": "sq.png"})).unwrap());
+    s.execute("image.filter", &json!({"preset": "mono", "intensity": 50})).unwrap();
+    assert!(s.execute("image.filter", &json!({"preset": "nope"})).is_err());
+    s.execute("image.removeBackground", &json!({})).unwrap();
+    let d = s.doc().unwrap();
+    let ElementKind::Image(im) = &d.doc.element(NodeId(pic)).unwrap().kind else { panic!() };
+    let cut = d.doc.asset(im.asset).unwrap();
+    assert!(cut.name.ends_with("-cutout.png"));
+    let decoded = genexpress_effects::decode(&cut.data).unwrap();
+    assert_eq!(decoded.get_pixel(2, 2)[3], 0, "the white backdrop is gone");
+    assert_eq!(decoded.get_pixel(30, 30)[3], 255, "the subject stays");
+    let asset = im.asset.0;
+    s.execute("brand.fromPicture", &json!({"ids": [pic]})).unwrap();
+    s.execute("image.placeAsset", &json!({"asset": asset})).unwrap();
+    // Collage of two pictures.
+    let p2 = id(&s.execute("image.place", &json!({"data": data})).unwrap());
+    s.execute("select.set", &json!({"ids": [pic, p2]})).unwrap();
+    let layout = genexpress_layout::collage_layouts(2)[0].id;
+    s.execute("layout.collage", &json!({"layout": layout})).unwrap();
+    // Quick action file in, file out.
+    let dir = std::env::temp_dir().join(format!("genexpress-quick-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("in.png"), &png).unwrap();
+    let r = s
+        .execute("quick.image", &json!({"action": "resize", "width": 30, "input": dir.join("in.png").display().to_string(), "output": dir.join("out.jpg").display().to_string()}))
+        .unwrap();
+    assert_eq!((r["width"].as_u64(), r["height"].as_u64()), (Some(30), Some(30)));
+    assert!(std::fs::read(dir.join("out.jpg")).unwrap().starts_with(&[0xff, 0xd8]));
+    std::fs::remove_dir_all(&dir).unwrap();
+}

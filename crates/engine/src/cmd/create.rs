@@ -101,6 +101,10 @@ pub(crate) fn shape_kind(p: &Value, cmd: &str) -> Result<ShapeKind> {
 }
 
 fn shape_add(s: &mut Session, p: &Value) -> Result<Value> {
+    run_shape_add(s, p)
+}
+
+pub(crate) fn run_shape_add(s: &mut Session, p: &Value) -> Result<Value> {
     let shape = shape_kind(p, "shape.add")?;
     let page = page_size(s)?;
     let side = page.0.min(page.1) * 0.3;

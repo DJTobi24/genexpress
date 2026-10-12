@@ -1,6 +1,7 @@
 //! The command registry. Every user-visible action is a [`CommandSpec`] here.
 
 pub mod brand;
+pub mod content;
 pub mod create;
 pub mod edit;
 pub mod export;
@@ -110,6 +111,7 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(style::specs());
         v.extend(brand::specs());
         v.extend(export::specs());
+        v.extend(content::specs());
         v.extend(query::specs());
         v
     })
