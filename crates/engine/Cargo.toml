@@ -19,6 +19,9 @@ genha-templates = { workspace = true }
 genha-render = { workspace = true }
 genha-svg = { workspace = true }
 genha-pdf = { workspace = true }
+genha-motion = { workspace = true }
+image = { workspace = true }
+png = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -27,7 +30,6 @@ log = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
-image = { workspace = true }
 
 [lints]
 workspace = true

@@ -16,7 +16,7 @@ Every known shortfall, most valuable first. Pick work from the top unless the us
 | 8 | Crop page to content; multi-select resize handles | Editor | |
 | 9 | Charts and tables | Documents | |
 | 10 | Version history (local snapshots), recent files, autosave/recovery | Editor | |
-| 11 | Animation playback and GIF/MP4 export | Video | model already stores animations and page durations |
+| 11 | MP4 export, timeline with scenes, audio | Video | animations, playback, present mode and GIF/animated PNG export landed (`crates/motion`); MP4 needs a pure-Rust encoder |
 | 12 | SVG and PDF import | Formats | |
 | 13 | Screen reader support (AccessKit) and UI translations (German first) | Accessibility | |
 | 14 | Template library growth (target 100+ original templates) and template search tags | Content | |

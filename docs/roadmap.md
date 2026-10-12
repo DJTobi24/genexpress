@@ -9,8 +9,8 @@
 | M2 Web & polish | WASM app, crop page, on-canvas text editing, multi-select handles, recent files, preferences | ⬜ next |
 | M3 Text | curved/grid text, document styles, embedded fonts, shaping & kerning, spellcheck hooks | ⬜ |
 | M4 Pictures & print | vector PDF, print PDF (bleed, marks), SVG import, HEIC, vectorize, better background removal | ⬜ |
-| M5 Documents | charts, tables, present mode, version history, several brands, accessibility, translations | ⬜ |
-| M6 Motion & video | animation playback, GIF/MP4 export, timeline, scenes, audio | ⬜ |
+| M5 Documents | charts, tables, present mode, version history, several brands, accessibility, translations | ⬜ (present mode landed with M6 motion) |
+| M6 Motion & video | animation playback, GIF/MP4 export, timeline, scenes, audio | 🟡 animations (in/loop/out), playback, present mode, GIF and animated PNG done; MP4, timeline, scenes, audio next |
 | M7 Collaboration | optional self-hostable sync server: share links, comments, co-editing, template locking | ⬜ |
 | M8 AI | pluggable local/remote models: background removal, generative fill/expand, text-to-image, captions, translate | ⬜ |
 | M9 Platform | sandboxed WebAssembly add-ons, embed build, PPTX/PDF import, web-page export | ⬜ |

@@ -2,7 +2,7 @@
 //!
 //! The UI is thin: it reads engine state and acts through [`App::run`], which executes engine
 //! commands. Two screens: [`home`] (start a design from a size, a template or a picture; quick
-//! actions) and the editor ([`editor`], [`canvas`], [`properties`]).
+//! actions) and the editor ([`editor`], [`canvas`], [`properties`]), plus present mode ([`motion`]).
 #![forbid(unsafe_code)]
 
 pub mod canvas;
@@ -10,6 +10,7 @@ pub mod control;
 pub mod editor;
 pub mod home;
 mod io;
+pub mod motion;
 pub mod properties;
 pub mod theme;
 mod thumbs;
@@ -92,6 +93,8 @@ pub struct App {
     pub home: home::HomeState,
     pub editor: editor::EditorState,
     pub canvas: canvas::CanvasState,
+    /// Playback on the canvas and present mode (UI-only state).
+    pub motion: motion::MotionState,
     pub control: Option<control::ControlServer>,
     font_families: Vec<String>,
     theme_applied: Option<bool>,
@@ -117,6 +120,7 @@ impl App {
             home: home::HomeState::default(),
             editor: editor::EditorState::default(),
             canvas: canvas::CanvasState::default(),
+            motion: motion::MotionState::default(),
             control: None,
             font_families: families,
             theme_applied: None,
@@ -187,6 +191,7 @@ impl App {
         }
         match self.screen {
             Screen::Home => home::show(self, ui),
+            Screen::Editor if self.motion.present.is_some() => motion::present(self, ui),
             Screen::Editor => editor::show(self, ui),
         }
     }

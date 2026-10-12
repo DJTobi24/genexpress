@@ -14,8 +14,9 @@ use genha_tools::{Handle, PointerEvent, PointerKind, ToolId};
 #[derive(Default)]
 pub struct CanvasState {
     texture: Option<egui::TextureHandle>,
-    /// What the texture shows: document pointer, page, zoom (bits), pixels per point (bits).
-    key: Option<(usize, usize, u32, u32)>,
+    /// What the texture shows: document pointer, page, zoom (bits), pixels per point (bits),
+    /// playback time (bits; MAX when not playing: a posed page's pointer can repeat).
+    key: Option<(usize, usize, u32, u32, u64)>,
     pointer_down: bool,
     last_pos: Option<Point>,
     panning: Option<egui::Pos2>,
@@ -37,10 +38,11 @@ pub fn zoom_by(app: &mut App, factor: f32, around: Option<egui::Vec2>) {
 }
 
 pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    let Some(display) = app.session.display_document() else { return };
+    let Some(mut display) = app.session.display_document() else { return };
     let Some(d) = app.session.active() else { return };
     let page_index = d.page;
     let selection = d.selection.clone();
+    let playback = crate::motion::playback_frame(app, ui.ctx(), &mut display, page_index);
     let Some(page) = display.pages.get(page_index) else { return };
     let (pw, ph) = (page.width as f32, page.height as f32);
 
@@ -61,9 +63,16 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     // Page shadow, transparency checkerboard and the rendered page.
     painter.rect_filled(page_rect.translate(egui::vec2(0.0, 3.0)).expand(1.0), 2, egui::Color32::from_black_alpha(40));
     checkerboard(&painter, page_rect);
-    update_texture(app, ui.ctx(), &display, page_index);
+    update_texture(app, ui.ctx(), &display, page_index, playback);
     if let Some(tex) = &app.canvas.texture {
         painter.image(tex.id(), page_rect, egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
+    }
+    if playback.is_some() {
+        // A click stops the playback; nothing is edited while the page plays.
+        if resp.clicked() {
+            crate::motion::stop(app);
+        }
+        return;
     }
 
     // Overlays.
@@ -149,15 +158,18 @@ fn checkerboard(p: &egui::Painter, r: egui::Rect) {
     }
 }
 
-fn update_texture(app: &mut App, ctx: &egui::Context, doc: &Arc<Document>, page: usize) {
+/// Renders the page into the canvas texture when it changed. During playback (`playback` is the
+/// time) a new picture is drawn every frame, at a lower resolution.
+fn update_texture(app: &mut App, ctx: &egui::Context, doc: &Arc<Document>, page: usize, playback: Option<f64>) {
+    let quality = if playback.is_some() { crate::motion::PLAYBACK_QUALITY } else { 1.0 };
     let ppp = ctx.pixels_per_point();
     let Some(pg) = doc.pages.get(page) else { return };
-    let mut scale = app.view.zoom * ppp;
+    let mut scale = app.view.zoom * ppp * quality.clamp(0.1, 1.0);
     let side = (pg.width.max(pg.height) as f32) * scale;
     if side > MAX_RENDER_SIDE {
         scale *= MAX_RENDER_SIDE / side;
     }
-    let key = (Arc::as_ptr(doc) as usize, page, scale.to_bits(), ppp.to_bits());
+    let key = (Arc::as_ptr(doc) as usize, page, scale.to_bits(), ppp.to_bits(), playback.map_or(u64::MAX, f64::to_bits));
     if app.canvas.key == Some(key) && app.canvas.texture.is_some() {
         return;
     }

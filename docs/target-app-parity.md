@@ -16,11 +16,11 @@ Legend: ✅ works (basic form) · 🟡 partial · ⬜ not yet (milestone in [roa
 | 2. Templates & content | ~15% (estimated) | 17 original templates, shape & icon library in code; no stock library (by design: open content later) |
 | 3. Text | ~35% (estimated) | text boxes, styles, presets, shadow/outline/highlight effects, system fonts; no curved text, spellcheck, translate |
 | 4. Pictures & AI | ~25% (estimated) | place, crop, fit, crop-to-shape, adjustments, filter presets, classic background removal, convert/resize quick actions; no generative AI yet |
-| 5. Video | 0% | model has page durations and animations; no timeline or video export yet |
+| 5. Video | ~10% (estimated) | element animations (12 entrances, 4 loops, exits) with canvas playback and present mode; GIF and animated PNG export; no timeline, scenes, audio or MP4 yet |
 | 6. Documents & PDF | ~15% (estimated) | multi-page PDF export (raster), presentations as pages, QR codes; no PDF editing/import, charts, web pages |
 | 7. Brand kits | ~35% (estimated) | colours, heading/body fonts, logos slot, apply to page; no locking/template controls |
 | 8. Social | 0% | size presets only; no scheduler (planned as an optional, self-hostable add-on) |
-| 9. Export & share | ~40% (estimated) | PNG (transparent), JPEG, SVG, PDF; no MP4/GIF, share links, print ordering |
+| 9. Export & share | ~45% (estimated) | PNG (transparent), JPEG, SVG, PDF, animated GIF and PNG; no MP4, share links, print ordering |
 | 10. Platform | ~30% (estimated) | MCP server, control channel, CLI, every action a command; no add-on SDK yet |
 | 11. Accessibility & localisation | ~5% (estimated) | keyboard shortcuts; no screen-reader support or translations yet |
 
@@ -96,10 +96,10 @@ Sources: https://helpx.adobe.com/express/create-and-edit-videos/create-videos/ad
 | Feature | Status | GenHa |
 |---|---|---|
 | Scenes/timeline, trim, split, speed | ⬜ | M6 |
-| Animations (in/out/loop) | 🟡 | stored in the model (`Element::animation`); playback/export M6 |
+| Animations (in/out/loop) | ✅ | `animation.set` / `animation.applyToPage` (staggered): 12 entrances (fade, rise, slides in four directions, pop, zoom, bounce, spin, flip, typewriter), 4 loops (pulse, float, sway, blink), exits; per-object duration and delay, page length auto or fixed; Play on the canvas. Groups animate as one. Limits: no motion paths or per-word text animation; typewriter text centred in a narrow box can re-wrap while typing |
 | Audio, voice-over | ⬜ | M6 |
 | Captions | ⬜ | M8 |
-| MP4 / GIF export | ⬜ | M6 (GIF first: pure Rust) |
+| MP4 / GIF export | 🟡 | `export.gif` and `export.apng` (one page or all, 5–30 fps, ≤ 600 frames, ≤ 2 MP per frame, still frames merged); `export.frame` for one moment; MP4 M6 |
 
 ## 6. Documents and PDF
 
@@ -108,7 +108,7 @@ Sources: https://helpx.adobe.com/express/using/charts.html · https://helpx.adob
 | Feature | Status | GenHa |
 |---|---|---|
 | Multi-page PDF export | ✅ | `export.pdf` (raster pages); vector PDF M4 |
-| Presentations (pages + notes, present mode) | 🟡 | pages + notes; present mode M5 |
+| Presentations (pages + notes, present mode) | 🟡 | pages + notes; present mode (F5 or Present: full screen, page animations play, arrows/space/click to move, N for notes, Esc); no presenter view on a second screen |
 | PDF edit / combine / import | ⬜ | M9 (shared with the PDFCraft sibling) |
 | Charts, tables | ⬜ | M5 |
 | QR code generator | ✅ | `element.qrCode` |
@@ -145,7 +145,7 @@ Sources: https://www.adobe.com/express/feature · https://helpx.adobe.com/expres
 | PNG (transparent), JPEG | ✅ | `export.png/jpeg`, scale option |
 | SVG | ✅ | `export.svg` |
 | PDF (standard), print PDF with bleed/CMYK | 🟡 | standard; print options M4 |
-| MP4 / GIF | ⬜ | M6 |
+| MP4 / GIF | 🟡 | animated GIF and PNG (`export.gif`, `export.apng`); MP4 M6 |
 | Share links, publish to web | ⬜ | M7 / M9 |
 | Print ordering | ➖ | not planned (third-party service) |
 

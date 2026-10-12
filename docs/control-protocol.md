@@ -17,6 +17,12 @@ Errors: `{"id": 1, "ok": false, "error": "…"}`.
 | `document.inspect` | `{all_pages?}` | pages, objects, selection, brand kit |
 | `session.inspect` | `{}` | open documents, active tool |
 | `ui.render` | `{page?, scale?, path?}` | the page as PNG: written to `path`, else `{png_base64}` |
+| `ui.state` | `{}` | screen, zoom, left tab, status, `playing`, `presenting` (page index or null) |
+| `ui.play` | `{stop?}` | plays the current page's animations on the canvas (or stops) |
+| `ui.present` | `{page?, stop?}` | present mode (full window, animations playing) at `page`; `stop` leaves it |
+
+To look at an animation headlessly, use the `export.frame` command (`{path, t}`: one moment as PNG),
+`animation.timeline`, or `export.gif` / `export.apng`.
 
 Every command (`engine.commands`) is reachable, so an agent can do anything a user can.
 The same methods are what [MCP](mcp.md) forwards to.

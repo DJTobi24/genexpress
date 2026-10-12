@@ -94,3 +94,16 @@ fn unused_assets() {
     let a = doc.add_asset(Asset { name: "x".into(), mime: "image/png".into(), width: 0, height: 0, data: Bytes::default() });
     assert_eq!(doc.unused_assets(), vec![a]);
 }
+
+#[test]
+fn animation_serde_is_backwards_compatible() {
+    // Files written before loops and exits existed still read.
+    let a: Animation = serde_json::from_str(r#"{"kind":"slide-left","duration":0.5}"#).unwrap();
+    assert_eq!(a, Animation::new(AnimationKind::SlideLeft, 0.5, 0.0));
+    let full = Animation { looping: Some(LoopKind::Pulse), exit: Some(AnimationKind::Fade), ..Animation::new(AnimationKind::Pop, 0.6, 0.2) };
+    let json = serde_json::to_string(&full).unwrap();
+    assert!(json.contains(r#""loop":"pulse""#) && json.contains(r#""exit":"fade""#), "{json}");
+    assert_eq!(serde_json::from_str::<Animation>(&json).unwrap(), full);
+    // A plain entrance writes no extra fields.
+    assert!(!serde_json::to_string(&Animation::new(AnimationKind::Fade, 1.0, 0.0)).unwrap().contains("loop"));
+}

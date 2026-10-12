@@ -21,7 +21,7 @@ that nothing below L6 depends on a UI toolkit (egui, eframe, winit, rfd). Table:
 |---|---|---|
 | L0 | `geom`, `color` | frames (position, size, rotation), fitting, snapping, shape outlines (on `kurbo`); sRGB colours as hex, HSL, WCAG contrast, harmonies |
 | L1 | `doc` | the document model: designs with pages of any size, elements (shapes, text, pictures, groups), brand kit, embedded assets, page-size presets; pure data + serde |
-| L2 | `text`, `effects`, `layout`, `templates` | font discovery and text layout to outlines (`skrifa`); picture decoding, adjustments, filters and quick actions (background removal, resize, convert…); smart resize, align/distribute, collages, snapping guides; templates, shapes/icons, text styles, palettes and QR codes generated in code |
+| L2 | `text`, `effects`, `layout`, `templates`, `motion` | font discovery and text layout to outlines (`skrifa`); picture decoding, adjustments, filters and quick actions (background removal, resize, convert…); smart resize, align/distribute, collages, snapping guides; templates, shapes/icons, text styles, palettes and QR codes generated in code; animations evaluated at a time (`page_at`) |
 | L3 | `render`, `svg`, `pdf`, `format` | page → pixels (`vello_cpu`) and PNG/JPEG; SVG export; PDF export; the native `.genha` format (versioned, compressed JSON) |
 | L4 | `tools` | pointer gestures → commands (select/move/resize/rotate, shape and text tools, snapping) |
 | L5 | `engine` | sessions, undo history, selection, the command registry, file I/O, the panic guard |
@@ -55,6 +55,13 @@ so anything a user can do an agent can do. `command.batch` runs several as one u
 Pages are rasterized on the CPU by `vello_cpu`; the desktop app shows the result as a texture and
 draws selection handles, guides and previews on top with egui. Text is laid out by `genha-text`
 into glyph outlines so the canvas, PNG/JPEG/PDF exports and SVG-as-paths all match.
+
+## Motion
+
+`genha-motion::page_at(page, t)` is the page as it looks `t` seconds in: each animated element
+moved, scaled, turned, faded or (typewriter) cut short. Canvas playback, present mode and the
+animated exports (`export.gif`, `export.apng`, `export.frame`) all render that page with
+`genha-render`, so they agree. Exports merge frames whose posed model is unchanged before rendering.
 
 ## Files
 

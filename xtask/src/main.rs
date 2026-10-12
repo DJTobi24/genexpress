@@ -91,6 +91,7 @@ const WASM_CRATES: &[&str] = &[
     "genha-effects",
     "genha-layout",
     "genha-templates",
+    "genha-motion",
     "genha-render",
     "genha-svg",
     "genha-pdf",

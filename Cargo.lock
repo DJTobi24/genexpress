@@ -1003,6 +1003,7 @@ dependencies = [
  "genha-format",
  "genha-geom",
  "genha-layout",
+ "genha-motion",
  "genha-pdf",
  "genha-render",
  "genha-svg",
@@ -1011,6 +1012,7 @@ dependencies = [
  "genha-tools",
  "image",
  "log",
+ "png",
  "proptest",
  "serde",
  "serde_json",
@@ -1057,6 +1059,15 @@ dependencies = [
  "genha-doc",
  "genha-engine",
  "log",
+ "serde_json",
+]
+
+[[package]]
+name = "genha-motion"
+version = "0.1.0"
+dependencies = [
+ "genha-doc",
+ "genha-geom",
  "serde_json",
 ]
 
@@ -1149,6 +1160,7 @@ dependencies = [
  "genha-engine",
  "genha-geom",
  "genha-layout",
+ "genha-motion",
  "genha-render",
  "genha-templates",
  "genha-text",

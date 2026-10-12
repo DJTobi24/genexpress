@@ -90,9 +90,25 @@ fn top_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.menu_button(egui::RichText::new("Download").strong().color(t.accent), |ui| download_menu(app, ui))
                         .response
-                        .on_hover_text("Export as PNG, JPEG, SVG or PDF");
+                        .on_hover_text("Export as PNG, JPEG, SVG, PDF, GIF or animated PNG");
                     if ui.button("Save").on_hover_text("Save (Ctrl+S)").clicked() {
                         save(app, false);
+                    }
+                    ui.separator();
+                    if ui.button("Present").on_hover_text("Show the design full screen, page by page (F5)").clicked() {
+                        crate::motion::start_presenting(app, ui.ctx());
+                    }
+                    let playing = app.motion.playing.is_some();
+                    if ui
+                        .add(egui::Button::new(if playing { "Stop" } else { "Play" }).selected(playing))
+                        .on_hover_text("Play this page's animations")
+                        .clicked()
+                    {
+                        if playing {
+                            crate::motion::stop(app);
+                        } else {
+                            crate::motion::play(app, ui.ctx());
+                        }
                     }
                     ui.separator();
                     if ui.button("Fit").on_hover_text("Fit page (Ctrl+0)").clicked() {
@@ -150,13 +166,15 @@ fn resize_menu(app: &mut App, ui: &mut egui::Ui) {
 
 fn download_menu(app: &mut App, ui: &mut egui::Ui) {
     let name = app.session.active().map(|d| io::file_stem(&d.doc.title)).unwrap_or_else(|| "design".into());
-    let entries: [(&str, &str, &str, Value); 6] = [
+    let entries: [(&str, &str, &str, Value); 8] = [
         ("PNG", "export.png", "png", json!({})),
         ("PNG — transparent background", "export.png", "png", json!({"transparent": true})),
         ("PNG — 2× size", "export.png", "png", json!({"scale": 2.0})),
         ("JPEG", "export.jpeg", "jpg", json!({})),
         ("SVG", "export.svg", "svg", json!({})),
         ("PDF — all pages", "export.pdf", "pdf", json!({})),
+        ("GIF (animated)", "export.gif", "gif", json!({})),
+        ("Animated PNG", "export.apng", "png", json!({})),
     ];
     for (label, cmd, ext, extra) in entries {
         if ui.button(label).clicked() {
@@ -770,6 +788,9 @@ fn shortcuts(app: &mut App, ctx: &egui::Context) {
         if i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::Num0)) {
             app.view.fit_pending = true;
         }
+        if i.consume_key(egui::Modifiers::NONE, egui::Key::F5) {
+            todo.push(("ui.present", json!({})));
+        }
     });
     for (id, p) in todo {
         match id {
@@ -786,7 +807,10 @@ fn shortcuts(app: &mut App, ctx: &egui::Context) {
                 }
             }
             "file.new" => app.screen = crate::Screen::Home,
+            "ui.present" => crate::motion::start_presenting(app, ctx),
             "select.none" => {
+                // Esc also stops a playing animation.
+                crate::motion::stop(app);
                 app.session.tools.cancel();
                 app.session.preview = None;
                 app.run(id, &p);
