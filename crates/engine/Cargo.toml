@@ -13,6 +13,10 @@ genexpress-doc = { workspace = true }
 genexpress-effects = { workspace = true }
 genexpress-format = { workspace = true }
 genexpress-tools = { workspace = true }
+genexpress-text = { workspace = true }
+genexpress-render = { workspace = true }
+genexpress-svg = { workspace = true }
+genexpress-pdf = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

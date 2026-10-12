@@ -142,6 +142,14 @@ pub(crate) fn estimate_text_size(text: &str, style: &TextStyle, max_width: f64) 
     (widest, lines * em * style.line_height.max(0.5))
 }
 
+/// The height `text` needs in a box `width` wide (laid out with the session's fonts).
+pub(crate) fn text_height(s: &Session, text: &str, style: &TextStyle, width: f64) -> f64 {
+    if s.fonts.is_empty() {
+        return estimate_text_size(text, style, width).1;
+    }
+    genexpress_text::layout(&s.fonts, text, style, width).height.max(style.font_size)
+}
+
 fn text_add(s: &mut Session, p: &Value) -> Result<Value> {
     let text = str_param(p, "text").unwrap_or("Add your text").to_string();
     if text.len() > 100_000 {
@@ -176,7 +184,7 @@ fn text_add(s: &mut Session, p: &Value) -> Result<Value> {
     }
     let effect = if p.get("effect").is_some() { parse::<TextEffect>(p, "effect", "text.add")? } else { TextEffect::None };
     let width = f64_or(p, "width", page.0 * 0.8);
-    let (_, h) = estimate_text_size(&text, &style, width);
+    let h = text_height(s, &text, &style, width);
     let frame = frame_params(p, page, width, h);
     let el = Element::new(genexpress_doc::NodeId(0), frame, ElementKind::Text(TextEl { text, style, effect }));
     add_element(s, "Add Text", el)

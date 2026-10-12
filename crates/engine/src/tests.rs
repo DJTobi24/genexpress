@@ -257,3 +257,24 @@ fn merge_key_coalesces_steps() {
     let ElementKind::Text(t) = &s.doc().unwrap().doc.pages[0].elements[0].kind else { panic!() };
     assert_eq!(t.text, "a");
 }
+
+#[test]
+fn exports_write_files() {
+    let mut s = session();
+    s.execute("shape.add", &json!({"fill": "#ff0000"})).unwrap();
+    s.execute("page.add", &json!({})).unwrap();
+    let dir = std::env::temp_dir().join(format!("genexpress-export-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = |n: &str| dir.join(n).display().to_string();
+    s.execute("export.png", &json!({"path": path("a.png"), "page": 0, "scale": 0.25})).unwrap();
+    let png = std::fs::read(dir.join("a.png")).unwrap();
+    assert_eq!(&png[1..4], b"PNG");
+    let r = s.execute("export.jpeg", &json!({"path": path("b.jpg"), "all_pages": true, "scale": 0.2})).unwrap();
+    assert_eq!(r["files"].as_array().unwrap().len(), 2);
+    assert!(dir.join("b-2.jpg").exists());
+    s.execute("export.svg", &json!({"path": path("c.svg")})).unwrap();
+    assert!(std::fs::read_to_string(dir.join("c.svg")).unwrap().contains("<svg"));
+    s.execute("export.pdf", &json!({"path": path("d.pdf"), "dpi": 40})).unwrap();
+    assert!(std::fs::read(dir.join("d.pdf")).unwrap().starts_with(b"%PDF"));
+    std::fs::remove_dir_all(&dir).unwrap();
+}

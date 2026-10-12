@@ -132,6 +132,8 @@ pub struct Session {
     pub messages: Vec<String>,
     /// `merge_key` of the command running now (from its params).
     merge_key: Option<String>,
+    /// Fonts for text layout and exports (shared with the UI).
+    pub fonts: Arc<genexpress_text::FontBook>,
 }
 
 impl Default for Session {
@@ -151,6 +153,7 @@ impl Session {
             preview: None,
             messages: vec![],
             merge_key: None,
+            fonts: Arc::new(genexpress_text::FontBook::new()),
         }
     }
 
@@ -160,6 +163,11 @@ impl Session {
         self.active = self.docs.len() - 1;
         self.preview = None;
         self.active
+    }
+
+    /// A session using `fonts` for layout and exports.
+    pub fn with_fonts(fonts: Arc<genexpress_text::FontBook>) -> Self {
+        Session { fonts, ..Session::new() }
     }
 
     pub fn active(&self) -> Option<&DocState> {
