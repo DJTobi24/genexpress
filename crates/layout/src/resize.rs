@@ -11,6 +11,11 @@ const SPAN_MARGIN: f64 = 0.1;
 /// An element counts as centred when its centre is off the page centre by at most this share of
 /// its smaller edge gap.
 const CENTRE_SLACK: f64 = 0.1;
+/// Elements closer than this share of the page height (one above the other, overlapping
+/// horizontally) form a block that moves as one: a headline with its subtitle, a list.
+const BLOCK_GAP: f64 = 0.08;
+/// Elements larger than this share of the page are not part of a block.
+const BLOCK_MAX_AREA: f64 = 0.5;
 /// Rough advance of a character in ems, to estimate where text actually is inside its box.
 const EM_PER_CHAR: f64 = 0.55;
 
@@ -87,6 +92,8 @@ impl AxisMap {
 ///   scaled margins (pictures keep their aspect ratio through their cover fit);
 /// - rectangles, lines, paths and pictures that span one axis (a header band, a sidebar, a
 ///   footer) stretch along that axis and are anchored on the other;
+/// - closely stacked elements (a headline and its subtitle, a list) form a block anchored as one,
+///   so they never drift apart;
 /// - groups' children move and scale with their group;
 /// - ids, names, order and the page background are kept.
 pub fn smart_resize(page: &Page, width: f64, height: f64) -> Page {
@@ -120,6 +127,10 @@ pub fn smart_resize(page: &Page, width: f64, height: f64) -> Page {
         let uniform = (sx - s).abs() < 1e-9 && (sy - s).abs() < 1e-9;
         plans.push((Map { sx, sy, tx, ty }, uniform, b, matches!(el.kind, ElementKind::Shape(_) | ElementKind::Image(_))));
     }
+    // Blocks: neighbouring elements anchored one by one drift apart on big aspect changes (a
+    // title stays at the top while its details move to the middle). Elements stacked closely
+    // move together, anchored by the block's bounds.
+    blocks(&out, &mut plans, xa, ya, s);
     // Second pass: an element sitting on a card, pill or disc (a shape or picture that contains it
     // and is only scaled, not stretched) moves with it, so labels stay on their buttons. Larger
     // elements are resolved first, so nested cards follow their outer card.
@@ -150,6 +161,73 @@ pub fn smart_resize(page: &Page, width: f64, height: f64) -> Page {
         }
     }
     out
+}
+
+/// Re-plans closely stacked, uniformly scaled elements so each block moves as one.
+fn blocks(page: &Page, plans: &mut [(Map, bool, Rect, bool)], xa: AxisMap, ya: AxisMap, s: f64) {
+    let n = plans.len().min(page.elements.len());
+    let gap = BLOCK_GAP * ya.old;
+    let candidate = |i: usize| plans.get(i).is_some_and(|p| p.1 && p.2.area() <= BLOCK_MAX_AREA * xa.old * ya.old);
+    // Union-find over candidates.
+    let mut parent: Vec<usize> = (0..n).collect();
+    fn root(parent: &mut [usize], mut i: usize) -> usize {
+        while let Some(&p) = parent.get(i) {
+            if p == i {
+                break;
+            }
+            let gp = parent.get(p).copied().unwrap_or(p);
+            if let Some(slot) = parent.get_mut(i) {
+                *slot = gp;
+            }
+            i = p;
+        }
+        i
+    }
+    let ink: Vec<(f64, f64)> = page.elements.iter().take(n).zip(plans.iter()).map(|(el, p)| ink_x(el, &el.frame.sanitized(), p.2)).collect();
+    for i in 0..n {
+        for j in (i + 1)..n {
+            if !candidate(i) || !candidate(j) {
+                continue;
+            }
+            let (Some(a), Some(b)) = (plans.get(i).map(|p| p.2), plans.get(j).map(|p| p.2)) else { continue };
+            let (Some(&(ai0, ai1)), Some(&(bi0, bi1))) = (ink.get(i), ink.get(j)) else { continue };
+            let vertical_gap = (a.y0.max(b.y0) - a.y1.min(b.y1)).max(0.0);
+            let overlap_x = ai0.max(bi0) < ai1.min(bi1);
+            let same_left = (ai0 - bi0).abs() <= 0.02 * xa.old;
+            if vertical_gap <= gap && (overlap_x || same_left) {
+                let (ri, rj) = (root(&mut parent, i), root(&mut parent, j));
+                if let Some(slot) = parent.get_mut(ri) {
+                    *slot = rj;
+                }
+            }
+        }
+    }
+    let mut groups: std::collections::BTreeMap<usize, Vec<usize>> = Default::default();
+    for i in 0..n {
+        if candidate(i) {
+            let r = root(&mut parent, i);
+            groups.entry(r).or_default().push(i);
+        }
+    }
+    for members in groups.values().filter(|m| m.len() > 1) {
+        let mut b: Option<Rect> = None;
+        let (mut x0, mut x1) = (f64::MAX, f64::MIN);
+        for &i in members {
+            if let (Some(p), Some(&(i0, i1))) = (plans.get(i), ink.get(i)) {
+                b = Some(b.map_or(p.2, |r| r.union(p.2)));
+                x0 = x0.min(i0);
+                x1 = x1.max(i1);
+            }
+        }
+        let Some(b) = b else { continue };
+        let (_, tx) = xa.anchor(x0, x1);
+        let (_, ty) = ya.anchor(b.y0, b.y1);
+        for &i in members {
+            if let Some(p) = plans.get_mut(i) {
+                p.0 = Map { sx: s, sy: s, tx, ty };
+            }
+        }
+    }
 }
 
 /// Whether `outer` contains `inner`, with a pixel of slack.
@@ -367,4 +445,43 @@ mod tests {
     }
 
     use genha_geom::Point;
+}
+
+#[cfg(test)]
+mod block_tests {
+    use super::*;
+    use genha_doc::{Color, NodeId, TextEl, TextStyle};
+
+    fn text(id: u64, y: f64, h: f64, size: f64) -> Element {
+        Element::new(
+            NodeId(id),
+            Frame::new(100.0, y, 800.0, h),
+            ElementKind::Text(TextEl {
+                text: "Some words here".into(),
+                style: TextStyle { font_size: size, align: TextAlign::Left, color: Color::BLACK, ..TextStyle::default() },
+                effect: TextEffect::None,
+            }),
+        )
+    }
+
+    #[test]
+    fn stacked_text_moves_as_one_block() {
+        let mut page = Page::new(NodeId(1), "p", 1080.0, 1080.0);
+        page.elements.push(text(2, 100.0, 200.0, 90.0)); // headline near the top
+        page.elements.push(text(3, 340.0, 80.0, 30.0)); // details 40 px below it
+        let out = smart_resize(&page, 1080.0, 1920.0);
+        let (a, b) = (out.elements[0].frame, out.elements[1].frame);
+        // Same gap (scale 1 here) and the details still right below the headline, near the top.
+        assert!(((b.y - (a.y + a.height)) - 40.0).abs() < 1e-6, "{a:?} {b:?}");
+        assert!(b.y < 600.0, "the details stay with the headline at the top: {b:?}");
+    }
+
+    #[test]
+    fn far_apart_elements_are_independent() {
+        let mut page = Page::new(NodeId(1), "p", 1080.0, 1080.0);
+        page.elements.push(text(2, 60.0, 100.0, 60.0));
+        page.elements.push(text(3, 900.0, 100.0, 60.0));
+        let out = smart_resize(&page, 1080.0, 1920.0);
+        assert!(out.elements[1].frame.y > 1700.0, "the bottom text stays at the bottom: {:?}", out.elements[1].frame);
+    }
 }

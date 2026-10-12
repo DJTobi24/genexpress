@@ -11,9 +11,9 @@ Every known shortfall, most valuable first. Pick work from the top unless the us
 | 3 | Kerning, ligatures and complex scripts (HarfRust shaping); per-glyph font fallback | Text | `crates/text` uses charmap + advances only |
 | 4 | Vector PDF (krilla) and CMYK print PDF | Export | pages are pictures with an invisible text layer; print PDF has bleed and crop marks |
 | 5 | Curved text and document-wide text styles | Text | |
-| 6 | Smart resize keeps multi-part text blocks together | Layout | entries can spread on big aspect changes |
+| 6 | Smart resize: reflow text boxes to the new width, re-layout grids | Layout | stacked elements now move as blocks; boxes keep their scaled widths |
 | 7 | Background removal for busy photos (ML model, optional download) | Pictures | colour-based flood fill today |
-| 8 | Multi-select resize handles | Editor | crop page to content landed (`page.cropToContent`) |
+| 8 | Snapping while resizing; distance hints between objects | Editor | multi-select handles and crop page to content landed |
 | 9 | Charts and tables | Documents | |
 | 10 | Version history across devices (sync) | Editor | local version history, recent files and Data Recovery landed |
 | 11 | Animation playback and GIF/MP4 export | Video | model already stores animations and page durations |
