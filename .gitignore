@@ -10,3 +10,5 @@ plan/
 /log
 .DS_Store
 .idea/
+# Agent worktrees (local)
+.claude/worktrees/

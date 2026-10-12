@@ -1,0 +1,20 @@
+[package]
+name = "genexpress-format"
+description = "GenExpress native file format (.genexpress): versioned, compressed JSON with embedded assets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+genexpress-doc = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+flate2 = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints]
+workspace = true
