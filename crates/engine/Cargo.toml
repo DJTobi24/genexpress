@@ -1,0 +1,27 @@
+[package]
+name = "genexpress-engine"
+description = "GenExpress engine: sessions, undo history, selection and the command registry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+genexpress-geom = { workspace = true }
+genexpress-color = { workspace = true }
+genexpress-doc = { workspace = true }
+genexpress-effects = { workspace = true }
+genexpress-format = { workspace = true }
+genexpress-tools = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+base64 = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+image = { workspace = true }
+
+[lints]
+workspace = true
