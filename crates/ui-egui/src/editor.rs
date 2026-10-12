@@ -341,7 +341,7 @@ fn left_rail(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                     let on = app.left_tab == tab;
                     let text = egui::RichText::new(tab.label()).size(12.0).color(if on { t.accent } else { t.text_dim });
                     let b = egui::Button::new(text)
-                        .min_size(egui::vec2(80.0, 40.0))
+                        .min_size(egui::vec2(92.0, 40.0))
                         .fill(if on { t.accent_soft } else { egui::Color32::TRANSPARENT })
                         .frame(on);
                     if ui.add(b).clicked() {
