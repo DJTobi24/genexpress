@@ -145,7 +145,8 @@ fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genexpres
                 }
             });
             ui.horizontal(|ui| {
-                for (label, a) in [("⬅", TextAlign::Left), ("⬌", TextAlign::Center), ("➡", TextAlign::Right)] {
+                ui.label("Align");
+                for (label, a) in [("Left", TextAlign::Left), ("Center", TextAlign::Center), ("Right", TextAlign::Right)] {
                     if ui.add(egui::Button::new(label).selected(st.align == a)).clicked() {
                         acts.run("text.setStyle", json!({"align": a}));
                     }
@@ -313,7 +314,7 @@ fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genexpres
             }
             section(ui, t, "QUICK ACTIONS");
             ui.horizontal_wrapped(|ui| {
-                if ui.button("✂ Remove background").on_hover_text("Colour-based: works best on plain backdrops").clicked() {
+                if ui.button("Remove background").on_hover_text("Colour-based: works best on plain backdrops").clicked() {
                     acts.run("image.removeBackground", json!({}));
                 }
                 if ui.button("Fill frame").clicked() {
@@ -350,7 +351,7 @@ fn common(ui: &mut egui::Ui, t: &Tokens, el: &Element, acts: &mut Actions) {
     ui.horizontal(|ui| {
         changed |= ui.add(egui::DragValue::new(&mut w).prefix("W ").range(1.0..=100_000.0).speed(1.0)).changed();
         changed |= ui.add(egui::DragValue::new(&mut h).prefix("H ").range(1.0..=100_000.0).speed(1.0)).changed();
-        changed |= ui.add(egui::DragValue::new(&mut r).prefix("↻ ").suffix("°").speed(0.5)).changed();
+        changed |= ui.add(egui::DragValue::new(&mut r).prefix("Rot ").suffix("°").speed(0.5)).changed();
     });
     if changed {
         acts.run("object.setFrame", json!({"x": x, "y": y, "width": w, "height": h, "rotation": r, "merge_key": format!("frame:{id}")}));
@@ -366,8 +367,8 @@ fn common(ui: &mut egui::Ui, t: &Tokens, el: &Element, acts: &mut Actions) {
         for (label, cmd) in [
             ("Forward", "object.bringForward"),
             ("Backward", "object.sendBackward"),
-            ("Flip ↔", "object.flipHorizontal"),
-            ("Flip ↕", "object.flipVertical"),
+            ("Flip H", "object.flipHorizontal"),
+            ("Flip V", "object.flipVertical"),
             ("Duplicate", "edit.duplicate"),
             ("Copy style", "style.copy"),
             ("Paste style", "style.paste"),
@@ -376,10 +377,10 @@ fn common(ui: &mut egui::Ui, t: &Tokens, el: &Element, acts: &mut Actions) {
                 acts.run(cmd, json!({}));
             }
         }
-        if ui.button(if el.locked { "🔒 Unlock" } else { "🔓 Lock" }).clicked() {
+        if ui.button(if el.locked { "Unlock" } else { "Lock" }).clicked() {
             acts.run(if el.locked { "object.unlock" } else { "object.lock" }, json!({}));
         }
-        if ui.add(egui::Button::new(egui::RichText::new("🗑 Delete").color(t.danger))).clicked() {
+        if ui.add(egui::Button::new(egui::RichText::new("Delete").color(t.danger))).clicked() {
             acts.run("edit.delete", json!({}));
         }
     });
@@ -387,7 +388,9 @@ fn common(ui: &mut egui::Ui, t: &Tokens, el: &Element, acts: &mut Actions) {
 
 fn align_buttons(ui: &mut egui::Ui, acts: &mut Actions, to: &str) {
     ui.horizontal_wrapped(|ui| {
-        for (label, how) in [("⇤", "left"), ("↔", "center-h"), ("⇥", "right"), ("⤒", "top"), ("↕", "center-v"), ("⤓", "bottom")] {
+        for (label, how) in
+            [("Left", "left"), ("Center", "center-h"), ("Right", "right"), ("Top", "top"), ("Middle", "center-v"), ("Bottom", "bottom")]
+        {
             if ui.button(label).on_hover_text(format!("Align {how}")).clicked() {
                 acts.run("object.align", json!({"how": how, "to": to}));
             }
@@ -419,7 +422,7 @@ fn multi_props(ui: &mut egui::Ui, t: &Tokens, els: &[Element], acts: &mut Action
         if ui.button("Paste style").clicked() {
             acts.run("style.paste", json!({}));
         }
-        if ui.add(egui::Button::new(egui::RichText::new("🗑 Delete").color(t.danger))).clicked() {
+        if ui.add(egui::Button::new(egui::RichText::new("Delete").color(t.danger))).clicked() {
             acts.run("edit.delete", json!({}));
         }
     });

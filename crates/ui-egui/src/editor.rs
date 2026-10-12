@@ -45,7 +45,7 @@ fn top_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         .frame(egui::Frame::new().fill(t.panel).inner_margin(egui::Margin::symmetric(12, 8)).stroke(egui::Stroke::new(1.0, t.border)))
         .show(ui, |ui| {
             ui.horizontal_centered(|ui| {
-                if ui.button(egui::RichText::new("⌂ GenExpress").strong().color(t.accent)).on_hover_text("Home").clicked() {
+                if ui.button(egui::RichText::new("GenExpress").strong().color(t.accent)).on_hover_text("Home").clicked() {
                     app.screen = crate::Screen::Home;
                 }
                 ui.separator();
@@ -77,10 +77,10 @@ fn top_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 ui.separator();
                 let can_undo = app.session.active().is_some_and(|d| !d.history.undo.is_empty());
                 let can_redo = app.session.active().is_some_and(|d| !d.history.redo.is_empty());
-                if ui.add_enabled(can_undo, egui::Button::new("↶")).on_hover_text("Undo (Ctrl+Z)").clicked() {
+                if ui.add_enabled(can_undo, egui::Button::new("Undo")).on_hover_text("Undo (Ctrl+Z)").clicked() {
                     app.run("edit.undo", &json!({}));
                 }
-                if ui.add_enabled(can_redo, egui::Button::new("↷")).on_hover_text("Redo (Ctrl+Shift+Z)").clicked() {
+                if ui.add_enabled(can_redo, egui::Button::new("Redo")).on_hover_text("Redo (Ctrl+Shift+Z)").clicked() {
                     app.run("edit.redo", &json!({}));
                 }
                 ui.separator();
@@ -88,24 +88,24 @@ fn top_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 ui.separator();
                 tools(app, ui, t);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.menu_button(egui::RichText::new("⬇ Download").color(t.accent_text), |ui| download_menu(app, ui))
+                    ui.menu_button(egui::RichText::new("Download").strong().color(t.accent), |ui| download_menu(app, ui))
                         .response
                         .on_hover_text("Export as PNG, JPEG, SVG or PDF");
-                    if ui.button("💾 Save").on_hover_text("Save (Ctrl+S)").clicked() {
+                    if ui.button("Save").on_hover_text("Save (Ctrl+S)").clicked() {
                         save(app, false);
                     }
                     ui.separator();
-                    if ui.button("⤢").on_hover_text("Fit page (Ctrl+0)").clicked() {
+                    if ui.button("Fit").on_hover_text("Fit page (Ctrl+0)").clicked() {
                         app.view.fit_pending = true;
                     }
                     ui.label(format!("{:.0}%", app.view.zoom * 100.0));
-                    if ui.button("＋").clicked() {
+                    if ui.button("+").clicked() {
                         crate::canvas::zoom_by(app, 1.25, None);
                     }
-                    if ui.button("－").clicked() {
+                    if ui.button("-").clicked() {
                         crate::canvas::zoom_by(app, 0.8, None);
                     }
-                    if ui.button("⌘").on_hover_text("All commands (Ctrl+K)").clicked() {
+                    if ui.button("Commands").on_hover_text("All commands (Ctrl+K)").clicked() {
                         app.editor.palette_open = true;
                     }
                 });
@@ -116,14 +116,7 @@ fn top_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 fn tools(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     use genexpress_tools::ToolId;
     for tool in ToolId::ALL {
-        let icon = match tool {
-            ToolId::Select => "⬉",
-            ToolId::Rect => "▭",
-            ToolId::Ellipse => "◯",
-            ToolId::Line => "╱",
-            ToolId::Text => "T",
-            ToolId::Hand => "✋",
-        };
+        let icon = tool.label();
         let on = app.session.tools.tool == tool;
         let b = egui::Button::new(egui::RichText::new(icon).color(if on { t.accent_text } else { t.text })).selected(on).fill(if on {
             t.accent
@@ -137,7 +130,7 @@ fn tools(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 }
 
 fn resize_menu(app: &mut App, ui: &mut egui::Ui) {
-    ui.menu_button("⇲ Resize", |ui| {
+    ui.menu_button("Resize", |ui| {
         ui.checkbox(&mut app.editor.resize_copy, "Keep this page, add a resized copy");
         ui.separator();
         for cat in preset::categories() {
@@ -288,7 +281,7 @@ fn page_strip(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                             }
                         });
                     }
-                    if ui.add(egui::Button::new(egui::RichText::new("＋\nAdd page").size(13.0)).min_size(egui::vec2(90.0, 80.0))).clicked() {
+                    if ui.add(egui::Button::new(egui::RichText::new("+\nAdd page").size(13.0)).min_size(egui::vec2(90.0, 80.0))).clicked() {
                         action = Some(("page.add", json!({})));
                     }
                 });
@@ -317,10 +310,9 @@ fn left_rail(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             ui.vertical_centered(|ui| {
                 for tab in LeftTab::ALL {
                     let on = app.left_tab == tab;
-                    let text =
-                        egui::RichText::new(format!("{}\n{}", tab.icon(), tab.label())).size(11.5).color(if on { t.accent } else { t.text_dim });
+                    let text = egui::RichText::new(tab.label()).size(12.0).color(if on { t.accent } else { t.text_dim });
                     let b = egui::Button::new(text)
-                        .min_size(egui::vec2(60.0, 50.0))
+                        .min_size(egui::vec2(80.0, 40.0))
                         .fill(if on { t.accent_soft } else { egui::Color32::TRANSPARENT })
                         .frame(on);
                     if ui.add(b).clicked() {
@@ -351,7 +343,7 @@ fn left_panel(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 
 fn templates_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     heading(ui, "Templates");
-    ui.add(egui::TextEdit::singleline(&mut app.editor.template_query).hint_text("🔍 Search templates"));
+    ui.add(egui::TextEdit::singleline(&mut app.editor.template_query).hint_text("Search templates"));
     ui.label(egui::RichText::new("Click: open as a new design · right-click: add as a page").size(11.0).color(t.text_dim));
     let q = app.editor.template_query.to_lowercase();
     let ctx = ui.ctx().clone();
@@ -531,7 +523,7 @@ fn media_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     heading(ui, "Your pictures");
     if ui
         .add(
-            egui::Button::new(egui::RichText::new("⬆ Upload picture…").color(t.accent_text))
+            egui::Button::new(egui::RichText::new("Upload picture…").color(t.accent_text))
                 .fill(t.accent)
                 .min_size(egui::vec2(ui.available_width(), 36.0)),
         )
@@ -592,7 +584,7 @@ fn brand_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 set = Some((i, crate::theme::from_egui(col)));
             }
             ui.label(format!("{}  {}", c.name, c.color.to_hex()));
-            if ui.small_button("✕").on_hover_text("Remove").clicked() {
+            if ui.small_button("x").on_hover_text("Remove").clicked() {
                 remove = Some(i);
             }
         });
@@ -682,11 +674,11 @@ fn layers_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     for (id, name, kind, hidden, locked) in rows {
         let on = sel.contains(&id);
         ui.horizontal(|ui| {
-            let eye = if hidden { "◌" } else { "👁" };
+            let eye = if hidden { "show" } else { "hide" };
             if ui.small_button(eye).on_hover_text(if hidden { "Show" } else { "Hide" }).clicked() {
                 action = Some((if hidden { "object.show" } else { "object.hide" }, json!({"ids": [id.0]})));
             }
-            let lock = if locked { "🔒" } else { "🔓" };
+            let lock = if locked { "unlock" } else { "lock" };
             if ui.small_button(lock).on_hover_text(if locked { "Unlock" } else { "Lock" }).clicked() {
                 action = Some((if locked { "object.unlock" } else { "object.lock" }, json!({"ids": [id.0]})));
             }

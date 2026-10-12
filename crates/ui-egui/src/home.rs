@@ -11,11 +11,12 @@ pub struct HomeState {
     pub category: Option<&'static str>,
     pub custom_w: f64,
     pub custom_h: f64,
+    pub all_sizes: bool,
 }
 
 impl Default for HomeState {
     fn default() -> Self {
-        HomeState { query: String::new(), category: None, custom_w: 1080.0, custom_h: 1080.0 }
+        HomeState { query: String::new(), category: None, custom_w: 1080.0, custom_h: 1080.0, all_sizes: false }
     }
 }
 
@@ -60,10 +61,10 @@ fn header(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         ui.add_space(8.0);
         ui.label(egui::RichText::new("Design anything — open source, made in Rust.").size(15.0).color(t.text_dim));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.button(if app.dark { "☀ Light" } else { "🌙 Dark" }).clicked() {
+            if ui.button(if app.dark { "Light mode" } else { "Dark mode" }).clicked() {
                 app.dark = !app.dark;
             }
-            if ui.button("📂 Open…").clicked()
+            if ui.button("Open…").clicked()
                 && let Some(p) = io::pick_open(&[io::DESIGNS, io::PICTURES])
             {
                 app.run("file.open", &json!({"path": p.display().to_string()}));
@@ -76,7 +77,7 @@ fn start(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     ui.label(egui::RichText::new("What do you want to create?").size(20.0).strong());
     ui.add_space(6.0);
     ui.horizontal_wrapped(|ui| {
-        ui.add(egui::TextEdit::singleline(&mut app.home.query).hint_text("🔍 Search sizes and templates").desired_width(280.0));
+        ui.add(egui::TextEdit::singleline(&mut app.home.query).hint_text("Search sizes and templates").desired_width(280.0));
         if ui.selectable_label(app.home.category.is_none(), "All").clicked() {
             app.home.category = None;
         }
@@ -89,57 +90,108 @@ fn start(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     ui.add_space(8.0);
     let q = app.home.query.to_lowercase();
     let cat = app.home.category;
-    ui.horizontal_wrapped(|ui| {
-        // Custom size first.
-        egui::Frame::new().fill(t.panel).stroke(egui::Stroke::new(1.0, t.border)).corner_radius(12).inner_margin(10).show(ui, |ui| {
-            ui.set_width(170.0);
-            ui.set_height(118.0);
-            ui.vertical(|ui| {
-                ui.label(egui::RichText::new("Custom size").strong());
-                ui.horizontal(|ui| {
-                    ui.add(egui::DragValue::new(&mut app.home.custom_w).range(1.0..=16384.0).suffix(" px").speed(1.0));
-                    ui.label("×");
-                });
-                ui.add(egui::DragValue::new(&mut app.home.custom_h).range(1.0..=16384.0).suffix(" px").speed(1.0));
-                if ui.add(egui::Button::new(egui::RichText::new("Create").color(t.accent_text)).fill(t.accent)).clicked() {
-                    let (w, h) = (app.home.custom_w, app.home.custom_h);
-                    app.run("file.new", &json!({"width": w, "height": h, "title": "Custom design"}));
-                }
-            });
-        });
-        for p in preset::PRESETS {
-            if cat.is_some_and(|c| c != p.category) {
-                continue;
+    let mut items: Vec<Option<&'static preset::PagePreset>> = vec![None];
+    items.extend(
+        preset::PRESETS
+            .iter()
+            .filter(|p| cat.is_none_or(|c| c == p.category))
+            .filter(|p| q.is_empty() || p.label.to_lowercase().contains(&q) || p.category.to_lowercase().contains(&q))
+            .map(Some),
+    );
+    // Without a filter, the most used sizes; "More sizes" shows them all.
+    let limited = cat.is_none() && q.is_empty() && !app.home.all_sizes;
+    if limited {
+        let popular = [
+            "instagram-post",
+            "instagram-story",
+            "facebook-post",
+            "youtube-thumbnail",
+            "linkedin-post",
+            "flyer-a4",
+            "poster-a3",
+            "presentation",
+            "logo",
+            "business-card",
+        ];
+        items.retain(|i| i.is_none_or(|p| popular.contains(&p.id)));
+    }
+    let mut create: Option<serde_json::Value> = None;
+    rows(ui, items, 152.0, |ui, item| match item {
+        None => {
+            if let Some(p) = custom_card(app, ui, t) {
+                create = Some(p);
             }
-            if !q.is_empty() && !p.label.to_lowercase().contains(&q) && !p.category.to_lowercase().contains(&q) {
-                continue;
-            }
-            let r = egui::Frame::new()
-                .fill(t.panel)
-                .stroke(egui::Stroke::new(1.0, t.border))
-                .corner_radius(12)
-                .inner_margin(10)
-                .show(ui, |ui| {
-                    ui.set_width(130.0);
-                    ui.set_height(118.0);
-                    ui.vertical_centered(|ui| {
-                        let sz = thumbs::fit_size(p.width as f32, p.height as f32, egui::vec2(70.0, 56.0));
-                        let (rect, _) = ui.allocate_exact_size(egui::vec2(70.0, 60.0), egui::Sense::hover());
-                        let r = egui::Rect::from_center_size(rect.center(), sz);
-                        ui.painter().rect_filled(r, 4, t.accent_soft);
-                        ui.painter().rect_stroke(r, 4, egui::Stroke::new(1.5, t.accent), egui::StrokeKind::Inside);
-                        ui.label(egui::RichText::new(p.label).size(12.5));
-                        ui.label(egui::RichText::new(format!("{:.0} × {:.0}", p.width, p.height)).size(11.0).color(t.text_dim));
-                    });
-                })
-                .response
-                .interact(egui::Sense::click())
-                .on_hover_cursor(egui::CursorIcon::PointingHand);
-            if r.clicked() {
-                app.run("file.new", &json!({"preset": p.id}));
+        }
+        Some(p) => {
+            if preset_card(ui, t, p).clicked() {
+                create = Some(json!({"preset": p.id}));
             }
         }
     });
+    if ui.link(if app.home.all_sizes { "Fewer sizes" } else { "More sizes…" }).clicked() {
+        app.home.all_sizes = !app.home.all_sizes;
+    }
+    if let Some(p) = create {
+        app.run("file.new", &p);
+    }
+}
+
+/// Lays `items` out in rows of cards `item_w` wide (outer width), as many per row as fit.
+fn rows<T>(ui: &mut egui::Ui, items: Vec<T>, item_w: f32, mut f: impl FnMut(&mut egui::Ui, T)) {
+    let gap = ui.spacing().item_spacing.x;
+    let per = (((ui.available_width() + gap) / (item_w + gap)).floor() as usize).max(1);
+    let mut it = items.into_iter().peekable();
+    while it.peek().is_some() {
+        ui.horizontal(|ui| {
+            for _ in 0..per {
+                if let Some(x) = it.next() {
+                    f(ui, x);
+                }
+            }
+        });
+        ui.add_space(4.0);
+    }
+}
+
+fn custom_card(app: &mut App, ui: &mut egui::Ui, t: &Tokens) -> Option<serde_json::Value> {
+    let mut out = None;
+    egui::Frame::new().fill(t.panel).stroke(egui::Stroke::new(1.0, t.border)).corner_radius(12).inner_margin(10).show(ui, |ui| {
+        ui.set_width(130.0);
+        ui.set_height(118.0);
+        ui.vertical(|ui| {
+            ui.label(egui::RichText::new("Custom size").strong());
+            ui.add(egui::DragValue::new(&mut app.home.custom_w).range(1.0..=16384.0).prefix("W ").suffix(" px").speed(1.0));
+            ui.add(egui::DragValue::new(&mut app.home.custom_h).range(1.0..=16384.0).prefix("H ").suffix(" px").speed(1.0));
+            if ui.add(egui::Button::new(egui::RichText::new("Create").color(t.accent_text)).fill(t.accent)).clicked() {
+                out = Some(json!({"width": app.home.custom_w, "height": app.home.custom_h, "title": "Custom design"}));
+            }
+        });
+    });
+    out
+}
+
+fn preset_card(ui: &mut egui::Ui, t: &Tokens, p: &preset::PagePreset) -> egui::Response {
+    egui::Frame::new()
+        .fill(t.panel)
+        .stroke(egui::Stroke::new(1.0, t.border))
+        .corner_radius(12)
+        .inner_margin(10)
+        .show(ui, |ui| {
+            ui.set_width(130.0);
+            ui.set_height(118.0);
+            ui.vertical_centered(|ui| {
+                let sz = thumbs::fit_size(p.width as f32, p.height as f32, egui::vec2(70.0, 56.0));
+                let (rect, _) = ui.allocate_exact_size(egui::vec2(70.0, 60.0), egui::Sense::hover());
+                let r = egui::Rect::from_center_size(rect.center(), sz);
+                ui.painter().rect_filled(r, 4, t.accent_soft);
+                ui.painter().rect_stroke(r, 4, egui::Stroke::new(1.5, t.accent), egui::StrokeKind::Inside);
+                ui.label(egui::RichText::new(p.label).size(12.5));
+                ui.label(egui::RichText::new(format!("{:.0} × {:.0}", p.width, p.height)).size(11.0).color(t.text_dim));
+            });
+        })
+        .response
+        .interact(egui::Sense::click())
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
 fn templates(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
@@ -162,19 +214,20 @@ fn templates(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         return;
     }
     let ctx = ui.ctx().clone();
-    ui.horizontal_wrapped(|ui| {
-        for tp in list {
-            let fonts = app.session.fonts.clone();
-            let tex = app.thumbs.get(&ctx, &format!("template:{}", tp.id), 0, || {
-                let doc = genexpress_templates::instantiate(tp.id, None)?;
-                genexpress_render::render_thumbnail(&doc, 0, &fonts, 360).ok()
-            });
-            let r = template_card(ui, t, tp.name, tp.category, tp.width as f32, tp.height as f32, tex.as_ref());
-            if r.clicked() {
-                app.run("template.use", &json!({"id": tp.id}));
-            }
+    let mut chosen = None;
+    rows(ui, list, 198.0, |ui, tp| {
+        let fonts = app.session.fonts.clone();
+        let tex = app.thumbs.get(&ctx, &format!("template:{}", tp.id), 0, || {
+            let doc = genexpress_templates::instantiate(tp.id, None)?;
+            genexpress_render::render_thumbnail(&doc, 0, &fonts, 360).ok()
+        });
+        if template_card(ui, t, tp.name, tp.category, tp.width as f32, tp.height as f32, tex.as_ref()).clicked() {
+            chosen = Some(tp.id);
         }
     });
+    if let Some(id) = chosen {
+        app.run("template.use", &json!({"id": id}));
+    }
 }
 
 pub(crate) fn template_card(

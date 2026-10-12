@@ -161,7 +161,9 @@ fn update_texture(app: &mut App, ctx: &egui::Context, doc: &Arc<Document>, page:
     if app.canvas.key == Some(key) && app.canvas.texture.is_some() {
         return;
     }
-    let opts = genexpress_render::RenderOptions { scale: f64::from(scale), transparent_background: true };
+    // A page without background shows the checkerboard; any other background is drawn.
+    let transparent = matches!(pg.background, genexpress_doc::Fill::None);
+    let opts = genexpress_render::RenderOptions { scale: f64::from(scale), transparent_background: transparent };
     match app.renderer.render_page(doc, page, &app.session.fonts, &opts) {
         Ok(r) => {
             let img = crate::thumbs::to_color_image(&r);
@@ -197,7 +199,6 @@ fn handles(p: &egui::Painter, f: &Frame, zoom: f32, to_screen: &impl Fn(Point) -
         if h == Handle::Rotate {
             p.circle_filled(c, 6.0, t.handle_fill);
             p.circle_stroke(c, 6.0, egui::Stroke::new(1.5, t.selection));
-            p.text(c, egui::Align2::CENTER_CENTER, "↻", egui::FontId::proportional(9.0), t.selection);
         } else {
             let r = egui::Rect::from_center_size(c, egui::vec2(9.0, 9.0));
             p.rect_filled(r, 2, t.handle_fill);

@@ -52,16 +52,6 @@ impl LeftTab {
             LeftTab::Layers => "Layers",
         }
     }
-    pub fn icon(self) -> &'static str {
-        match self {
-            LeftTab::Templates => "▦",
-            LeftTab::Elements => "◆",
-            LeftTab::Text => "T",
-            LeftTab::Media => "🖼",
-            LeftTab::Brand => "🎨",
-            LeftTab::Layers => "☰",
-        }
-    }
 }
 
 /// How the canvas looks at the page.
