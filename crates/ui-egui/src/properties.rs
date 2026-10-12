@@ -111,6 +111,9 @@ fn page_props(ui: &mut egui::Ui, t: &Tokens, p: &Page, brand: &[genha_color::Col
         if ui.button("Duplicate page").clicked() {
             acts.run("page.duplicate", json!({}));
         }
+        if ui.button("Crop to content").on_hover_text("Shrink the page to its objects").clicked() {
+            acts.run("page.cropToContent", json!({"padding": 0}));
+        }
     });
 }
 

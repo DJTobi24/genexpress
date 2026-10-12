@@ -416,3 +416,35 @@ fn version_history() {
     assert_eq!(s.doc().unwrap().doc.versions.len(), n);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn data_recovery() {
+    let dir = std::env::temp_dir().join(format!("genha-recovery-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut s = session();
+    s.recovery_dir = Some(dir.clone());
+    s.execute("text.add", &json!({"text": "Unsaved"})).unwrap();
+    let r = s.execute("recovery.save", &json!({})).unwrap();
+    assert_eq!(r["written"].as_array().unwrap().len(), 1);
+    // This session's own copies are not offered; a copy from "another" process is.
+    assert_eq!(s.execute("recovery.list", &json!({})).unwrap().as_array().unwrap().len(), 0);
+    let own = std::path::PathBuf::from(r["written"][0].as_str().unwrap());
+    let other = dir.join("999999999-1.genha");
+    std::fs::copy(&own, &other).unwrap();
+    let list = s.execute("recovery.list", &json!({})).unwrap();
+    assert_eq!(list[0]["path"], other.display().to_string());
+    s.execute("recovery.open", &json!({"path": other.display().to_string()})).unwrap();
+    assert!(!other.exists());
+    assert!(s.doc().unwrap().dirty);
+    // Paths outside the folder are refused.
+    assert!(s.execute("recovery.discard", &json!({"path": "/etc/passwd"})).is_err());
+    // Saving removes the copy.
+    s.execute("file.saveAs", &json!({"path": dir.join("saved").display().to_string()})).unwrap();
+    s.execute("file.close", &json!({})).unwrap();
+    s.execute("file.close", &json!({})).unwrap();
+    s.execute("file.new", &json!({})).unwrap();
+    s.execute("recovery.save", &json!({})).unwrap();
+    let left: Vec<_> = std::fs::read_dir(&dir).unwrap().flatten().filter(|e| e.file_name().to_string_lossy().contains('-')).collect();
+    assert!(left.is_empty(), "{left:?}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}

@@ -9,6 +9,7 @@ pub mod file;
 pub mod object;
 pub mod page;
 pub mod query;
+pub mod recovery;
 pub mod style;
 pub mod versions;
 
@@ -114,6 +115,7 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(export::specs());
         v.extend(content::specs());
         v.extend(versions::specs());
+        v.extend(recovery::specs());
         v.extend(query::specs());
         v
     })

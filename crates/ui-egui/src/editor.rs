@@ -15,6 +15,8 @@ pub struct EditorState {
     pub template_query: String,
     pub renaming: Option<String>,
     pub new_brand_color: [u8; 3],
+    pub versions_open: bool,
+    pub version_name: String,
 }
 
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
@@ -33,6 +35,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     });
     egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.canvas)).show(ui, |ui| crate::canvas::show(app, ui, &t));
     palette(app, ui.ctx(), &t);
+    versions_window(app, ui.ctx(), &t);
 }
 
 fn panel_frame(t: &Tokens) -> egui::Frame {
@@ -91,6 +94,9 @@ fn top_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                     ui.menu_button(egui::RichText::new("Download").strong().color(t.accent), |ui| download_menu(app, ui))
                         .response
                         .on_hover_text("Export as PNG, JPEG, SVG or PDF");
+                    if ui.button("Versions").on_hover_text("Version history").clicked() {
+                        app.editor.versions_open = !app.editor.versions_open;
+                    }
                     if ui.button("Save").on_hover_text("Save (Ctrl+S)").clicked() {
                         save(app, false);
                     }
@@ -850,5 +856,77 @@ fn palette(app: &mut App, ctx: &egui::Context, t: &Tokens) {
                 app.run(id, &json!({}));
             }
         }
+    }
+}
+
+fn versions_window(app: &mut App, ctx: &egui::Context, t: &Tokens) {
+    if !app.editor.versions_open {
+        return;
+    }
+    let list = app.session.execute("version.list", &json!({})).ok().and_then(|v| v.as_array().cloned()).unwrap_or_default();
+    let mut open = true;
+    let mut action: Option<(&str, Value)> = None;
+    egui::Window::new("Version history").open(&mut open).default_width(360.0).show(ctx, |ui| {
+        ui.horizontal(|ui| {
+            ui.add(egui::TextEdit::singleline(&mut app.editor.version_name).hint_text("Name this version").desired_width(200.0));
+            if ui.button("Save version").clicked() {
+                action = Some(("version.save", json!({"name": app.editor.version_name.trim()})));
+                app.editor.version_name.clear();
+            }
+        });
+        ui.label(egui::RichText::new("Versions are kept inside the design file. Saving adds an automatic version.").size(11.0).color(t.text_dim));
+        ui.separator();
+        if list.is_empty() {
+            ui.colored_label(t.text_dim, "No versions yet.");
+        }
+        egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+            for v in &list {
+                let id = v["id"].as_u64().unwrap_or(0);
+                let name = v["name"].as_str().unwrap_or("");
+                let bookmarked = v["bookmarked"].as_bool().unwrap_or(false);
+                let when = age(v["created"].as_u64().unwrap_or(0));
+                ui.horizontal(|ui| {
+                    let label = egui::RichText::new(format!("{}{name}", if bookmarked { "* " } else { "" })).strong();
+                    ui.label(label);
+                    ui.colored_label(t.text_dim, format!("{when} · {} pages", v["pages"].as_u64().unwrap_or(0)));
+                });
+                ui.horizontal(|ui| {
+                    if ui.small_button("Restore").clicked() {
+                        action = Some(("version.restore", json!({"id": id})));
+                    }
+                    if ui.small_button("Open as copy").clicked() {
+                        action = Some(("version.copy", json!({"id": id})));
+                    }
+                    if !bookmarked && ui.small_button("Keep").on_hover_text("Bookmark: never pruned").clicked() {
+                        action = Some(("version.rename", json!({"id": id, "name": name, "bookmarked": true})));
+                    }
+                    if ui.small_button("Delete").clicked() {
+                        action = Some(("version.delete", json!({"id": id})));
+                    }
+                });
+                ui.add_space(4.0);
+            }
+        });
+    });
+    if !open {
+        app.editor.versions_open = false;
+    }
+    if let Some((cmd, p)) = action {
+        app.run(cmd, &p);
+        app.view.fit_pending = cmd != "version.save" && cmd != "version.rename" && cmd != "version.delete";
+    }
+}
+
+/// "5 min ago" for a version time.
+fn age(created: u64) -> String {
+    let now = crate::now() as u64;
+    if created == 0 || created > now {
+        return "unknown time".into();
+    }
+    match now - created {
+        s if s < 60 => "just now".into(),
+        s if s < 3600 => format!("{} min ago", s / 60),
+        s if s < 86_400 => format!("{} h ago", s / 3600),
+        s => format!("{} days ago", s / 86_400),
     }
 }

@@ -77,7 +77,14 @@ pub struct AppOptions {
     /// Files to open at start.
     pub open: Vec<std::path::PathBuf>,
     pub dark: Option<bool>,
+    /// Where the app keeps recent files and Data Recovery copies (none: neither is kept).
+    pub data_dir: Option<std::path::PathBuf>,
 }
+
+/// Seconds between Data Recovery copies of unsaved designs.
+const RECOVERY_INTERVAL: f64 = 60.0;
+/// Recent files shown on the home screen.
+const MAX_RECENT: usize = 12;
 
 pub struct App {
     pub session: Session,
@@ -95,6 +102,12 @@ pub struct App {
     pub control: Option<control::ControlServer>,
     font_families: Vec<String>,
     theme_applied: Option<bool>,
+    data_dir: Option<std::path::PathBuf>,
+    last_recovery: f64,
+    /// Recently opened or saved designs, newest first.
+    pub recent: Vec<std::path::PathBuf>,
+    /// Copies of designs from a session that ended unexpectedly: (path, title).
+    pub recovered: Vec<(String, String)>,
 }
 
 impl App {
@@ -105,6 +118,7 @@ impl App {
         }
         let mut session = Session::new();
         session.fonts = fonts;
+        session.recovery_dir = opts.data_dir.as_ref().map(|d| d.join("recovery"));
         let mut app = App {
             session,
             renderer: Renderer::new(),
@@ -120,7 +134,20 @@ impl App {
             control: None,
             font_families: families,
             theme_applied: None,
+            data_dir: opts.data_dir.clone(),
+            last_recovery: now(),
+            recent: vec![],
+            recovered: vec![],
         };
+        app.recent = app.load_recent();
+        if let Ok(list) = app.session.execute("recovery.list", &json!({})) {
+            app.recovered = list
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|v| Some((v.get("path")?.as_str()?.to_string(), v.get("title")?.as_str()?.to_string())))
+                .collect();
+        }
         for path in &opts.open {
             app.run("file.open", &json!({"path": path.display().to_string()}));
         }
@@ -139,6 +166,11 @@ impl App {
     pub fn run(&mut self, id: &str, params: &Value) -> Option<Value> {
         match self.session.execute(id, params) {
             Ok(v) => {
+                if matches!(id, "file.open" | "file.save" | "file.saveAs")
+                    && let Some(p) = self.session.active().and_then(|d| d.path.clone())
+                {
+                    self.remember_recent(p);
+                }
                 if id.starts_with("file.") || id.starts_with("template.") || id == "document.switch" {
                     self.view.fit_pending = true;
                     if !self.session.docs.is_empty() {
@@ -151,6 +183,45 @@ impl App {
                 self.set_status(e.to_string());
                 None
             }
+        }
+    }
+
+    fn recent_file(&self) -> Option<std::path::PathBuf> {
+        self.data_dir.as_ref().map(|d| d.join("recent.json"))
+    }
+
+    fn load_recent(&self) -> Vec<std::path::PathBuf> {
+        let Some(f) = self.recent_file() else { return vec![] };
+        let Ok(text) = std::fs::read_to_string(f) else { return vec![] };
+        serde_json::from_str::<Vec<String>>(&text).unwrap_or_default().into_iter().take(MAX_RECENT).map(Into::into).collect()
+    }
+
+    fn remember_recent(&mut self, path: std::path::PathBuf) {
+        self.recent.retain(|p| p != &path);
+        self.recent.insert(0, path);
+        self.recent.truncate(MAX_RECENT);
+        if let (Some(f), Some(dir)) = (self.recent_file(), self.data_dir.clone()) {
+            let list: Vec<String> = self.recent.iter().map(|p| p.display().to_string()).collect();
+            // Recent files are a convenience: failing to store them is not worth bothering the user.
+            let _ = std::fs::create_dir_all(dir).and_then(|_| std::fs::write(f, serde_json::to_string(&list).unwrap_or_default()));
+        }
+    }
+
+    /// Writes Data Recovery copies of unsaved designs every [`RECOVERY_INTERVAL`] seconds.
+    fn autosave(&mut self, ctx: &egui::Context) {
+        if self.session.recovery_dir.is_none() {
+            return;
+        }
+        let t = now();
+        if t - self.last_recovery < RECOVERY_INTERVAL {
+            ctx.request_repaint_after(std::time::Duration::from_secs(RECOVERY_INTERVAL as u64));
+            return;
+        }
+        self.last_recovery = t;
+        if self.session.docs.iter().any(|d| d.dirty)
+            && let Err(e) = self.session.execute("recovery.save", &json!({}))
+        {
+            self.set_status(format!("Data Recovery: {e}"));
         }
     }
 
@@ -176,6 +247,7 @@ impl App {
             self.theme_applied = Some(self.dark);
         }
         control::process(self, &ctx);
+        self.autosave(&ctx);
         self.handle_dropped_files(&ctx);
         // Engine messages (repaired files…) surface in the status bar.
         if let Some(m) = self.session.messages.pop() {

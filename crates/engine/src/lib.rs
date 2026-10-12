@@ -99,11 +99,15 @@ pub struct DocState {
     pub dirty: bool,
     /// Bumped on every change (the UI re-renders when it moves).
     pub revision: u64,
+    /// Names this document's Data Recovery copy (unique in the process).
+    pub recovery_id: u64,
 }
 
 impl DocState {
     pub fn new(doc: Document) -> Self {
-        DocState { doc: Arc::new(doc), selection: vec![], page: 0, history: History::default(), path: None, dirty: false, revision: 0 }
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        let recovery_id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        DocState { doc: Arc::new(doc), selection: vec![], page: 0, history: History::default(), path: None, dirty: false, revision: 0, recovery_id }
     }
 
     /// Selected elements that still exist, in selection order.
@@ -134,6 +138,8 @@ pub struct Session {
     merge_key: Option<String>,
     /// Fonts for text layout and exports (shared with the UI).
     pub fonts: Arc<genha_text::FontBook>,
+    /// Where Data Recovery keeps copies of unsaved designs (`recovery.*` commands); none = off.
+    pub recovery_dir: Option<PathBuf>,
 }
 
 impl Default for Session {
@@ -154,6 +160,7 @@ impl Session {
             messages: vec![],
             merge_key: None,
             fonts: Arc::new(genha_text::FontBook::new()),
+            recovery_dir: None,
         }
     }
 

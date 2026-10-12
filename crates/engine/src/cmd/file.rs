@@ -118,6 +118,7 @@ fn save_to(s: &mut Session, path: &std::path::Path, compress: bool) -> Result<Va
     super::versions::auto_version(s);
     let bytes = genha_format::to_bytes(&s.doc()?.doc, compress)?;
     genha_format::write_atomic(path, &bytes)?;
+    super::recovery::forget(s, s.active);
     let d = s.doc_mut()?;
     d.path = Some(path.to_path_buf());
     d.dirty = false;
@@ -134,6 +135,7 @@ fn file_close(s: &mut Session, p: &Value) -> Result<Value> {
     if i >= s.docs.len() {
         return Err(bad("file.close", format!("no document {i}")));
     }
+    super::recovery::forget(s, i);
     s.docs.remove(i);
     if s.active >= s.docs.len() {
         s.active = s.docs.len().saturating_sub(1);

@@ -38,6 +38,8 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             header(app, ui, &t);
             ui.add_space(18.0);
+            recovered(app, ui, &t);
+            recent(app, ui, &t);
             start(app, ui, &t);
             ui.add_space(22.0);
             templates(app, ui, &t);
@@ -318,4 +320,61 @@ fn open_designs(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             }
         }
     });
+}
+
+fn recovered(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
+    if app.recovered.is_empty() {
+        return;
+    }
+    let mut action: Option<(&str, String)> = None;
+    egui::Frame::new().fill(t.accent_soft).corner_radius(12).inner_margin(12).show(ui, |ui| {
+        ui.label(egui::RichText::new("Recovered designs").size(17.0).strong());
+        ui.label(egui::RichText::new("GenHa closed unexpectedly last time. These designs had unsaved changes.").color(t.text_dim));
+        for (path, title) in &app.recovered {
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new(title).strong());
+                if ui.button("Open").clicked() {
+                    action = Some(("recovery.open", path.clone()));
+                }
+                if ui.button("Discard").clicked() {
+                    action = Some(("recovery.discard", path.clone()));
+                }
+            });
+        }
+    });
+    ui.add_space(14.0);
+    if let Some((cmd, path)) = action {
+        app.recovered.retain(|(p, _)| *p != path);
+        app.run(cmd, &json!({"path": path}));
+        if cmd == "recovery.open" {
+            app.screen = crate::Screen::Editor;
+            app.view.fit_pending = true;
+        }
+    }
+}
+
+fn recent(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
+    let files: Vec<std::path::PathBuf> = app.recent.iter().filter(|p| p.exists()).cloned().collect();
+    if files.is_empty() {
+        return;
+    }
+    ui.label(egui::RichText::new("Recent designs").size(20.0).strong());
+    ui.add_space(6.0);
+    let mut open = None;
+    ui.horizontal_wrapped(|ui| {
+        for p in files {
+            let name = p.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            if ui
+                .add(egui::Button::new(egui::RichText::new(name).size(14.0)).min_size(egui::vec2(170.0, 40.0)).fill(t.panel))
+                .on_hover_text(p.display().to_string())
+                .clicked()
+            {
+                open = Some(p);
+            }
+        }
+    });
+    ui.add_space(18.0);
+    if let Some(p) = open {
+        app.run("file.open", &json!({"path": p.display().to_string()}));
+    }
 }
