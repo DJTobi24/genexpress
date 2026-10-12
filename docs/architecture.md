@@ -35,8 +35,10 @@ Document ─ title, brand kit, assets (pictures stored once, shared by id)
  └─ Page ─ size (px), background (solid/gradient), duration (video), notes
      └─ Element ─ id, name, frame {x, y, width, height, rotation}, opacity, lock, hide, flip, animation
          ├─ Shape  ─ rect/ellipse/triangle/polygon/star/line/path, fill, border, shadow
-         ├─ Text   ─ text, style (family, size, weight, colour, align, spacing…), effect (shadow/outline/highlight)
+         ├─ Text   ─ text, style (family, size, weight, colour, align, spacing…), effect (shadow/outline/highlight), curve
          ├─ Image  ─ asset, crop, fit, corner radius, crop-to-shape, adjustments, filter, border
+         ├─ Chart  ─ kind (bar/horizontal-bar/line/area/pie/donut/progress), labelled values, colours, labels/values/legend
+         ├─ Table  ─ rows of cell text, header row, fills, grid lines, padding, alignment, column widths
          └─ Group  ─ children (page coordinates)
 ```
 
@@ -54,7 +56,10 @@ so anything a user can do an agent can do. `command.batch` runs several as one u
 
 Pages are rasterized on the CPU by `vello_cpu`; the desktop app shows the result as a texture and
 draws selection handles, guides and previews on top with egui. Text is laid out by `genha-text`
-into glyph outlines so the canvas, PNG/JPEG/PDF exports and SVG-as-paths all match.
+into glyph outlines so the canvas, PNG/JPEG/PDF exports and SVG-as-paths all match. Curved text
+places each glyph's own outline (`genha_text::layout_glyphs`) along an arc. Charts and tables are
+turned into a `Scene` of filled/stroked paths and laid-out text by `genha_render::{chart_scene,
+table_scene}`, which both the rasterizer and the SVG writer draw, so they agree.
 
 ## Motion
 

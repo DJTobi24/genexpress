@@ -222,6 +222,9 @@ fn every_command_survives_junk_params() {
     let mut s = session();
     s.execute("shape.add", &json!({})).unwrap();
     s.execute("text.add", &json!({})).unwrap();
+    s.execute("text.setCurve", &json!({"degrees": 90})).unwrap();
+    s.execute("chart.add", &json!({"kind": "pie"})).unwrap();
+    s.execute("table.add", &json!({})).unwrap();
     for spec in command_specs() {
         if ["file.open", "file.save", "file.saveAs"].contains(&spec.id) {
             continue;
@@ -474,4 +477,114 @@ fn svg_import_places_editable_shapes() {
     s.execute("file.open", &json!({"path": dir.join("a.svg").display().to_string()})).unwrap();
     assert_eq!(s.doc().unwrap().doc.pages[0].width, 100.0);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+fn chart_of(s: &Session, id: u64) -> genha_doc::ChartEl {
+    let ElementKind::Chart(c) = &s.doc().unwrap().doc.element(NodeId(id)).unwrap().kind else { panic!() };
+    c.clone()
+}
+
+fn table_of(s: &Session, id: u64) -> (genha_doc::TableEl, f64) {
+    let el = s.doc().unwrap().doc.element(NodeId(id)).unwrap();
+    let ElementKind::Table(t) = &el.kind else { panic!() };
+    (t.clone(), el.frame.height)
+}
+
+#[test]
+fn charts_from_commands() {
+    let mut s = session();
+    let c = id(&s.execute("chart.add", &json!({})).unwrap());
+    let chart = chart_of(&s, c);
+    assert_eq!(chart.kind, genha_doc::ChartKind::Bar);
+    assert!(!chart.data.is_empty());
+    assert_eq!(chart.colors, vec![s.doc().unwrap().doc.brand.colors[0].color]);
+    s.execute("chart.setData", &json!({"data": "Mon: 3, Tue: 5, Wed: 8"})).unwrap();
+    assert_eq!(chart_of(&s, c).data.len(), 3);
+    s.execute("chart.setKind", &json!({"kind": "donut"})).unwrap();
+    let chart = chart_of(&s, c);
+    assert_eq!((chart.kind, chart.value_format, chart.show_legend), (genha_doc::ChartKind::Donut, genha_doc::ValueFormat::Percent, true));
+    s.execute("chart.setStyle", &json!({"show_values": false, "colors": ["#ff0000", "#00ff00"], "donut_hole": 5, "kind": "column"})).unwrap();
+    let chart = chart_of(&s, c);
+    assert!(!chart.show_values && chart.donut_hole <= 0.9 && chart.kind == genha_doc::ChartKind::Bar);
+    assert_eq!(chart.colors.len(), 2);
+    assert!(s.execute("chart.setStyle", &json!({"font_size": "big"})).is_err());
+    assert!(s.execute("chart.setKind", &json!({"kind": "radar"})).is_err());
+    s.execute("style.fill", &json!({"color": "#123456"})).unwrap();
+    assert_eq!(chart_of(&s, c).colors[0], genha_doc::Color::rgb(0x12, 0x34, 0x56));
+    // Pie colours come from the brand; data as a list; the summary shows it.
+    let p = id(&s.execute("chart.add", &json!({"kind": "pie", "data": [{"label": "a", "value": 1}, ["b", 2]]})).unwrap());
+    assert!(chart_of(&s, p).colors.len() >= 4);
+    let summary = inspect::element_summary(s.doc().unwrap().doc.element(NodeId(p)).unwrap());
+    assert_eq!(summary["chart"], "pie");
+    assert_eq!(summary["data"][1]["value"], 2.0);
+    // A ring is a square progress chart.
+    let r = id(&s.execute("chart.add", &json!({"kind": "ring"})).unwrap());
+    let f = s.doc().unwrap().doc.element(NodeId(r)).unwrap().frame;
+    assert_eq!(f.width, f.height);
+    // Copy a chart's look onto another; its data stays.
+    s.execute("style.copy", &json!({"id": c})).unwrap();
+    s.execute("style.paste", &json!({"ids": [p]})).unwrap();
+    let pasted = chart_of(&s, p);
+    assert_eq!((pasted.kind, pasted.data.len(), pasted.show_values), (genha_doc::ChartKind::Pie, 2, false));
+    // Saved and opened again.
+    let bytes = genha_format::to_bytes(&s.doc().unwrap().doc, true).unwrap();
+    let (back, notes) = genha_format::from_bytes(&bytes).unwrap();
+    assert!(notes.is_empty(), "{notes:?}");
+    assert_eq!(&back, &*s.doc().unwrap().doc);
+}
+
+#[test]
+fn tables_from_commands() {
+    let mut s = session();
+    let t = id(&s.execute("table.add", &json!({})).unwrap());
+    let (table, h0) = table_of(&s, t);
+    assert_eq!((table.rows.len(), table.columns()), (3, 3));
+    assert!(h0 > 0.0);
+    s.execute("table.setCell", &json!({"row": 1, "col": 2, "text": "hello"})).unwrap();
+    assert_eq!(table_of(&s, t).0.cell(1, 2), "hello");
+    assert!(s.execute("table.setCell", &json!({"row": 9, "col": 0, "text": "x"})).is_err());
+    s.execute("table.insertRow", &json!({"index": 1})).unwrap();
+    let (table, h1) = table_of(&s, t);
+    assert_eq!((table.rows.len(), table.cell(2, 2)), (4, "hello"));
+    assert!(h1 > h0, "the frame grows with the rows");
+    s.execute("table.insertColumn", &json!({})).unwrap();
+    assert_eq!(table_of(&s, t).0.columns(), 4);
+    s.execute("table.deleteColumn", &json!({"index": 0})).unwrap();
+    s.execute("table.deleteRow", &json!({})).unwrap();
+    let (table, _) = table_of(&s, t);
+    assert_eq!((table.rows.len(), table.columns(), table.cell(2, 1)), (3, 3, "hello"));
+    s.execute("table.setRows", &json!({"csv": "a,b\nc,d"})).unwrap();
+    assert_eq!(table_of(&s, t).0.rows, vec![vec!["a", "b"], vec!["c", "d"]]);
+    s.execute("table.setStyle", &json!({"header_fill": "#ff0000", "alt_row_fill": null, "align": "center"})).unwrap();
+    let (table, _) = table_of(&s, t);
+    assert_eq!((table.header_fill, table.alt_row_fill, table.align), (genha_doc::Color::rgb(255, 0, 0), None, genha_doc::TextAlign::Center));
+    s.execute("style.stroke", &json!({"none": true})).unwrap();
+    assert!(table_of(&s, t).0.border.is_none());
+    for _ in 0..2 {
+        let _ = s.execute("table.deleteRow", &json!({}));
+    }
+    assert_eq!(table_of(&s, t).0.rows.len(), 1, "the last row stays");
+    assert!(s.execute("table.add", &json!({"rows": 0})).is_err());
+    let big = id(&s.execute("table.add", &json!({"rows": [["x", "y"], ["1", "2"], ["3"]], "header": false})).unwrap());
+    let (table, _) = table_of(&s, big);
+    assert!(!table.header_row && table.rows[2].len() == 2);
+    assert_eq!(inspect::element_summary(s.doc().unwrap().doc.element(NodeId(big)).unwrap())["size"], json!([3, 2]));
+}
+
+#[test]
+fn text_curve_command() {
+    let mut s = session();
+    let t = id(&s.execute("text.add", &json!({"text": "Around we go"})).unwrap());
+    let h0 = s.doc().unwrap().doc.element(NodeId(t)).unwrap().frame.height;
+    s.execute("text.setCurve", &json!({"degrees": 720})).unwrap();
+    let el = s.doc().unwrap().doc.element(NodeId(t)).unwrap().clone();
+    let ElementKind::Text(te) = &el.kind else { panic!() };
+    assert_eq!(te.curve, 360.0);
+    assert!(el.frame.height > h0 * 1.5, "a circle of text is taller: {} vs {h0}", el.frame.height);
+    s.execute("text.setCurve", &json!({"degrees": 0})).unwrap();
+    let el = s.doc().unwrap().doc.element(NodeId(t)).unwrap();
+    assert!((el.frame.height - h0).abs() < 1.0);
+    assert!(s.execute("text.setCurve", &json!({"degrees": "a lot"})).is_err());
+    let shape = id(&s.execute("shape.add", &json!({})).unwrap());
+    assert!(s.execute("text.setCurve", &json!({"ids": [shape], "degrees": 90})).is_err());
 }

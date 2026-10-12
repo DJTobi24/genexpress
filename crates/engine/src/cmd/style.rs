@@ -4,7 +4,9 @@ use serde_json::{Value, json};
 
 use super::{bad, cmd, color_param, f64_or, has_selection, merge, ok, parse, str_param, targets};
 use crate::{CommandSpec, EngineError, Result, Session};
-use genha_doc::{Adjustments, CropRect, Element, ElementKind, Fill, Fit, NodeId, Shadow, ShapeKind, StrokeStyle, TextEffect, TextStyle};
+use genha_doc::{
+    Adjustments, ChartEl, CropRect, Element, ElementKind, Fill, Fit, NodeId, Shadow, ShapeKind, StrokeStyle, TableEl, TextEffect, TextStyle,
+};
 
 /// What Copy Style takes from an object.
 #[derive(Clone, Debug)]
@@ -14,6 +16,10 @@ pub struct CopiedStyle {
     pub shadow: Option<Option<Shadow>>,
     pub text: Option<(TextStyle, TextEffect)>,
     pub adjustments: Option<(Adjustments, Option<String>)>,
+    /// A chart's look (its data is left out when pasting).
+    pub chart: Option<ChartEl>,
+    /// A table's look (its cells are left out when pasting).
+    pub table: Option<TableEl>,
     pub opacity: f32,
 }
 
@@ -29,7 +35,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Fill",
             [],
             None,
-            "{ids?, color?: #rrggbb | \"none\", fill?: Fill JSON} — shapes fill; text sets its colour",
+            "{ids?, color?: #rrggbb | \"none\", fill?: Fill JSON} — shapes fill; text sets its colour; charts their first colour; tables their header",
             has_selection,
             fill
         ),
@@ -38,7 +44,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Border",
             [],
             None,
-            "{ids?, color?: #rrggbb, width?, dash?: [len…], none?: bool} — shapes and pictures",
+            "{ids?, color?: #rrggbb, width?, dash?: [len…], none?: bool} — shapes, pictures and table grid lines",
             has_selection,
             stroke
         ),
@@ -123,6 +129,26 @@ fn fill(s: &mut Session, p: &Value) -> Result<Value> {
             }
             None => false,
         },
+        ElementKind::Chart(ch) => match fill.primary_color() {
+            Some(c) => {
+                if ch.colors.is_empty() {
+                    ch.colors = genha_render::CHART_PALETTE.to_vec();
+                }
+                if let Some(first) = ch.colors.first_mut() {
+                    *first = c;
+                }
+                true
+            }
+            None => false,
+        },
+        ElementKind::Table(t) => match fill.primary_color() {
+            Some(c) => {
+                t.header_fill = c;
+                t.header_text = c.readable_text();
+                true
+            }
+            None => false,
+        },
         _ => false,
     })
 }
@@ -157,6 +183,10 @@ fn stroke(s: &mut Session, p: &Value) -> Result<Value> {
         }
         ElementKind::Image(i) => {
             apply(&mut i.border);
+            true
+        }
+        ElementKind::Table(t) => {
+            apply(&mut t.border);
             true
         }
         _ => false,
@@ -334,7 +364,7 @@ fn copy_style(s: &mut Session, p: &Value) -> Result<Value> {
     let ids = targets(s, p, "style.copy")?;
     let id = ids.first().copied().ok_or_else(|| bad("style.copy", "select an object"))?;
     let el = s.doc()?.doc.element(id)?.clone();
-    let mut st = CopiedStyle { fill: None, stroke: None, shadow: None, text: None, adjustments: None, opacity: el.opacity };
+    let mut st = CopiedStyle { fill: None, stroke: None, shadow: None, text: None, adjustments: None, chart: None, table: None, opacity: el.opacity };
     match &el.kind {
         ElementKind::Shape(sh) => {
             st.fill = Some(sh.fill.clone());
@@ -348,6 +378,15 @@ fn copy_style(s: &mut Session, p: &Value) -> Result<Value> {
         ElementKind::Image(i) => {
             st.adjustments = Some((i.adjustments.clone(), i.filter.clone()));
             st.stroke = Some(i.border.clone());
+        }
+        ElementKind::Chart(c) => {
+            st.chart = Some(c.clone());
+            st.fill = c.colors.first().map(|c| Fill::solid(*c));
+        }
+        ElementKind::Table(t) => {
+            st.table = Some(t.clone());
+            st.fill = Some(Fill::solid(t.header_fill));
+            st.stroke = Some(t.border.clone());
         }
         ElementKind::Group(_) => return Err(bad("style.copy", "copy the style of a single object, not a group")),
     }
@@ -385,6 +424,25 @@ fn paste_style(s: &mut Session, p: &Value) -> Result<Value> {
                 if let Some((a, f)) = &st.adjustments {
                     i.adjustments = a.clone();
                     i.filter = f.clone();
+                }
+                true
+            }
+            ElementKind::Chart(c) => {
+                if let Some(from) = &st.chart {
+                    *c = ChartEl { kind: c.kind, data: std::mem::take(&mut c.data), max: c.max, ..from.clone() };
+                } else if let Some(col) = st.fill.as_ref().and_then(Fill::primary_color) {
+                    c.colors = vec![col];
+                }
+                true
+            }
+            ElementKind::Table(t) => {
+                if let Some(from) = &st.table {
+                    let rows = std::mem::take(&mut t.rows);
+                    let widths = std::mem::take(&mut t.column_widths);
+                    *t = TableEl { rows, column_widths: widths, ..from.clone() };
+                } else if let Some(col) = st.fill.as_ref().and_then(Fill::primary_color) {
+                    t.header_fill = col;
+                    t.header_text = col.readable_text();
                 }
                 true
             }

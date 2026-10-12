@@ -20,7 +20,7 @@ fn text(id: u64, s: &str, anim: Option<Animation>) -> Element {
     let mut e = Element::new(
         NodeId(id),
         Frame::new(100.0, 100.0, 400.0, 80.0),
-        ElementKind::Text(TextEl { text: s.into(), style: TextStyle::default(), effect: Default::default() }),
+        ElementKind::Text(TextEl { text: s.into(), style: TextStyle::default(), effect: Default::default(), curve: 0.0 }),
     );
     e.animation = anim;
     e

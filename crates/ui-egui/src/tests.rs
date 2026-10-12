@@ -89,3 +89,26 @@ fn playback_and_present_mode() {
     assert_eq!(app.screen, Screen::Editor);
     assert!(app.status.as_ref().is_none_or(|(m, _)| !m.contains("Internal error")), "{:?}", app.status);
 }
+
+#[test]
+fn chart_table_and_curve_panels_run() {
+    let ctx = egui::Context::default();
+    let mut app = App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default());
+    app.run("file.new", &json!({}));
+    app.left_tab = crate::LeftTab::Elements;
+    for (cmd, params) in [
+        ("chart.add", json!({"kind": "donut"})),
+        ("chart.add", json!({"kind": "progress"})),
+        ("table.add", json!({})),
+        ("text.add", json!({"text": "Bend me"})),
+    ] {
+        app.run(cmd, &params);
+        if cmd == "text.add" {
+            app.run("text.setCurve", &json!({"degrees": 120}));
+        }
+        run_frames(&mut app, &ctx, 2);
+    }
+    let n = app.session.active().unwrap().doc.pages[0].elements.len();
+    assert_eq!(n, 4);
+    assert!(app.status.as_ref().is_none_or(|(m, _)| !m.contains("Internal error")), "{:?}", app.status);
+}

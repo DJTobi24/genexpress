@@ -476,6 +476,27 @@ fn elements_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         app.run("library.addShape", &json!({"id": id}));
     }
     ui.separator();
+    heading(ui, "Charts & tables");
+    ui.horizontal_wrapped(|ui| {
+        for (label, kind) in [
+            ("Bar", "bar"),
+            ("Horizontal bar", "horizontal-bar"),
+            ("Line", "line"),
+            ("Area", "area"),
+            ("Pie", "pie"),
+            ("Donut", "donut"),
+            ("Progress", "progress"),
+            ("Ring", "ring"),
+        ] {
+            if ui.button(label).on_hover_text(format!("Add a {} chart", label.to_lowercase())).clicked() {
+                app.run("chart.add", &json!({"kind": kind}));
+            }
+        }
+        if ui.button("Table").on_hover_text("Add a 3 x 3 table").clicked() {
+            app.run("table.add", &json!({}));
+        }
+    });
+    ui.separator();
     heading(ui, "QR code");
     ui.add(egui::TextEdit::singleline(&mut app.editor.qr_text).hint_text("https://…"));
     if ui.add_enabled(!app.editor.qr_text.trim().is_empty(), egui::Button::new("Add QR code")).clicked() {
