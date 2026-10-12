@@ -271,6 +271,7 @@ dependencies = [
 name = "genexpress-effects"
 version = "0.1.0"
 dependencies = [
+ "genexpress-color",
  "genexpress-doc",
  "genexpress-geom",
  "image",
@@ -317,6 +318,17 @@ name = "genexpress-geom"
 version = "0.1.0"
 dependencies = [
  "kurbo",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "genexpress-layout"
+version = "0.1.0"
+dependencies = [
+ "genexpress-color",
+ "genexpress-doc",
+ "genexpress-geom",
  "serde",
  "serde_json",
 ]
@@ -372,6 +384,19 @@ dependencies = [
  "genexpress-text",
  "image",
  "kurbo",
+ "thiserror",
+]
+
+[[package]]
+name = "genexpress-templates"
+version = "0.1.0"
+dependencies = [
+ "genexpress-color",
+ "genexpress-doc",
+ "genexpress-geom",
+ "kurbo",
+ "qrcode",
+ "serde_json",
  "thiserror",
 ]
 
@@ -663,6 +688,12 @@ name = "pxfm"
 version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d55d956fa96f5ec02be2e13af0e20391a5aa83d6a074e3ad368959d0fab299ea"
+
+[[package]]
+name = "qrcode"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d68782463e408eb1e668cf6152704bd856c78c5b6417adaee3203d8f4c1fc9ec"
 
 [[package]]
 name = "quick-error"
