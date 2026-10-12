@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-pub const PICTURES: (&str, &[&str]) = ("Pictures", &["png", "jpg", "jpeg", "webp", "gif", "bmp"]);
+pub const PICTURES: (&str, &[&str]) = ("Pictures", &["png", "jpg", "jpeg", "webp", "gif", "bmp", "svg"]);
 pub const DESIGNS: (&str, &[&str]) = ("GenHa designs", &["genha", "genexpress"]);
 
 #[cfg(not(target_arch = "wasm32"))]

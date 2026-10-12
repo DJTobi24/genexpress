@@ -230,8 +230,48 @@ fn read_file(_: &str) -> Result<(String, Vec<u8>)> {
     Err(EngineError::Other("reading files by path is not available in the browser".into()))
 }
 
-/// Places picture bytes on the current page.
+/// The shapes of an SVG file as one element (a group when there are several), in the SVG's own
+/// coordinates.
+pub(crate) fn svg_element(name: &str, bytes: &[u8]) -> Result<(Element, f64, f64)> {
+    let imported = genha_svg::import::import(bytes).map_err(|e| EngineError::Other(format!("{name}: {e}")))?;
+    let (w, h) = (imported.width, imported.height);
+    let mut els = imported.elements;
+    let mut el = if els.len() == 1
+        && let Some(one) = els.pop()
+    {
+        one
+    } else {
+        let mut g = Element::new(genha_doc::NodeId(0), Frame::default(), ElementKind::Group(genha_doc::GroupEl { children: els }));
+        super::object::fit_group_frame(&mut g);
+        g
+    };
+    el.name = name.to_string();
+    Ok((el, w, h))
+}
+
+/// Places an SVG file's shapes on the current page, fitted to 60% of it unless a frame is given.
+pub fn place_svg(s: &mut Session, name: &str, bytes: &[u8], p: &Value) -> Result<Value> {
+    let (mut el, _, _) = svg_element(name, bytes)?;
+    let page = page_size(s)?;
+    let (iw, ih) = (el.frame.width.max(1e-3), el.frame.height.max(1e-3));
+    let k = (page.0 * 0.6 / iw).min(page.1 * 0.6 / ih);
+    let target = frame_params(p, page, iw * k, ih * k);
+    super::object::set_frame_moving_children(&mut el, target);
+    let id = s.edit("Place SVG", |doc, cx| {
+        doc.reassign_ids(&mut el);
+        let id = el.id;
+        doc.page_mut(cx.page)?.elements.push(el);
+        cx.selection = vec![id];
+        Ok(id)
+    })?;
+    Ok(ok(json!({"id": id})))
+}
+
+/// Places picture bytes on the current page (SVG files become editable shapes).
 pub fn place_picture(s: &mut Session, name: &str, bytes: &[u8], p: &Value) -> Result<Value> {
+    if genha_svg::import::is_svg(bytes) {
+        return place_svg(s, name, bytes, p);
+    }
     let asset = asset_from_bytes(name, bytes)?;
     let page = page_size(s)?;
     let (iw, ih) = (f64::from(asset.width.max(1)), f64::from(asset.height.max(1)));

@@ -448,3 +448,25 @@ fn data_recovery() {
     assert!(left.is_empty(), "{left:?}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn svg_import_places_editable_shapes() {
+    use base64::Engine as _;
+    let svg = br##"<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><rect width="40" height="50" fill="#f00"/><circle cx="75" cy="25" r="25" fill="#00f"/></svg>"##;
+    let mut s = session();
+    let r = s.execute("image.place", &json!({"data": base64::engine::general_purpose::STANDARD.encode(svg), "name": "logo.svg"})).unwrap();
+    let el = s.doc().unwrap().doc.element(NodeId(id(&r))).unwrap().clone();
+    let ElementKind::Group(g) = &el.kind else { panic!("{el:?}") };
+    assert_eq!(g.children.len(), 2);
+    assert!((el.frame.width - 1080.0 * 0.6).abs() < 1e-6, "fitted to 60% of the page");
+    // Ungrouping gives editable shapes.
+    s.execute("object.ungroup", &json!({})).unwrap();
+    s.execute("style.fill", &json!({"color": "#00ff00"})).unwrap();
+    // Opening an SVG starts a design of its size.
+    let dir = std::env::temp_dir().join(format!("genha-svgimport-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("a.svg"), svg).unwrap();
+    s.execute("file.open", &json!({"path": dir.join("a.svg").display().to_string()})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.pages[0].width, 100.0);
+    std::fs::remove_dir_all(&dir).unwrap();
+}

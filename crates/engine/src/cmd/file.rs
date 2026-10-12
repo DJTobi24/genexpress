@@ -48,6 +48,18 @@ fn file_new(s: &mut Session, p: &Value) -> Result<Value> {
 
 /// Opens document bytes (a `.genha` file, or a picture), as from a file or a drop.
 pub fn open_bytes(s: &mut Session, name: &str, bytes: &[u8]) -> Result<Value> {
+    if genha_svg::import::is_svg(bytes) {
+        let (mut el, w, h) = super::create::svg_element(name, bytes)?;
+        let (w, h) = (w.clamp(1.0, MAX_PAGE_SIDE), h.clamp(1.0, MAX_PAGE_SIDE));
+        let mut doc = Document::new(name, w, h);
+        doc.reassign_ids(&mut el);
+        if let Some(page) = doc.pages.first_mut() {
+            page.background = genha_doc::Fill::None;
+            page.elements.push(el);
+        }
+        let index = s.open_document(doc);
+        return Ok(ok(json!({"document": index, "svg": true})));
+    }
     if genha_effects::probe(bytes).is_ok() {
         let info = genha_effects::probe(bytes)?;
         let (w, h) = (f64::from(info.width).clamp(1.0, MAX_PAGE_SIDE), f64::from(info.height).clamp(1.0, MAX_PAGE_SIDE));

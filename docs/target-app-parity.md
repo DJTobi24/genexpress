@@ -12,7 +12,7 @@ Legend: ✅ works (basic form) · 🟡 partial · ⬜ not yet (milestone in [roa
 
 | Area | Score | Notes |
 |---|---|---|
-| 1. Editor & canvas | ~40% (estimated) | pages of any size, select/move/resize/rotate, groups, order, lock/hide, undo/redo, snapping; no comments, co-editing, version history yet |
+| 1. Editor & canvas | ~50% (estimated) | pages of any size, select/move/resize/rotate, groups, order, lock/hide, undo/redo, snapping, version history, crop page, Data Recovery; no comments or co-editing yet |
 | 2. Templates & content | ~15% (estimated) | 17 original templates, shape & icon library in code; no stock library (by design: open content later) |
 | 3. Text | ~35% (estimated) | text boxes, styles, presets, shadow/outline/highlight effects, system fonts; no curved text, spellcheck, translate |
 | 4. Pictures & AI | ~25% (estimated) | place, crop, fit, crop-to-shape, adjustments, filter presets, classic background removal, convert/resize quick actions; no generative AI yet |
@@ -33,13 +33,13 @@ Sources: https://helpx.adobe.com/express/web/organize-your-designs/arrange-layer
 | Multi-page designs, pages of different sizes | ✅ | `page.add/duplicate/delete/move/goto`, per-page size |
 | Resize page (presets or custom) | ✅ | `page.setSize`, presets (`presets.list`) |
 | Smart resize / duplicate & resize to other sizes | ✅ | `page.resize` (smart re-anchoring), `page.resize {copy: true}` |
-| Crop page to content | ⬜ | M2 |
+| Crop page to content | ✅ | `page.cropToContent {padding}` |
 | Layers panel, reorder, lock, hide | ✅ | `object.bringForward…`, `object.lock/hide`, Layers panel |
 | Group / ungroup | ✅ | `object.group/ungroup` |
 | Align & distribute, snapping, guides | ✅ | `object.align/distribute`, smart snapping in the Select tool |
 | Undo/redo | ✅ | unlimited-ish (200 steps), structural sharing |
 | Copy/paste style | ✅ | `style.copy/paste` |
-| Version history | ⬜ | M5 (local snapshots) |
+| Version history | ✅ | kept in the file: `version.save/list/restore/copy/rename/delete`; automatic version on save (20 kept), bookmarks kept |
 | Comments, @mentions, review/approval | ⬜ | M7 (needs a sync service) |
 | Real-time co-editing, share links | ⬜ | M7 (optional self-hostable server) |
 
@@ -78,14 +78,14 @@ Sources: https://helpx.adobe.com/express/web/image-creation-and-editing/generate
 
 | Feature | Status | GenHa |
 |---|---|---|
-| Place pictures (PNG, JPEG, WebP, GIF, BMP) | ✅ | `image.place`, drag & drop |
+| Place pictures (PNG, JPEG, WebP, GIF, BMP) and SVG | ✅ | `image.place`, drag & drop; SVG becomes editable shapes (text in SVG not yet) |
 | HEIC import | ⬜ | M4 |
 | Crop, fit, flip, rotate, crop to shape | ✅ | `image.crop/setFit/mask`, `object.flip*` |
 | Adjustments (brightness, contrast, saturation, warmth, sharpen, blur) | ✅ | `image.adjust` |
 | Filters with intensity | ✅ | `image.filter` (14 original presets) |
 | Remove / change background | 🟡 | classic colour-based remover (no ML yet); ML model: M8 |
 | Quick actions: resize, crop, convert JPG/PNG/WebP | ✅ | `genha-cli quick …` |
-| Convert to SVG (vectorize) | ⬜ | M4 |
+| Convert to SVG (vectorize) | ⬜ | M4 (SVG files can be imported as editable shapes: `image.place`, `file.open`) |
 | Generative fill, expand, text-to-image | ⬜ | M8 |
 | AI assistant (chat editing) | 🟡 | any MCP-capable assistant can drive every command today |
 
@@ -162,7 +162,7 @@ Sources: https://developer.adobe.com/express/add-ons/docs/references/document-sa
 | Desktop apps | ✅ | native Linux/macOS/Windows (egui) |
 | Web app | ⬜ | M2 (WASM build of the same UI) |
 | Mobile apps | ⬜ | later |
-| Offline use | ✅ | everything runs locally; no account needed |
+| Offline use | ✅ | everything runs locally; no account needed; Data Recovery copies unsaved designs every minute (`recovery.*`) |
 
 ## 11. Accessibility and localisation
 
@@ -178,4 +178,5 @@ Source: https://www.adobe.com/accessibility/compliance/adobe-express-android-202
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-12 | minor | Version history, crop page to content, Data Recovery, recent files, SVG import |
 | 2026-10-12 | major | First inventory from public sources and first self-assessment |

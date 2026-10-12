@@ -45,6 +45,8 @@ vello_cpu = "0.2"
 vello_common = { version = "0.2", default-features = false }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
 skrifa = "0.44"
+# SVG import (Apache-2.0 OR MIT); without text so it needs no font database and builds for wasm
+usvg = { version = "0.45", default-features = false }
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 
 # ui

@@ -269,7 +269,8 @@ impl App {
             let path = f.path().to_path_buf();
             if !path.as_os_str().is_empty() && path.exists() {
                 let p = path.display().to_string();
-                let is_picture = genha_effects::OutputFormat::from_extension(path.extension().and_then(|e| e.to_str()).unwrap_or("")).is_some();
+                let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+                let is_picture = genha_effects::OutputFormat::from_extension(ext).is_some() || ext.eq_ignore_ascii_case("svg");
                 if is_picture && self.screen == Screen::Editor {
                     self.run("image.place", &json!({"path": p}));
                 } else {

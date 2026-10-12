@@ -13,11 +13,11 @@ Every known shortfall, most valuable first. Pick work from the top unless the us
 | 5 | Curved text and document-wide text styles | Text | |
 | 6 | Smart resize keeps multi-part text blocks together | Layout | entries can spread on big aspect changes |
 | 7 | Background removal for busy photos (ML model, optional download) | Pictures | colour-based flood fill today |
-| 8 | Crop page to content; multi-select resize handles | Editor | |
+| 8 | Multi-select resize handles | Editor | crop page to content landed (`page.cropToContent`) |
 | 9 | Charts and tables | Documents | |
-| 10 | Version history (local snapshots), recent files, autosave/recovery | Editor | |
+| 10 | Version history across devices (sync) | Editor | local version history, recent files and Data Recovery landed |
 | 11 | Animation playback and GIF/MP4 export | Video | model already stores animations and page durations |
-| 12 | SVG and PDF import | Formats | |
+| 12 | PDF import; text inside imported SVGs | Formats | SVG shapes, gradients and borders import (`genha_svg::import`) |
 | 13 | Screen reader support (AccessKit) and UI translations (German first) | Accessibility | |
 | 14 | Template library growth (target 100+ original templates) and template search tags | Content | |
 | 15 | Rendering off the UI thread, tiles for very large pages | Performance | |

@@ -16,6 +16,7 @@ genha-render = { workspace = true }
 base64 = { workspace = true }
 kurbo = { workspace = true }
 thiserror = { workspace = true }
+usvg = { workspace = true }
 
 [dev-dependencies]
 image = { workspace = true }
