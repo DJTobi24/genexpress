@@ -13,7 +13,7 @@ Every known shortfall, most valuable first. Pick work from the top unless the us
 | 5 | Document-wide text styles; grid text | Text | curved text landed (`text.setCurve`) |
 | 6 | Smart resize: reflow text boxes to the new width, re-layout grids | Layout | stacked elements now move as blocks; boxes keep their scaled widths |
 | 7 | Background removal for busy photos (ML model, optional download) | Pictures | colour-based flood fill today |
-| 8 | Snapping while resizing; distance hints between objects | Editor | multi-select handles and crop page to content landed |
+| 8 | Rotated objects do not snap while resizing (their distances still show); no ruler guides placed by hand; no rotation snapping without Shift | Editor | M2.19: smart guides while resizing (edges, centre, same width/height, equal gaps; Shift, Alt, several objects), distance and equal-spacing hints, Alt-hover distances, Ctrl/Cmd to skip snapping, `view.snapping` |
 | 9 | Charts with several data series, axis titles; tables with merged cells and per-cell styles | Documents | single-series charts (7 kinds) and tables landed |
 | 10 | Version history across devices (sync) | Editor | local version history, recent files and Data Recovery landed |
 | 11 | MP4 export, timeline with scenes, audio | Video | animations, playback, present mode and GIF/animated PNG export landed (`crates/motion`); MP4 needs a pure-Rust encoder |

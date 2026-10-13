@@ -216,6 +216,43 @@ fn tools_reduce_to_commands() {
 }
 
 #[test]
+fn smart_guides_preference_and_temporary_off() {
+    use genha_tools::{PointerEvent, PointerKind};
+    let mut s = session(); // 1080 × 1080
+    s.store = Some(Box::new(crate::store::MemStore::default()));
+    let id = id(&s.execute("shape.add", &json!({"x": 100, "y": 100, "width": 200, "height": 100})).unwrap());
+    s.execute("select.set", &json!({"ids": [id]})).unwrap();
+    let ev = |kind, x, y| PointerEvent { kind, pos: genha_geom::Point::new(x, y), shift: false, alt: false };
+    let x_after_drag = |s: &mut Session, snap: bool| {
+        // Dragged 337 px right: the centre lands 3 px short of the page centre (540).
+        s.tool_event_with(ev(PointerKind::Down, 150.0, 150.0), 1.0, (&[], &[]), snap).unwrap();
+        s.tool_event_with(ev(PointerKind::Move, 487.0, 150.0), 1.0, (&[], &[]), snap).unwrap();
+        let shown = s.preview.as_ref().map(|p| (p.guides_x.clone(), p.measures.len())).unwrap();
+        s.tool_event_with(ev(PointerKind::Up, 487.0, 150.0), 1.0, (&[], &[]), snap).unwrap();
+        let x = s.doc().unwrap().doc.pages[0].elements[0].frame.x;
+        s.execute("edit.undo", &json!({})).unwrap();
+        s.execute("select.set", &json!({"ids": [id]})).unwrap();
+        (x, shown)
+    };
+    let (x, (guides, measures)) = x_after_drag(&mut s, true);
+    assert_eq!((x, guides), (440.0, vec![540.0]));
+    assert!(measures >= 4, "distances to the page edges");
+    // Held Ctrl/Cmd: no snapping, distances still shown.
+    let (x, (guides, measures)) = x_after_drag(&mut s, false);
+    assert_eq!((x, guides.len()), (437.0, 0));
+    assert!(measures >= 4);
+    // The preference turns it off (and is kept in the store).
+    assert_eq!(s.execute("view.snapping", &json!({})).unwrap()["on"], false);
+    assert_eq!(x_after_drag(&mut s, true).0, 437.0);
+    let mut next = Session::new();
+    next.store = s.store.take();
+    crate::cmd::edit::load_preferences(&mut next);
+    assert!(!next.snapping);
+    assert_eq!(next.execute("view.snapping", &json!({"on": true})).unwrap()["on"], true);
+    assert!(next.execute("view.snapping", &json!({"on": "yes"})).is_err());
+}
+
+#[test]
 fn every_command_survives_junk_params() {
     // Untrusted params never panic (the guard would turn a panic into Internal: that's a bug too).
     let junk = [json!(null), json!({}), json!({"ids": [999999]}), json!({"x": "a", "index": -1, "color": 5}), json!([1, 2])];

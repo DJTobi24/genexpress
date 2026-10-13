@@ -23,7 +23,7 @@ that nothing below L6 depends on a UI toolkit (egui, eframe, winit, rfd). Table:
 | L1 | `doc` | the document model: designs with pages of any size, elements (shapes, text, pictures, groups), brand kit, embedded assets, page-size presets; pure data + serde |
 | L2 | `text`, `effects`, `layout`, `templates`, `motion` | font discovery and text layout to outlines (`skrifa`); picture decoding, adjustments, filters and quick actions (background removal, resize, convert…); smart resize, align/distribute, collages, snapping guides; templates, shapes/icons, text styles, palettes and QR codes generated in code; animations evaluated at a time (`page_at`) |
 | L3 | `render`, `svg`, `pdf`, `format` | page → pixels (`vello_cpu`) and PNG/JPEG; SVG export; vector PDF export (`krilla`: embedded font subsets, pictures, print boxes); the native `.genha` format (versioned, compressed JSON) |
-| L4 | `tools` | pointer gestures → commands (select/move/resize/rotate, shape and text tools, snapping) |
+| L4 | `tools` | pointer gestures → commands (select/move/resize/rotate, shape and text tools); smart guides (`tools::smart`: snapping while moving and resizing, equal spacing, same sizes, distance hints) as pure geometry the canvas only draws |
 | L5 | `engine` | sessions, undo history, selection, the command registry, file I/O, the panic guard |
 | L6 | `ui-egui`, `mcp` | the egui front end (home screen, editor, panels, canvas); the MCP server (JSON-RPC over stdio) |
 | L7 | `apps/genha`, `apps/genha-web`, `apps/genha-cli`, `xtask` | desktop app (eframe), web app (eframe web runner, wasm32; `cargo xtask web`), CLI (`run`, `export`, `quick`, `info`, `mcp`…), build tooling |

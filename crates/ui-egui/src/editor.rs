@@ -117,6 +117,14 @@ fn top_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                         }
                     }
                     ui.separator();
+                    let snapping = app.session.snapping;
+                    if ui
+                        .add(egui::Button::new("Snap").selected(snapping))
+                        .on_hover_text("Smart guides: snap to the page, other objects, equal gaps and sizes (hold Ctrl/Cmd while dragging to skip)")
+                        .clicked()
+                    {
+                        app.run("view.snapping", &json!({"on": !snapping}));
+                    }
                     if ui.button("Fit").on_hover_text("Fit page (Ctrl+0)").clicked() {
                         app.view.fit_pending = true;
                     }

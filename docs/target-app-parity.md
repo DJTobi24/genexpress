@@ -36,7 +36,7 @@ Sources: https://helpx.adobe.com/express/web/organize-your-designs/arrange-layer
 | Crop page to content | ✅ | `page.cropToContent {padding}` |
 | Layers panel, reorder, lock, hide | ✅ | `object.bringForward…`, `object.lock/hide`, Layers panel |
 | Group / ungroup | ✅ | `object.group/ungroup` |
-| Align & distribute, snapping, guides | ✅ | `object.align/distribute`, smart snapping in the Select tool |
+| Align & distribute, snapping, guides | ✅ | `object.align/distribute`; smart guides in the Select tool while moving and resizing (any handle, several objects, Shift for proportions, Alt from the centre): page edges and centre, other objects' edges and centres, same width/height, equal spacing in a row or column (with markers); distances to the nearest neighbours or page edges while dragging; Alt-hover shows the distances to the hovered object; threshold constant on screen; hold Ctrl/Cmd to skip snapping, `view.snapping` (Snap button) turns it off. Limits: rotated objects do not snap while resizing; no hand-placed ruler guides |
 | Undo/redo | ✅ | unlimited-ish (200 steps), structural sharing |
 | Copy/paste style | ✅ | `style.copy/paste` |
 | Version history | ✅ | kept in the file: `version.save/list/restore/copy/rename/delete`; automatic version on save (20 kept), bookmarks kept |

@@ -159,6 +159,9 @@ pub struct Session {
     /// Copied style (Copy/Paste style).
     pub style_clipboard: Option<cmd::style::CopiedStyle>,
     pub tools: ToolState,
+    /// Smart guides preference (`view.snapping`): moves and resizes snap to the page, other
+    /// objects, equal gaps and matching sizes. Kept in the store between runs.
+    pub snapping: bool,
     /// The preview of a gesture in progress.
     pub preview: Option<Preview>,
     /// The text box being edited in place (`text.beginEdit` … `text.endEdit`).
@@ -193,6 +196,7 @@ impl Session {
             clipboard: Default::default(),
             style_clipboard: None,
             tools: ToolState::default(),
+            snapping: true,
             preview: None,
             text_editing: None,
             straight: std::sync::Mutex::new(None),
@@ -330,12 +334,21 @@ impl Session {
     }
 
     /// Feeds a pointer event to the active tool; runs the commands it emits (stopping at the first
-    /// error, which is returned) and keeps its preview for the UI.
-    pub fn tool_event(&mut self, ev: genha_tools::PointerEvent, zoom: f64, snap: (&[f64], &[f64])) -> Result<ToolOutput> {
+    /// error, which is returned) and keeps its preview for the UI. `guides`: extra x and y snap
+    /// lines (the page's and the other objects' lines are found by the tool). Snapping follows
+    /// [`Session::snapping`].
+    pub fn tool_event(&mut self, ev: genha_tools::PointerEvent, zoom: f64, guides: (&[f64], &[f64])) -> Result<ToolOutput> {
+        self.tool_event_with(ev, zoom, guides, true)
+    }
+
+    /// [`Session::tool_event`] with `snap` false while the user holds the key that turns snapping
+    /// off for a moment (Ctrl/Cmd while dragging).
+    pub fn tool_event_with(&mut self, ev: genha_tools::PointerEvent, zoom: f64, guides: (&[f64], &[f64]), snap: bool) -> Result<ToolOutput> {
+        let snap = snap && self.snapping;
         let Some(d) = self.active() else { return Ok(ToolOutput::default()) };
         let doc = Arc::clone(&d.doc);
         let selection = d.selection.clone();
-        let cx = ToolContext { doc: &doc, page: d.page, selection: &selection, zoom, snap_xs: snap.0, snap_ys: snap.1 };
+        let cx = ToolContext { doc: &doc, page: d.page, selection: &selection, zoom, snap, snap_xs: guides.0, snap_ys: guides.1 };
         let out = match guard::catch_panic(|| self.tools.event(&cx, ev)) {
             Ok(o) => o,
             Err(msg) => {
