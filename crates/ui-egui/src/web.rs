@@ -317,7 +317,7 @@ pub fn poll(app: &mut App, ctx: &egui::Context) {
             load_local_fonts(false);
         }
     }
-    TYPING.with(|t| t.set(ctx.egui_wants_keyboard_input() || app.canvas.editing_text.is_some()));
+    TYPING.with(|t| t.set(ctx.egui_wants_keyboard_input() || app.session.text_editing.is_some()));
     // A picture is being pasted: the same Cmd+V must not also paste copied objects.
     if PASTING_PICTURE.with(|p| p.replace(false)) {
         ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::V));
