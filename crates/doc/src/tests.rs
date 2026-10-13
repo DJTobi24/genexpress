@@ -41,7 +41,7 @@ fn json_round_trip_is_readable() {
     doc.pages[0].elements.push(Element::new(
         tid,
         Frame::new(0.0, 0.0, 10.0, 10.0),
-        ElementKind::Text(TextEl { text: "Hello".into(), style: TextStyle::default(), effect: TextEffect::None, curve: 0.0 }),
+        ElementKind::Text(TextEl { text: "Hello".into(), style: TextStyle::default(), effect: TextEffect::None, curve: 0.0, spans: vec![] }),
     ));
     let json = serde_json::to_string_pretty(&doc).unwrap();
     assert!(json.contains("\"type\": \"shape\""));

@@ -4,7 +4,7 @@
 //! do. `genha_text::FontBook::needs_synthetic` says when; the renderer and the SVG writer apply it
 //! through [`layout_text`] and [`Synthetic::embolden`].
 
-use genha_doc::TextStyle;
+use genha_doc::{TextEl, TextStyle};
 use genha_text::{FontBook, TextLayout};
 use kurbo::{Affine, BezPath};
 
@@ -52,6 +52,48 @@ pub fn layout_text(fonts: &FontBook, text: &str, style: &TextStyle, box_width: f
         }
     }
     (layout, syn)
+}
+
+/// Outlines of one style of a text, ready to fill: synthetic italic already applied.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StyledPath {
+    /// The style (its colour is the paint).
+    pub style: TextStyle,
+    pub path: BezPath,
+    /// Synthetic bold still to draw: the width of a stroke over the letters in their paint.
+    pub embolden: f64,
+}
+
+/// A text element laid out with its style runs ([`genha_text::layout_el`]): the lines, whose
+/// outlines (`path`, every style together, for effects) have synthetic italic applied per run,
+/// and the outlines by style, to fill each in its colour with its synthetic bold.
+pub fn layout_text_el(fonts: &FontBook, t: &TextEl, box_width: f64) -> (TextLayout, Vec<StyledPath>) {
+    let mut layout = genha_text::layout_el(fonts, t, box_width);
+    let syns: Vec<Synthetic> = layout.styles.iter().map(|st| synthetic(fonts, st)).collect();
+    let mut groups: Vec<StyledPath> =
+        layout.styles.iter().zip(&syns).map(|(st, sy)| StyledPath { style: st.clone(), path: BezPath::new(), embolden: sy.embolden }).collect();
+    let slant = |s: usize| syns.get(s).map_or(0.0, |sy| sy.slant);
+    for line in &mut layout.lines {
+        let baseline = line.baseline;
+        if line.pieces.is_empty() {
+            line.path = slant_about(std::mem::take(&mut line.path), baseline, slant(0));
+            if let Some(g) = groups.first_mut() {
+                g.path.extend(line.path.iter());
+            }
+        } else {
+            let mut all = BezPath::new();
+            for (s, piece) in &mut line.pieces {
+                *piece = slant_about(std::mem::take(piece), baseline, slant(*s));
+                all.extend(piece.iter());
+                if let Some(g) = groups.get_mut(*s) {
+                    g.path.extend(piece.iter());
+                }
+            }
+            line.path = all;
+        }
+    }
+    groups.retain(|g| !g.path.is_empty());
+    (layout, groups)
 }
 
 #[cfg(test)]

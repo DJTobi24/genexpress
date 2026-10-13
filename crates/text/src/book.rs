@@ -101,6 +101,10 @@ pub(crate) struct Face {
     pub(crate) underline_offset: f64,
     /// Underline thickness, in ems.
     pub(crate) underline_thickness: f64,
+    /// Strikethrough position above the baseline, in ems.
+    pub(crate) strikeout_offset: f64,
+    /// Strikethrough thickness, in ems.
+    pub(crate) strikeout_thickness: f64,
     /// Font units per em (positive).
     pub(crate) upem: f64,
     /// Has OpenType layout tables (GSUB or GPOS).
@@ -391,6 +395,10 @@ fn face_info(font: &FontRef<'_>, index: u32, source: &Arc<Source>) -> Option<Fac
         Some(d) if d.thickness > 0.0 => (-em(d.offset), em(d.thickness)),
         _ => (0.1, 0.05),
     };
+    let (strikeout_offset, strikeout_thickness) = match m.strikeout {
+        Some(d) if d.thickness > 0.0 && d.offset > 0.0 => (em(d.offset), em(d.thickness)),
+        _ => (0.3, underline_thickness),
+    };
     let mut cps: Vec<u32> = font.charmap().mappings().take(MAX_MAPPINGS).map(|(c, _)| c).collect();
     cps.sort_unstable();
     let mut coverage: Vec<(u32, u32)> = vec![];
@@ -413,6 +421,8 @@ fn face_info(font: &FontRef<'_>, index: u32, source: &Arc<Source>) -> Option<Fac
         descent,
         underline_offset: underline_offset.clamp(-1.0, 1.0),
         underline_thickness: underline_thickness.clamp(0.0, 0.5),
+        strikeout_offset: strikeout_offset.clamp(0.0, 1.0),
+        strikeout_thickness: strikeout_thickness.clamp(0.0, 0.5),
         upem,
         layout: [b"GSUB", b"GPOS"].iter().any(|t| font.table_data(Tag::new(t)).is_some()),
         shaping: ShapeCache::default(),

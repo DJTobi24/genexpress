@@ -315,7 +315,7 @@ fn text_doc(effect: TextEffect) -> Document {
     d.pages[0].elements.push(Element::new(
         id,
         Frame::new(10.0, 10.0, 280.0, 80.0),
-        ElementKind::Text(TextEl { text: "HHHH".into(), style, effect, curve: 0.0 }),
+        ElementKind::Text(TextEl { text: "HHHH".into(), style, effect, curve: 0.0, spans: vec![] }),
     ));
     d
 }
@@ -569,4 +569,46 @@ fn synthetic_bold_and_italic_when_the_family_has_neither() {
     assert!((italic as f64 - plain as f64).abs() < plain as f64 * 0.1, "slanting keeps the ink: {italic} vs {plain}");
     assert!(italic_right > plain_right + 5, "italic leans right: {italic_right} vs {plain_right}");
     assert_eq!(synthetic(&book, &TextStyle { font_family: "DejaVu Sans".into(), ..TextStyle::default() }), Synthetic::default());
+}
+
+#[test]
+fn style_runs_draw_in_their_own_colour_size_and_weight() {
+    let Some(path) =
+        ["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/TTF/DejaVuSans.ttf"].iter().find(|p| std::path::Path::new(p).exists())
+    else {
+        return; // no font on this machine
+    };
+    let mut book = FontBook::new();
+    book.add_font(std::fs::read(path).unwrap()).unwrap();
+    let style = TextStyle { font_family: "DejaVu Sans".into(), font_size: 40.0, align: TextAlign::Left, color: Color::BLACK, ..TextStyle::default() };
+    let draw = |t: TextEl| {
+        let mut d = doc(600.0, 200.0);
+        let id = d.alloc_id();
+        d.pages[0].elements.push(Element::new(id, Frame::new(0.0, 0.0, 600.0, 200.0), ElementKind::Text(t)));
+        render_page(&d, 0, &book, &RenderOptions { scale: 1.0, transparent_background: true }).unwrap()
+    };
+    let ink = |r: &Raster, f: &dyn Fn([u8; 4]) -> bool| -> Vec<(usize, usize)> {
+        r.rgba.as_chunks::<4>().0.iter().enumerate().filter(|(_, p)| p[3] > 200 && f(**p)).map(|(i, _)| (i % 600, i / 600)).collect()
+    };
+    // "IIII IIII": the second word red, twice as big and (synthetically) bold.
+    let mut t = TextEl::new("IIII IIII", style);
+    let plain = draw(t.clone());
+    t.set_style_range(5..9, &genha_doc::SpanStyle { color: Some(RED), font_size: Some(80.0), bold: Some(true), ..Default::default() });
+    let rich = draw(t);
+    let red = ink(&rich, &|p| p[0] > 200 && p[1] < 60);
+    let black = ink(&rich, &|p| p[0] < 60 && p[1] < 60);
+    assert!(!red.is_empty() && !black.is_empty());
+    let red_left = red.iter().map(|p| p.0).min().unwrap();
+    let black_right = black.iter().map(|p| p.0).max().unwrap();
+    assert!(black_right < red_left, "the black word comes first: {black_right} vs {red_left}");
+    // The red word is twice as tall as the black one, both on one baseline.
+    let height = |v: &[(usize, usize)]| v.iter().map(|p| p.1).max().unwrap() - v.iter().map(|p| p.1).min().unwrap();
+    assert!(height(&red) as f64 > height(&black) as f64 * 1.8, "{} vs {}", height(&red), height(&black));
+    let bottom = |v: &[(usize, usize)]| v.iter().map(|p| p.1).max().unwrap() as i64;
+    assert!((bottom(&red) - bottom(&black)).abs() <= 2);
+    // The first word keeps its look; the plain text's second word had the same ink as its first.
+    let plain_ink = ink(&plain, &|p| p[0] < 60).len() as f64;
+    assert!((black.len() as f64 - plain_ink / 2.0).abs() < plain_ink * 0.05, "{} vs {plain_ink}", black.len());
+    // Synthetic bold: the red word has more ink than four plain letters scaled up (×4 area).
+    assert!(red.len() as f64 > plain_ink / 2.0 * 4.0 * 1.1, "{} vs {plain_ink}", red.len());
 }

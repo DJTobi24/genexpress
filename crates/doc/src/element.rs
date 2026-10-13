@@ -4,7 +4,7 @@ use genha_color::Color;
 use genha_geom::{Fit, Frame};
 use serde::{Deserialize, Serialize};
 
-use crate::{AssetId, ChartEl, NodeId, TableEl};
+use crate::{AssetId, ChartEl, NodeId, TableEl, TextSpan};
 
 fn one() -> f32 {
     1.0
@@ -210,6 +210,10 @@ pub struct TextEl {
     /// pointing towards the centre). ±360 closes the widest line into a full circle.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub curve: f64,
+    /// Parts of the text formatted differently from `style` (one word bold, another colour…),
+    /// by character range; see [`crate::rich`]. Empty: the whole text is in `style`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub spans: Vec<TextSpan>,
 }
 
 fn is_zero(v: &f64) -> bool {
@@ -222,7 +226,7 @@ pub const MAX_CURVE: f64 = 360.0;
 impl TextEl {
     /// Straight text with no effect.
     pub fn new(text: impl Into<String>, style: TextStyle) -> Self {
-        TextEl { text: text.into(), style, effect: TextEffect::None, curve: 0.0 }
+        TextEl { text: text.into(), style, effect: TextEffect::None, curve: 0.0, spans: vec![] }
     }
 
     /// The curve clamped to `-360..=360` (0 when not finite).
@@ -253,6 +257,8 @@ pub struct TextStyle {
     #[serde(default, skip_serializing_if = "is_false")]
     pub underline: bool,
     #[serde(default, skip_serializing_if = "is_false")]
+    pub strikethrough: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
     pub uppercase: bool,
     pub color: Color,
     #[serde(default)]
@@ -277,6 +283,7 @@ impl Default for TextStyle {
             bold: false,
             italic: false,
             underline: false,
+            strikethrough: false,
             uppercase: false,
             color: Color::rgb(0x1b, 0x1b, 0x2f),
             align: TextAlign::Center,

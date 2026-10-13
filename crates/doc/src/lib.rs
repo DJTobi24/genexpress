@@ -16,6 +16,7 @@ mod data;
 mod element;
 mod page;
 pub mod preset;
+pub mod rich;
 pub mod version;
 
 use std::collections::BTreeMap;
@@ -31,6 +32,7 @@ pub use genha_color::Color;
 pub use genha_geom::{Fit, Frame};
 pub use page::Page;
 pub use preset::{PRESETS, PagePreset};
+pub use rich::{MAX_SPANS, RangeStyle, SPAN_FIELDS, SpanStyle, TextSpan};
 use serde::{Deserialize, Serialize};
 pub use version::Version;
 
@@ -224,6 +226,7 @@ impl Document {
                             t.curve = c;
                             fixed_data = true;
                         }
+                        fixed_data |= t.normalize_spans();
                     }
                     _ => {}
                 }

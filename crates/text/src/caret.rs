@@ -15,11 +15,11 @@
 
 use std::collections::BTreeMap;
 
-use genha_doc::TextStyle;
+use genha_doc::{TextEl, TextStyle};
 use kurbo::Rect;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{FontBook, GlyphLayout, layout_glyphs};
+use crate::{FontBook, GlyphLayout, layout_glyphs, layout_glyphs_el};
 
 /// A place the caret can stand on a line.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -107,6 +107,12 @@ impl CaretMap {
     pub fn for_text(book: &FontBook, text: &str, style: &TextStyle, box_width: f64) -> CaretMap {
         let gl = layout_glyphs(book, text, style, box_width);
         CaretMap::new(text, &gl)
+    }
+
+    /// Lays out a text element with its style runs as the renderer does and maps it.
+    pub fn for_el(book: &FontBook, t: &TextEl, box_width: f64) -> CaretMap {
+        let gl = layout_glyphs_el(book, t, box_width);
+        CaretMap::new(&t.text, &gl)
     }
 
     /// Maps `layout`, which [`layout_glyphs`] made from `text`.

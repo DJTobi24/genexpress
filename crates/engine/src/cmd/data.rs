@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use super::create::{add_element, frame_params, page_size, text_height};
+use super::create::{add_element, frame_params, page_size, text_el_height};
 use super::{bad, cmd, f64_req, has_doc, has_selection, merge, ok, str_param, targets, usize_param};
 use crate::{CommandSpec, EngineError, Result, Session};
 use genha_doc::{
@@ -561,7 +561,7 @@ fn text_set_curve(s: &mut Session, p: &Value) -> Result<Value> {
     if let Ok(d) = s.doc() {
         for id in &ids {
             if let Ok(Element { kind: ElementKind::Text(t), frame, .. }) = d.doc.element(*id) {
-                straight_heights.push((*id, text_height(s, &t.text, &t.style, frame.width)));
+                straight_heights.push((*id, text_el_height(s, t, frame.width)));
             }
         }
     }

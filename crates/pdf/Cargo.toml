@@ -14,7 +14,6 @@ genha-geom = { workspace = true }
 genha-color = { workspace = true }
 genha-effects = { workspace = true }
 kurbo = { workspace = true }
-skrifa = { workspace = true }
 image = { workspace = true }
 krilla = { workspace = true }
 thiserror = { workspace = true }

@@ -240,6 +240,44 @@ fn every_command_survives_junk_params() {
 }
 
 #[test]
+fn text_commands_survive_junk_while_editing_formatted_text() {
+    let junk = [
+        json!(null),
+        json!({}),
+        json!({"range": [9_999_999, 2], "bold": true}),
+        json!({"range": "x", "font_size": 1e308}),
+        json!({"range": [0, 3], "font_size": f64::MAX, "color": "#zz"}),
+        json!({"insert": "\u{0}\r\n\u{202e}é", "range": [3, 1]}),
+        json!({"text": "x".repeat(300), "selection": [1000, 0]}),
+        json!({"selection": [5, 5], "font_family": "\u{0}"}),
+        json!({"ids": [999999], "range": [0, 1]}),
+        json!({"id": "x", "underline": "yes"}),
+    ];
+    let mut s = session();
+    let id = s.execute("text.add", &json!({"text": "Héllo wörld\nאב 中文"})).unwrap()["id"].as_u64().unwrap();
+    s.execute("text.setStyle", &json!({"ids": [id], "range": [0, 5], "bold": true, "color": "#ff0000", "font_size": 90})).unwrap();
+    s.execute("text.setStyle", &json!({"ids": [id], "range": [3, 9], "italic": true, "strikethrough": true})).unwrap();
+    for spec in command_specs().iter().filter(|c| c.id.starts_with("text.") || c.id.starts_with("style.")) {
+        for j in &junk {
+            if s.text_editing.is_none() {
+                let _ = s.execute("text.beginEdit", &json!({"id": id, "selection": [2, 7]}));
+            }
+            let r = s.execute(spec.id, j);
+            assert!(!matches!(r, Err(EngineError::Internal { .. })), "{} panicked on {j}", spec.id);
+            if let Ok(d) = s.doc()
+                && let Ok(el) = d.doc.element(genha_doc::NodeId(id))
+                && let ElementKind::Text(t) = &el.kind
+            {
+                assert!(t.spans_normalized(), "{} left bad spans on {j}: {:?}", spec.id, t.spans);
+            }
+            if s.docs.is_empty() {
+                return;
+            }
+        }
+    }
+}
+
+#[test]
 fn command_ids_are_unique_and_documented() {
     let mut seen = std::collections::HashSet::new();
     for c in command_specs() {

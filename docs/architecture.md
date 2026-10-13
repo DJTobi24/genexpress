@@ -35,7 +35,7 @@ Document ─ title, brand kit, assets (pictures stored once, shared by id)
  └─ Page ─ size (px), background (solid/gradient), duration (video), notes
      └─ Element ─ id, name, frame {x, y, width, height, rotation}, opacity, lock, hide, flip, animation
          ├─ Shape  ─ rect/ellipse/triangle/polygon/star/line/path, fill, border, shadow
-         ├─ Text   ─ text, style (family, size, weight, colour, align, spacing…), effect (shadow/outline/highlight), curve
+         ├─ Text   ─ text, style (family, size, weight, colour, align, spacing…), spans (style runs by character range), effect (shadow/outline/highlight), curve
          ├─ Image  ─ asset, crop, fit, corner radius, crop-to-shape, adjustments, filter, border
          ├─ Chart  ─ kind (bar/horizontal-bar/line/area/pie/donut/progress), labelled values, colours, labels/values/legend
          ├─ Table  ─ rows of cell text, header row, fills, grid lines, padding, alignment, column widths
@@ -58,6 +58,15 @@ step. The canvas (`ui-egui/src/textedit.rs`) only turns input into `text.edit` a
 selection, placed with `genha_text::caret::CaretMap`, which maps the renderer's own shaped glyph clusters (ligatures split by grapheme, right-to-left runs mirrored) to
 character indices; caret movement, word boundaries and in-edit undo are pure code in `genha_text::edit`.
 
+Part of a text box can be formatted (M3.2): `TextEl::spans` are sorted, non-overlapping character ranges
+with a `SpanStyle` (font, size, bold, italic, underline, strikethrough, colour) over the box's `TextStyle`;
+paragraph values (alignment, line height, letter spacing, upper case) stay on the box. `genha_doc::rich`
+keeps them consistent: edits move them with the text (typed text takes the style before the caret),
+`normalize_spans` (run by `Document::repair`) fixes junk from files. `text.setStyle` and the
+`text.toggleBold`/`Italic`/`Underline`/`Strikethrough` commands apply to an explicit `range`, else to the
+selection while editing (with a bare caret they set `TextEditing::typing_style` for the next text typed),
+else to whole boxes; `text.inspect` reports the runs and the style at the selection (with mixed values).
+
 ## Rendering
 
 Pages are rasterized on the CPU by `vello_cpu`; the desktop app shows the result as a texture and
@@ -67,7 +76,12 @@ places each glyph's own outline (`genha_text::layout_glyphs`) along an arc.
 
 ### Text layout
 
-`genha-text` turns a string and a `TextStyle` into lines of positioned glyphs, per paragraph:
+`genha-text` turns a string and a `TextStyle` (or style runs: `layout_rich`, `layout_el`) into lines
+of positioned glyphs, per paragraph. Each run is shaped in its own face and size; runs that differ only
+in colour or decoration are shaped together (kerning holds across them); breaking, bidi and alignment
+work across runs; a line is as tall as its tallest run, all on one baseline. Glyphs carry a style index
+(`TextLayout::styles`), lines carry per-style outline pieces and underline/strikethrough bars, so the
+renderer, SVG and PDF writers paint each run in its colour with its synthetic bold/italic.
 
 1. **Analysis:** bidi levels (UAX #9, `unicode-bidi`), each character's script (`unicode-script`;
    Common/Inherited take their neighbours'), a face per grapheme cluster (the style's face if it

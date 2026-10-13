@@ -7,7 +7,7 @@ mod data_props;
 
 use crate::App;
 use crate::theme::{Tokens, from_egui, to_egui};
-use genha_doc::{AnimationKind, Element, ElementKind, Fill, Page, ShapeKind, TextAlign, TextEffect};
+use genha_doc::{AnimationKind, Element, ElementKind, Fill, Page, RangeStyle, ShapeKind, TextAlign, TextEffect};
 
 /// Commands to run after drawing (the panel reads a snapshot, then acts).
 #[derive(Default)]
@@ -29,6 +29,9 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     let page = d.doc.pages.get(d.page).cloned();
     let brand: Vec<genha_color::Color> = d.doc.brand.colors.iter().map(|c| c.color).collect();
     let families = app.font_families().to_vec();
+    // The text being edited in place: the style at its selection.
+    let editing = genha_engine::text_selection_style(&app.session);
+    let editing_caret = app.session.text_editing.as_ref().is_some_and(|e| e.anchor == e.caret);
     let mut acts = Actions::default();
     let mut choices = app.motion.panel;
     match selected.as_slice() {
@@ -38,7 +41,10 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 page_animation(ui, t, p, &mut choices, &mut acts);
             }
         }
-        [el] => element_props(ui, t, el, &brand, &families, &mut acts),
+        [el] => {
+            let sel = editing.as_ref().filter(|(id, _)| *id == el.id).map(|(_, r)| r);
+            element_props(ui, t, el, sel, editing_caret, &brand, &families, &mut acts);
+        }
         many => multi_props(ui, t, many, &mut acts),
     }
     app.motion.panel = choices;
@@ -238,7 +244,17 @@ fn page_props(ui: &mut egui::Ui, t: &Tokens, p: &Page, brand: &[genha_color::Col
     });
 }
 
-fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genha_color::Color], families: &[String], acts: &mut Actions) {
+#[allow(clippy::too_many_arguments)]
+fn element_props(
+    ui: &mut egui::Ui,
+    t: &Tokens,
+    el: &Element,
+    sel: Option<&RangeStyle>,
+    editing_caret: bool,
+    brand: &[genha_color::Color],
+    families: &[String],
+    acts: &mut Actions,
+) {
     let id = el.id.0;
     let key = |what: &str| format!("{what}:{id}");
     title(ui, &el.display_name());
@@ -249,23 +265,47 @@ fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genha_col
             if ui.add(egui::TextEdit::multiline(&mut s).desired_rows(3).desired_width(f32::INFINITY)).changed() {
                 acts.run("text.setText", json!({"text": s, "merge_key": key("text")}));
             }
-            let st = &text.style;
+            // The style shown: at the selection while the box is edited, else its first
+            // character's; values that vary over it show as mixed.
+            let whole;
+            let shown = match sel {
+                Some(r) => r,
+                None => {
+                    whole = text.range_style(0..text.text.chars().count());
+                    &whole
+                }
+            };
+            let st = &shown.style;
+            let mixed = |f: &str| shown.is_mixed(f);
+            if sel.is_some() {
+                let hint = if editing_caret { "Changes apply to the next text you type" } else { "Changes apply to the selected text" };
+                ui.label(egui::RichText::new(hint).size(11.0).color(t.text_dim));
+            }
             let mut family = st.font_family.clone();
-            crate::editor::font_combo(ui, &format!("font_{id}"), "Font", &mut family, families);
+            crate::editor::font_combo(ui, &format!("font_{id}"), if mixed("font_family") { "Font (mixed)" } else { "Font" }, &mut family, families);
             if family != st.font_family {
                 acts.run("text.setStyle", json!({"font_family": family}));
             }
             ui.horizontal(|ui| {
                 let mut size = st.font_size;
-                if ui.add(egui::DragValue::new(&mut size).range(1.0..=2000.0).speed(0.5).prefix("Size ")).changed() {
+                let prefix = if mixed("font_size") { "Size (mixed) " } else { "Size " };
+                if ui.add(egui::DragValue::new(&mut size).range(1.0..=2000.0).speed(0.5).prefix(prefix)).changed() {
                     acts.run("text.setStyle", json!({"font_size": size, "merge_key": key("size")}));
                 }
-                for (label, field, on) in
-                    [("B", "bold", st.bold), ("I", "italic", st.italic), ("U", "underline", st.underline), ("AA", "uppercase", st.uppercase)]
-                {
-                    if ui.add(egui::Button::new(label).selected(on)).clicked() {
-                        acts.run("text.setStyle", json!({field: !on}));
+                for (label, field, cmd, on) in [
+                    ("B", "bold", "text.toggleBold", st.bold),
+                    ("I", "italic", "text.toggleItalic", st.italic),
+                    ("U", "underline", "text.toggleUnderline", st.underline),
+                    ("S", "strikethrough", "text.toggleStrikethrough", st.strikethrough),
+                ] {
+                    let label = if mixed(field) { format!("{label}~") } else { label.to_string() };
+                    let b = ui.add(egui::Button::new(label).selected(on && !mixed(field)));
+                    if b.on_hover_text(if mixed(field) { format!("{field}: mixed") } else { field.to_string() }).clicked() {
+                        acts.run(cmd, json!({}));
                     }
+                }
+                if ui.add(egui::Button::new("AA").selected(text.style.uppercase)).on_hover_text("uppercase").clicked() {
+                    acts.run("text.setStyle", json!({"uppercase": !text.style.uppercase}));
                 }
             });
             ui.horizontal(|ui| {
@@ -276,9 +316,13 @@ fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genha_col
                     }
                 }
             });
+            if mixed("color") {
+                ui.label(egui::RichText::new("Colour: mixed").size(11.0).color(t.text_dim));
+            }
             if let Some(c) = color_row(ui, st.color, brand) {
                 acts.run("text.setStyle", json!({"color": c.to_hex(), "merge_key": key("color")}));
             }
+            let st = &text.style;
             let (mut lh, mut ls) = (st.line_height, st.letter_spacing);
             if ui.add(egui::Slider::new(&mut lh, 0.6..=3.0).text("Line height")).changed() {
                 acts.run("text.setStyle", json!({"line_height": lh, "merge_key": key("lh")}));
