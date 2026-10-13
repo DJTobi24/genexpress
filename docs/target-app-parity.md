@@ -162,9 +162,9 @@ Sources: https://developer.adobe.com/express/add-ons/docs/references/document-sa
 | MCP / chat assistants | ✅ | `genha-cli mcp` |
 | Embed SDK | ⬜ | M9 (web build) |
 | Desktop apps | ✅ | native Linux/macOS/Windows (egui) |
-| Web app | 🟡 | `apps/genha-web`: the same UI in the browser (WASM, WebGL2), verified in Chromium; open/place/drop through the browser, Save and Download as downloads; text only in a built-in fallback face, no Data Recovery or recent designs yet |
+| Web app | 🟡 | `apps/genha-web`: the same UI in the browser (WASM, WebGL2), verified in Chromium; open/place/drop through the browser, Save and Download as downloads; fonts added from files (kept in IndexedDB) or the installed fonts (Local Font Access, Chromium only), synthetic bold/italic; Data Recovery and recent designs with thumbnails in IndexedDB; pictures pasted with Ctrl+V. Not yet: control channel, WOFF fonts, coordination between several tabs |
 | Mobile apps | ⬜ | later |
-| Offline use | ✅ | everything runs locally; no account needed; Data Recovery copies unsaved designs every minute (`recovery.*`) |
+| Offline use | ✅ | everything runs locally; no account needed; Data Recovery copies unsaved designs every minute on the desktop, every 15 s in the browser (`recovery.*`, one `Store` abstraction: a folder or IndexedDB) |
 
 ## 11. Accessibility and localisation
 

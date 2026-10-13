@@ -542,3 +542,31 @@ fn curved_text_bends() {
     let smile = curved_text_path(fonts, &t, 600.0, 300.0).unwrap();
     assert!(middle(&smile).1 > smile.bounding_box().y1 - 10.0);
 }
+
+#[test]
+fn synthetic_bold_and_italic_when_the_family_has_neither() {
+    // A book with only a regular face: bold is drawn emboldened, italic slanted.
+    let Some(path) =
+        ["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/TTF/DejaVuSans.ttf"].iter().find(|p| std::path::Path::new(p).exists())
+    else {
+        return; // no font on this machine
+    };
+    let mut book = FontBook::new();
+    book.add_font(std::fs::read(path).unwrap()).unwrap();
+    let draw = |bold: bool, italic: bool| {
+        let mut d = doc(400.0, 120.0);
+        let style = TextStyle { font_family: "DejaVu Sans".into(), font_size: 60.0, bold, italic, color: Color::BLACK, ..TextStyle::default() };
+        let id = d.alloc_id();
+        d.pages[0].elements.push(Element::new(id, Frame::new(10.0, 10.0, 380.0, 100.0), ElementKind::Text(TextEl::new("IIII", style))));
+        let r = render_page(&d, 0, &book, &RenderOptions { scale: 1.0, transparent_background: true }).unwrap();
+        let ink: Vec<usize> = r.rgba.as_chunks::<4>().0.iter().enumerate().filter(|(_, p)| p[3] > 128).map(|(i, _)| i % 400).collect();
+        (ink.len(), ink.iter().copied().max().unwrap_or(0))
+    };
+    let (plain, plain_right) = draw(false, false);
+    let (bold, _) = draw(true, false);
+    let (italic, italic_right) = draw(false, true);
+    assert!(bold as f64 > plain as f64 * 1.1, "bold {bold} vs {plain}");
+    assert!((italic as f64 - plain as f64).abs() < plain as f64 * 0.1, "slanting keeps the ink: {italic} vs {plain}");
+    assert!(italic_right > plain_right + 5, "italic leans right: {italic_right} vs {plain_right}");
+    assert_eq!(synthetic(&book, &TextStyle { font_family: "DejaVu Sans".into(), ..TextStyle::default() }), Synthetic::default());
+}

@@ -9,6 +9,7 @@
 pub mod cmd;
 pub mod guard;
 pub mod inspect;
+pub mod store;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -102,13 +103,25 @@ pub struct DocState {
     pub revision: u64,
     /// Names this document's Data Recovery copy (unique in the process).
     pub recovery_id: u64,
+    /// Its entry in the recent designs (`recent.*`), once it has one.
+    pub recent_id: Option<String>,
 }
 
 impl DocState {
     pub fn new(doc: Document) -> Self {
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         let recovery_id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        DocState { doc: Arc::new(doc), selection: vec![], page: 0, history: History::default(), path: None, dirty: false, revision: 0, recovery_id }
+        DocState {
+            doc: Arc::new(doc),
+            selection: vec![],
+            page: 0,
+            history: History::default(),
+            path: None,
+            dirty: false,
+            revision: 0,
+            recovery_id,
+            recent_id: None,
+        }
     }
 
     /// Selected elements that still exist, in selection order.
@@ -124,6 +137,18 @@ impl DocState {
 
 /// A document with one curved text box shown straight: (source document, element, result).
 type Straightened = (Arc<Document>, NodeId, Arc<Document>);
+
+/// This run's [`Session::instance`]: the process id (hosts without processes set their own).
+fn default_instance() -> String {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::process::id().to_string()
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        "web".to_string()
+    }
+}
 
 /// Everything an app instance has open.
 pub struct Session {
@@ -146,8 +171,12 @@ pub struct Session {
     merge_key: Option<String>,
     /// Fonts for text layout and exports (shared with the UI).
     pub fonts: Arc<genha_text::FontBook>,
-    /// Where Data Recovery keeps copies of unsaved designs (`recovery.*` commands); none = off.
-    pub recovery_dir: Option<PathBuf>,
+    /// Where Data Recovery copies, recent designs and added fonts are kept ([`store`]); none: the
+    /// `recovery.*` and `recent.*` commands are off and added fonts last until the app quits.
+    pub store: Option<Box<dyn store::Store>>,
+    /// Names this run's Data Recovery copies, so copies left by another run (one that ended
+    /// unexpectedly) can be told apart: the process id on the desktop, set by the host elsewhere.
+    pub instance: String,
 }
 
 impl Default for Session {
@@ -170,7 +199,8 @@ impl Session {
             messages: vec![],
             merge_key: None,
             fonts: Arc::new(genha_text::FontBook::new()),
-            recovery_dir: None,
+            store: None,
+            instance: default_instance(),
         }
     }
 

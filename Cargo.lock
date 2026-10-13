@@ -1324,6 +1324,7 @@ dependencies = [
 name = "genha-ui-egui"
 version = "0.1.0"
 dependencies = [
+ "arboard",
  "base64",
  "egui",
  "epaint_default_fonts",

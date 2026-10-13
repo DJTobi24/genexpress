@@ -104,6 +104,11 @@ The native `.genha` format is gzip-compressed JSON with a `{"format", "version",
 header, pictures embedded as base64, saved atomically, refused with a clear message when it comes from
 a newer version, and repaired on open (ids, sizes, missing pictures) because files are untrusted.
 
+What the app keeps between runs (Data Recovery copies, recent designs with thumbnails, fonts the
+user added) goes through `genha_engine::store::Store`, a small key-value trait: a folder on the
+desktop (`DirStore`, the per-user data folder), IndexedDB in the browser (`genha_ui_egui` ›
+`web::IdbStore`). The `recovery.*`, `recent.*` and `font.*` commands only see the trait.
+
 ## Agent control
 
 - **Control channel:** JSON lines on a local TCP port (`--control 7979`), see [control-protocol.md](control-protocol.md).

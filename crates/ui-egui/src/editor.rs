@@ -567,6 +567,9 @@ fn text_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             app.run("text.addPreset", &json!({"id": p.id}));
         }
     }
+    ui.separator();
+    heading(ui, "Fonts");
+    crate::fonts::add_fonts_ui(app, ui);
 }
 
 fn media_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {

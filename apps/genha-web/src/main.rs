@@ -8,9 +8,11 @@
 //! - Open… and Upload use the browser's file picker, and files can be dropped on the page; the
 //!   bytes arrive a frame later (`genha_ui_egui` › `web.rs`);
 //! - Save and Download make the file in memory and the browser downloads it;
-//! - no control channel (browsers can't listen on sockets), no recent files, no Data Recovery;
-//! - fonts: the browser gives pages no access to installed fonts, so text is set in built-in
-//!   fallback faces (`genha_ui_egui::fonts`).
+//! - Data Recovery copies, recent designs and added fonts are kept in IndexedDB (loaded before
+//!   the app starts);
+//! - no control channel (browsers can't listen on sockets);
+//! - fonts: built-in fallback faces (`genha_ui_egui::fonts`), plus font files the user adds and,
+//!   where the browser allows it (Local Font Access), the installed fonts.
 
 #[cfg(target_arch = "wasm32")]
 mod web;
