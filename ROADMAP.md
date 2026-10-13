@@ -2,7 +2,7 @@
 
 **Stage: pre-alpha** · next: alpha (M2–M3: document styles, embedded fonts) · ~30–35% of the target feature set (estimated)
 
-> **Last updated:** 2026-10-13 · **Change:** minor (M3.1 text shaping, M2.16 text edited on the canvas, M4.1 vector PDF, M2.17 web app follow-ups, M2.19 smart guides, M5.1 multi-series charts and richer tables, M3.2 formatting part of a text box, M6.1 MP4 video export, M2.20 template library of 121)
+> **Last updated:** 2026-10-13 · **Change:** minor (M3.1 text shaping, M2.16 text edited on the canvas, M4.1 vector PDF, M2.17 web app follow-ups, M2.19 smart guides, M5.1 multi-series charts and richer tables, M3.2 formatting part of a text box, M6.1 MP4 video export, M2.20 template library of 121, M2.21 smart resize re-layout)
 
 ## Headline numbers
 
@@ -11,7 +11,7 @@
 | Feature parity with the target (all areas) | ~20–25% | estimated, see [target-app-parity.md](docs/target-app-parity.md) |
 | Commands (UI = CLI = MCP) | 158 | measured (`genha-cli exec engine.commands`) |
 | Templates / size presets / icons / text styles / palettes / filters | 121 / 35 / 114 (+10 basic shapes) / 25 / 40 / 14 | measured (counted from `genha_templates`) |
-| Tests | 303 | measured (`cargo test --workspace`) |
+| Tests | 317 | measured (`cargo test --workspace`) |
 | Rust lines | ~45k | measured (all `.rs` files, tests included) |
 | Platforms | Linux, macOS, Windows (desktop); web (WASM, `cargo xtask web`) | Linux and Chromium measured; others by CI target |
 
@@ -29,6 +29,7 @@ Full milestone table: [docs/roadmap.md](docs/roadmap.md). Ranked work list: [doc
 
 | Date | Milestone | Summary |
 |---|---|---|
+| 2026-10-13 | M2.21 | Smart resize re-lays out the design (`crates/layout/src/resize`): detects backgrounds, bands and sidebars, cards and buttons, icon + label rows, stacks, rows and grids (rows of boxes over their labels become columns), decorations (touching shapes as one); lays the content out again with real text measurements (`genha_text::measure_wrapped_el`): text takes a width that fits its container and keeps a readable size, rows that do not fit become stacks, grids change their column count, tall designs go into columns on wide pages, whitespace is shared out like the original's, bands and panels reach the page edges; then no text overflows its box, leaves the page or overlaps other text (moved apart, then set smaller, else reported in `notes`). `page.resize {mode: smart\|scale\|none}`. Checked on all 121 templates × story, square, landscape and A4, with system fonts and with none |
 | 2026-10-13 | M2.20 | Template library grown from 65 to 121 original templates (Social 42, Print 22, Cards & invitations 23, Documents 16, Marketing 10, Logos 8): animated posts, stories and videos with entrance animations and page durations (GIF/MP4 ready), reel covers, LinkedIn/X/Facebook posts, thumbnails, pins, event posters and flyers, bar and brunch menus, a recipe card, a property flyer with QR code, save the date, party and graduation cards, business and loyalty cards, letterhead, invoice, cover letter, resume, newsletter, timetable, worksheet, a sales deck and a lesson deck with notes, an infographic, a landing page, pricing and listing posts, podcast art and curved-text logos. They use style runs, multi-series charts, tables with merged and styled cells, curved text and QR codes. New template tests: text fits its box with system fonts and with none (laid out with `genha_text`), text contrast against what is behind it (WCAG-style, which also fixed colours in 26 older templates), every template renders and exports to PNG, SVG and PDF |
 | 2026-10-13 | M2.19 | Smart guides while resizing (moving edges snap to page and object lines, same width/height and equal gaps; corners with Shift, Alt from the centre, several objects), distance hints to neighbours and page edges, equal-spacing markers, Alt-hover distances, Ctrl/Cmd skips snapping, `view.snapping` kept between runs; a click on an object or handle never nudges it (3 px drag threshold, handles follow the pointer's travel) |
 | 2026-10-13 | M5.1 | Charts with several series (grouped and stacked bars, horizontal bars, lines, stacked areas), per-series colours, axis titles, gridlines, legend position, number/percent/currency formats with decimals, fixed min/max; series × categories grid and CSV/TSV paste. Tables with merged cells, per-cell fill/text colour/bold/alignment/size, column widths (pixels, fit to text) and row heights, outer/inner lines; `table.mergeCells`, `splitCell`, `setCellStyle`, `setColumnWidth`, `setRowHeight`; one scene for PNG, SVG and vector PDF |
