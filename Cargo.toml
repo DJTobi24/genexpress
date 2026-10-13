@@ -12,6 +12,7 @@ repository = "https://github.com/DJTobi24/genexpress"
 
 [workspace.dependencies]
 # internal
+genha-brand = { path = "crates/brand" }
 genha-geom = { path = "crates/geom" }
 genha-i18n = { path = "crates/i18n" }
 genha-color = { path = "crates/color" }

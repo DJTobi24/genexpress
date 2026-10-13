@@ -162,7 +162,7 @@ Sources: https://developer.adobe.com/express/add-ons/docs/references/document-sa
 | Document API | ✅ | the command registry (JSON) via control channel, CLI and MCP |
 | MCP / chat assistants | ✅ | `genha-cli mcp` |
 | Embed SDK | ⬜ | M9 (web build) |
-| Desktop apps | ✅ | native Linux/macOS/Windows (egui) |
+| Desktop apps | ✅ | native Linux/macOS/Windows (egui); installable downloads from GitHub Releases (M7.1, docs/release.md): a universal macOS DMG signed with a Developer ID and notarized when the signing secrets are set, `.genha` files open from Finder; a Windows zip (icon embedded, not code-signed); a Linux tar.gz with `.desktop` entry, icons and MIME type; an original app icon. The macOS and Windows release jobs are untested until the first tagged release |
 | Web app | 🟡 | `apps/genha-web`: the same UI in the browser (WASM, WebGL2), verified in Chromium; open/place/drop through the browser, Save and Download as downloads; fonts added from files (kept in IndexedDB) or the installed fonts (Local Font Access, Chromium only), synthetic bold/italic; Data Recovery and recent designs with thumbnails in IndexedDB; pictures pasted with Ctrl+V. Not yet: control channel, WOFF fonts, coordination between several tabs |
 | Mobile apps | ⬜ | later |
 | Offline use | ✅ | everything runs locally; no account needed; Data Recovery copies unsaved designs every minute on the desktop, every 15 s in the browser (`recovery.*`, one `Store` abstraction: a folder or IndexedDB) |

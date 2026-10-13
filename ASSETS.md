@@ -33,3 +33,4 @@ them in the user's data folder (`models/`). See docs/architecture.md › Backgro
 | docs/images/smart-resize.gif | GenHa contributors | screen recording of GenHa (Xvfb, ffmpeg) | MIT OR Apache-2.0 | smart resize of an original template to a story and a landscape page |
 | docs/images/animation.gif | GenHa contributors | screen recording of GenHa (Xvfb, ffmpeg) | MIT OR Apache-2.0 | an original animated template playing on the canvas |
 | docs/images/templates.jpg | GenHa contributors | rendered by `genha-cli` | MIT OR Apache-2.0 | 18 of GenHa's original templates; text in system fonts (Inter and others, OFL) |
+| docs/images/icon.png | GenHa contributors | drawn in code by `crates/brand` (`cargo xtask icon`, `genha-256.png`) | MIT OR Apache-2.0 | the GenHa app icon (original: rounded violet tile, warm circle, white rounded square), 256 px, for the README; the app and the installers draw it from code |

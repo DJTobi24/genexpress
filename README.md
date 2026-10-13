@@ -1,4 +1,4 @@
-# GenHa
+# <img src="docs/images/icon.png" alt="" width="44" align="top"> GenHa
 
 **Design anything — open source, made in Rust.**
 
@@ -43,6 +43,22 @@ everything runs on your own computer (desktop on Windows, macOS and Linux, or in
 | Home screen | Auf Deutsch |
 |---|---|
 | ![The home screen](docs/images/home.png) | ![The home screen in German](docs/images/home-de.png) |
+
+## Download
+
+Ready-to-run builds are on the [Releases page](https://github.com/DJTobi24/genexpress/releases):
+
+- **macOS 11 or later** (Apple silicon and Intel): `GenHa-<version>-macos.dmg`. Open it and drag
+  GenHa to Applications. Releases are signed with a Developer ID and notarized by Apple, so the app
+  opens without warnings, and `.genha` files open in GenHa with a double-click. (A build marked
+  unsigned opens with right-click › Open the first time.)
+- **Windows 10 or later**: `GenHa-<version>-windows-x86_64.zip`. Unpack it and start `genha.exe`
+  (not code-signed yet: SmartScreen asks once, More info › Run anyway).
+- **Linux**: `GenHa-<version>-linux-x86_64.tar.gz` with a menu entry and icon (see `README.txt`
+  inside).
+- **Web**: `GenHa-<version>-web.zip`, a static site to host anywhere.
+
+How releases are built, signed and notarized: [docs/release.md](docs/release.md).
 
 ## Run it
 
@@ -90,7 +106,7 @@ video timeline with audio, and more UI languages.
 |---|---|
 | Templates / size presets / icons / palettes | 121 / 35 / 114 / 40 |
 | Commands (UI = CLI = MCP) | 163 |
-| Tests | 353 |
+| Tests | 369 |
 | Code | ~52k lines of Rust |
 
 - [ROADMAP.md](ROADMAP.md) — stage, numbers, what's next and the progress log.

@@ -67,6 +67,15 @@ Check the browser code with `cargo clippy -p genha-ui-egui -p genha-web --target
 wasm32-unknown-unknown -- -D warnings` (`cargo xtask wasm`, part of `cargo xtask ci`, does this).
 Hosting notes: [`packaging/web/README.md`](../packaging/web/README.md).
 
+## Releases and installers
+
+`cargo xtask bundle macos|linux|windows|web` makes the downloads in `dist/` (a universal, signed
+and notarized `GenHa.app` + DMG on macOS; a zip on Windows; a tar.gz with `.desktop` entry, icons
+and MIME type on Linux; a zip of the web app), `cargo xtask icon` writes the app icon (drawn in
+code, `crates/brand`) as PNG, `.ico` and `.icns`. Pushing a tag `v<version>` runs
+`.github/workflows/release.yml`, which builds all four and publishes a GitHub Release. Signing,
+notarization, GitHub secrets and troubleshooting: [release.md](release.md).
+
 ## Quality gates
 
 `cargo xtask ci` runs: `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`

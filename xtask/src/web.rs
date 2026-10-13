@@ -54,7 +54,7 @@ pub fn build(root: &Path, ml: bool) -> Result<(), String> {
 }
 
 /// Cargo's target directory (honours `CARGO_TARGET_DIR` and `.cargo/config.toml`).
-fn target_dir(root: &Path) -> Result<PathBuf, String> {
+pub fn target_dir(root: &Path) -> Result<PathBuf, String> {
     let out = Command::new("cargo")
         .args(["metadata", "--format-version", "1", "--no-deps"])
         .current_dir(root)

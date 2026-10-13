@@ -1,0 +1,13 @@
+[package]
+name = "genha-brand"
+description = "GenHa's identity: app name and id, and the app icon drawn in code (PNG, ICO, ICNS)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+png = { workspace = true }
+
+[lints]
+workspace = true
