@@ -95,7 +95,9 @@ pub fn playback_frame(app: &mut App, ctx: &egui::Context, display: &mut Arc<Docu
 pub fn start_presenting(app: &mut App, ctx: &egui::Context) {
     let page = app.session.active().map(|d| d.page).unwrap_or(0);
     app.motion.playing = None;
-    app.canvas.editing_text = None;
+    if app.session.text_editing.is_some() {
+        app.run("text.endEdit", &serde_json::json!({}));
+    }
     app.session.tools.cancel();
     app.session.preview = None;
     app.motion.present = Some(Present { page, started: time(ctx), show_notes: false, texture: None, key: None });

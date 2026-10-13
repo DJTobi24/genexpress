@@ -267,7 +267,9 @@ impl ToolState {
                 if ev.kind == PointerKind::Down {
                     let (w, h) = (400.0, 80.0);
                     let p = json!({"x": ev.pos.x - w / 2.0, "y": ev.pos.y - h / 2.0, "width": w, "height": h, "text": "Add your text"});
-                    ToolOutput { commands: vec![Invocation::new("text.add", p)], ..Default::default() }
+                    // The new box goes straight into text editing, its placeholder selected.
+                    let commands = vec![Invocation::new("text.add", p), Invocation::new("text.beginEdit", json!({}))];
+                    ToolOutput { commands, ..Default::default() }
                 } else {
                     ToolOutput::default()
                 }
@@ -407,6 +409,10 @@ impl ToolState {
                 if ev.shift {
                     // Constrain to the dominant axis.
                     if d.x.abs() > d.y.abs() { d.y = 0.0 } else { d.x = 0.0 }
+                }
+                // A click (no movement) never moves anything, even next to a snapping guide.
+                if commit && d.x == 0.0 && d.y == 0.0 {
+                    return ToolOutput::default();
                 }
                 let (dx, dy, gx, gy) = snap_delta(cx, &frames, d);
                 let moved: Vec<(NodeId, Frame)> = frames.iter().map(|(id, f)| (*id, f.translated(dx, dy))).collect();

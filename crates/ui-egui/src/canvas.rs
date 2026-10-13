@@ -3,11 +3,9 @@
 
 use std::sync::Arc;
 
-use serde_json::json;
-
 use crate::App;
 use crate::theme::Tokens;
-use genha_doc::{Document, ElementKind, NodeId};
+use genha_doc::{Document, ElementKind};
 use genha_geom::{Frame, Point};
 use genha_tools::{Handle, PointerEvent, PointerKind, ToolId};
 
@@ -20,8 +18,8 @@ pub struct CanvasState {
     pointer_down: bool,
     last_pos: Option<Point>,
     panning: Option<egui::Pos2>,
-    /// The text element being edited in place, and its text.
-    pub editing_text: Option<(NodeId, String)>,
+    /// Text being edited in place (UI side of the engine's `text_editing`).
+    pub text: crate::textedit::TextEditUi,
 }
 
 /// Largest side of the canvas render in pixels (bigger zooms render the visible scale capped).
@@ -46,8 +44,10 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     let Some(page) = display.pages.get(page_index) else { return };
     let (pw, ph) = (page.width as f32, page.height as f32);
 
-    let (resp, painter) = ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
-    let area = resp.rect;
+    // A fixed id: the canvas keeps keyboard focus while text is edited on it.
+    let (area, _) = ui.allocate_exact_size(ui.available_size(), egui::Sense::hover());
+    let resp = ui.interact(area, egui::Id::new("genha_canvas"), egui::Sense::click_and_drag());
+    let painter = ui.painter_at(area);
     if app.view.fit_pending && area.width() > 50.0 {
         let z = ((area.width() - 80.0) / pw).min((area.height() - 80.0) / ph).clamp(0.02, 4.0);
         app.view.zoom = z;
@@ -89,7 +89,9 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             outline(&painter, &el.frame, &to_screen, egui::Stroke::new(1.5, t.selection));
         }
     }
+    // Handles are hidden while text is edited in place.
     if app.session.tools.tool == ToolId::Select
+        && app.session.text_editing.is_none()
         && let Some(f) = genha_tools::selection_frame(&display, &selection)
     {
         if selection.len() > 1 {
@@ -135,8 +137,10 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         }
     }
 
-    pointer_input(app, ui, &resp, area, &to_page, &display, page_index);
-    text_editor(app, ui, &display, page_index, &to_screen, t);
+    let view = crate::textedit::View { to_screen: &to_screen, to_page: &to_page, zoom };
+    if !crate::textedit::show(app, ui, &resp, &display, page_index, &view, t) {
+        pointer_input(app, ui, &resp, area, &to_page, &display, page_index);
+    }
     if app.session.tools.is_dragging() || app.session.preview.is_some() {
         ui.ctx().request_repaint();
     }
@@ -258,13 +262,14 @@ fn pointer_input(
         let pt = to_page(pos);
         if let Some(pg) = doc.pages.get(page)
             && let Some(el) = genha_tools::hit_test(pg, pt)
-            && let ElementKind::Text(t) = &el.kind
+            && matches!(el.kind, ElementKind::Text(_))
             && !el.locked
         {
-            app.canvas.editing_text = Some((el.id, t.text.clone()));
             app.canvas.pointer_down = false;
             app.session.tools.cancel();
             app.session.preview = None;
+            let now = ui.input(|i| i.time);
+            crate::textedit::begin_at(app, doc, page, el.id, pt, pos, now);
             return;
         }
     }
@@ -272,9 +277,6 @@ fn pointer_input(
     let snap = snap_lines(app, doc, page);
     let zoom = f64::from(app.view.zoom);
     if pressed && resp.hovered() && area.contains(pos) {
-        if app.canvas.editing_text.is_some() {
-            app.canvas.editing_text = None;
-        }
         app.canvas.pointer_down = true;
         app.canvas.last_pos = Some(to_page(pos));
         send(app, ev(PointerKind::Down), zoom, &snap);
@@ -314,35 +316,4 @@ fn snap_lines(app: &App, doc: &Document, page: usize) -> (Vec<f64>, Vec<f64>) {
     let sel = app.session.active().map(|d| d.selection.clone()).unwrap_or_default();
     let g = genha_layout::snap_guides(pg, &sel);
     (g.xs, g.ys)
-}
-
-fn text_editor(app: &mut App, ui: &mut egui::Ui, doc: &Document, page: usize, to_screen: &impl Fn(Point) -> egui::Pos2, t: &Tokens) {
-    let Some((id, mut text)) = app.canvas.editing_text.clone() else { return };
-    let Some(el) = doc.pages.get(page).and_then(|p| p.find(id)) else {
-        app.canvas.editing_text = None;
-        return;
-    };
-    let b = el.frame.bounds();
-    let r = egui::Rect::from_two_pos(to_screen(Point::new(b.x0, b.y0)), to_screen(Point::new(b.x1, b.y1)));
-    let mut close = false;
-    egui::Area::new(egui::Id::new("text_edit_overlay")).fixed_pos(r.left_bottom() + egui::vec2(0.0, 8.0)).order(egui::Order::Foreground).show(
-        ui.ctx(),
-        |ui| {
-            egui::Frame::popup(ui.style()).fill(t.panel).show(ui, |ui| {
-                ui.label(egui::RichText::new("Edit text — Esc or click outside to finish").size(11.0).color(t.text_dim));
-                let resp = ui.add(egui::TextEdit::multiline(&mut text).desired_width(r.width().clamp(220.0, 520.0)).desired_rows(3));
-                resp.request_focus();
-                if resp.changed() {
-                    app.run("text.setText", &json!({"id": id.0, "text": text, "merge_key": format!("text:{}", id.0)}));
-                    app.canvas.editing_text = Some((id, text.clone()));
-                }
-                if ui.input(|i| i.key_pressed(egui::Key::Escape)) || resp.lost_focus() {
-                    close = true;
-                }
-            });
-        },
-    );
-    if close {
-        app.canvas.editing_text = None;
-    }
 }

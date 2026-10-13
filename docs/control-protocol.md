@@ -24,5 +24,9 @@ Errors: `{"id": 1, "ok": false, "error": "…"}`.
 To look at an animation headlessly, use the `export.frame` command (`{path, t}`: one moment as PNG),
 `animation.timeline`, or `export.gif` / `export.apng`.
 
+Text is edited in place with commands too: `text.beginEdit {id?, selection?}` enters editing (the app shows the caret on the
+canvas), `text.edit {text? | insert?, range?, selection?}` types or replaces text and moves the selection (one undo step per
+editing session), `text.endEdit` leaves; `session.inspect` reports `text_editing` (`{id, selection}` or null).
+
 Every command (`engine.commands`) is reachable, so an agent can do anything a user can.
 The same methods are what [MCP](mcp.md) forwards to.

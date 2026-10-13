@@ -439,34 +439,154 @@ fn version_history() {
 
 #[test]
 fn data_recovery() {
-    let dir = std::env::temp_dir().join(format!("genha-recovery-{}", std::process::id()));
+    let root = std::env::temp_dir().join(format!("genha-recovery-{}", std::process::id()));
+    let dir = root.join("recovery");
     std::fs::create_dir_all(&dir).unwrap();
     let mut s = session();
-    s.recovery_dir = Some(dir.clone());
+    s.store = Some(Box::new(crate::store::DirStore::new(&root)));
     s.execute("text.add", &json!({"text": "Unsaved"})).unwrap();
     let r = s.execute("recovery.save", &json!({})).unwrap();
     assert_eq!(r["written"].as_array().unwrap().len(), 1);
     // This session's own copies are not offered; a copy from "another" process is.
     assert_eq!(s.execute("recovery.list", &json!({})).unwrap().as_array().unwrap().len(), 0);
     let own = std::path::PathBuf::from(r["written"][0].as_str().unwrap());
+    assert_eq!(own.parent().unwrap(), dir);
     let other = dir.join("999999999-1.genha");
     std::fs::copy(&own, &other).unwrap();
     let list = s.execute("recovery.list", &json!({})).unwrap();
     assert_eq!(list[0]["path"], other.display().to_string());
+    assert_eq!(list[0]["key"], "recovery/999999999-1.genha");
     s.execute("recovery.open", &json!({"path": other.display().to_string()})).unwrap();
     assert!(!other.exists());
     assert!(s.doc().unwrap().dirty);
     // Paths outside the folder are refused.
     assert!(s.execute("recovery.discard", &json!({"path": "/etc/passwd"})).is_err());
+    assert!(s.execute("recovery.discard", &json!({"key": "recovery/../../x.genha"})).is_err());
     // Saving removes the copy.
-    s.execute("file.saveAs", &json!({"path": dir.join("saved").display().to_string()})).unwrap();
+    s.execute("file.saveAs", &json!({"path": root.join("saved").display().to_string()})).unwrap();
     s.execute("file.close", &json!({})).unwrap();
     s.execute("file.close", &json!({})).unwrap();
     s.execute("file.new", &json!({})).unwrap();
     s.execute("recovery.save", &json!({})).unwrap();
     let left: Vec<_> = std::fs::read_dir(&dir).unwrap().flatten().filter(|e| e.file_name().to_string_lossy().contains('-')).collect();
     assert!(left.is_empty(), "{left:?}");
-    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+#[test]
+fn data_recovery_in_memory_store() {
+    // The browser's store: another page load's copy is offered, by key.
+    let mut s = session();
+    s.instance = "tab1".into();
+    s.store = Some(Box::new(crate::store::MemStore::default()));
+    s.execute("text.add", &json!({"text": "Unsaved"})).unwrap();
+    s.execute("recovery.save", &json!({})).unwrap();
+    assert_eq!(s.execute("recovery.list", &json!({})).unwrap().as_array().unwrap().len(), 0);
+    // The page is reloaded: a new run with the same store.
+    let store = s.store.take();
+    let mut s2 = Session::new();
+    s2.instance = "tab2".into();
+    s2.store = store;
+    let list = s2.execute("recovery.list", &json!({})).unwrap();
+    assert_eq!(list.as_array().unwrap().len(), 1);
+    assert_eq!(list[0]["title"], "Instagram post (square)");
+    let key = list[0]["key"].as_str().unwrap().to_string();
+    assert!(key.starts_with("recovery/tab1-"), "{key}");
+    s2.execute("recovery.open", &json!({"key": key})).unwrap();
+    assert_eq!(s2.docs.len(), 1);
+    assert!(s2.execute("recovery.list", &json!({})).unwrap().as_array().unwrap().is_empty());
+    // Its own copy replaced the old one.
+    assert_eq!(s2.store.as_ref().unwrap().list("recovery").len(), 1);
+    // Without a store Data Recovery is off, quietly for the list.
+    let mut s3 = session();
+    assert!(s3.execute("recovery.save", &json!({})).is_err());
+    assert_eq!(s3.execute("recovery.list", &json!({})).unwrap(), json!([]));
+}
+
+#[test]
+fn recent_designs_in_the_browser_keep_a_copy() {
+    let mut s = session();
+    s.store = Some(Box::new(crate::store::MemStore::default()));
+    s.execute("document.rename", &json!({"title": "Poster"})).unwrap();
+    s.execute("text.add", &json!({"text": "Hello"})).unwrap();
+    // A download (the browser's Save) records the design with a copy and a thumbnail.
+    let bytes = crate::cmd::file::design_bytes(&mut s).unwrap();
+    let list = s.execute("recent.list", &json!({})).unwrap();
+    assert_eq!(list.as_array().unwrap().len(), 1);
+    assert_eq!(list[0]["title"], "Poster");
+    assert!(list[0]["path"].is_null());
+    assert!(list[0]["thumbnail"].is_string());
+    let id = list[0]["id"].as_str().unwrap().to_string();
+    let png = crate::cmd::recent::thumbnail(&s, &id).unwrap();
+    assert_eq!(&png[1..4], b"PNG");
+    // Downloading it again keeps one entry; opening the same file again too.
+    crate::cmd::file::design_bytes(&mut s).unwrap();
+    crate::cmd::file::open_bytes(&mut s, "Poster.genha", &bytes).unwrap();
+    assert_eq!(s.execute("recent.list", &json!({})).unwrap().as_array().unwrap().len(), 1);
+    // Opening the entry brings the design back.
+    s.execute("file.close", &json!({})).unwrap();
+    s.execute("file.close", &json!({})).unwrap();
+    s.execute("recent.open", &json!({"id": id})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.title, "Poster");
+    // Pictures opened as designs are not recent designs (until saved).
+    let png = genha_render::encode_png(&genha_render::Raster { width: 2, height: 2, rgba: vec![255; 16] }).unwrap();
+    crate::cmd::file::open_bytes(&mut s, "a.png", &png).unwrap();
+    assert_eq!(s.execute("recent.list", &json!({})).unwrap().as_array().unwrap().len(), 1);
+    s.execute("recent.remove", &json!({"id": id})).unwrap();
+    assert!(s.execute("recent.list", &json!({})).unwrap().as_array().unwrap().is_empty());
+    assert!(s.store.as_ref().unwrap().list("recent").iter().all(|(k, _)| k == "recent/list.json"));
+    assert!(s.execute("recent.open", &json!({"id": "nope"})).is_err());
+}
+
+#[test]
+fn recent_designs_on_the_desktop_point_at_files() {
+    let root = std::env::temp_dir().join(format!("genha-recent-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    // The list the app kept before is carried over.
+    let old = root.join("old.genha");
+    std::fs::write(root.join("recent.json"), serde_json::to_string(&[old.display().to_string()]).unwrap()).unwrap();
+    let mut s = session();
+    s.store = Some(Box::new(crate::store::DirStore::new(&root)));
+    assert_eq!(s.execute("recent.list", &json!({})).unwrap()[0]["title"], "old");
+    let path = root.join("a.genha");
+    s.execute("file.saveAs", &json!({"path": path.display().to_string()})).unwrap();
+    let list = s.execute("recent.list", &json!({})).unwrap();
+    assert_eq!(list.as_array().unwrap().len(), 2);
+    assert_eq!(list[0]["path"], path.display().to_string());
+    assert!(!root.join("recent.json").exists());
+    s.execute("file.close", &json!({})).unwrap();
+    let id = list[0]["id"].as_str().unwrap();
+    s.execute("recent.open", &json!({"id": id})).unwrap();
+    assert_eq!(s.doc().unwrap().path.as_deref(), Some(path.as_path()));
+    assert_eq!(s.execute("recent.list", &json!({})).unwrap().as_array().unwrap().len(), 2);
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+#[test]
+fn added_fonts_are_kept_for_next_time() {
+    use base64::Engine as _;
+    let mut s = session();
+    s.store = Some(Box::new(crate::store::MemStore::default()));
+    assert!(s.execute("font.add", &json!({"data": "bm90IGEgZm9udA=="})).is_err());
+    assert!(s.execute("font.list", &json!({})).unwrap()["added"].as_array().unwrap().is_empty());
+    // A real font, when this machine has one.
+    let Some(path) =
+        ["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/TTF/DejaVuSans.ttf"].iter().find(|p| std::path::Path::new(p).exists())
+    else {
+        return;
+    };
+    let data = base64::engine::general_purpose::STANDARD.encode(std::fs::read(path).unwrap());
+    let r = s.execute("font.add", &json!({"data": data, "name": "DejaVuSans.ttf"})).unwrap();
+    assert_eq!(r["faces"], 1);
+    assert!(s.fonts.has_family("DejaVu Sans"));
+    let added = s.execute("font.list", &json!({})).unwrap()["added"].clone();
+    assert_eq!(added[0]["key"], "fonts/DejaVuSans.ttf");
+    let mut next = Session::new();
+    next.store = s.store.take();
+    assert_eq!(crate::cmd::fonts::load_stored_fonts(&mut next), 1);
+    assert!(next.fonts.has_family("DejaVu Sans"));
+    next.execute("font.remove", &json!({"key": "fonts/DejaVuSans.ttf"})).unwrap();
+    assert!(next.execute("font.remove", &json!({"key": "fonts/../x"})).is_err());
 }
 
 #[test]

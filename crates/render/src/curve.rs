@@ -21,6 +21,7 @@ fn bend(fonts: &FontBook, t: &TextEl, w: f64) -> Option<(BezPath, Rect)> {
         return None;
     }
     let gl = genha_text::layout_glyphs(fonts, &t.text, &t.style, w);
+    let slant = crate::synthetic(fonts, &t.style).slant;
     let widest = gl.width;
     let first = gl.lines.first()?;
     if !(widest.is_finite() && widest > 0.0) {
@@ -52,7 +53,7 @@ fn bend(fonts: &FontBook, t: &TextEl, w: f64) -> Option<(BezPath, Rect)> {
             let cb = (xf * cell.to_path(0.1)).bounding_box();
             bounds = Some(bounds.map_or(cb, |b| b.union(cb)));
             if !g.path.is_empty() {
-                let p = xf * g.path.clone();
+                let p = xf * crate::slant_about(g.path.clone(), line.baseline, slant);
                 let pb = p.bounding_box();
                 bounds = Some(bounds.map_or(pb, |b| b.union(pb)));
                 path.extend(p);

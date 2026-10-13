@@ -9,12 +9,14 @@
 pub mod cmd;
 pub mod guard;
 pub mod inspect;
+pub mod store;
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use serde_json::Value;
 
+pub use cmd::textedit::TextEditing;
 pub use cmd::{CommandInfo, CommandSpec, command_specs, find_command};
 pub use genha_doc as doc;
 use genha_doc::{Document, Element, NodeId};
@@ -101,13 +103,25 @@ pub struct DocState {
     pub revision: u64,
     /// Names this document's Data Recovery copy (unique in the process).
     pub recovery_id: u64,
+    /// Its entry in the recent designs (`recent.*`), once it has one.
+    pub recent_id: Option<String>,
 }
 
 impl DocState {
     pub fn new(doc: Document) -> Self {
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         let recovery_id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        DocState { doc: Arc::new(doc), selection: vec![], page: 0, history: History::default(), path: None, dirty: false, revision: 0, recovery_id }
+        DocState {
+            doc: Arc::new(doc),
+            selection: vec![],
+            page: 0,
+            history: History::default(),
+            path: None,
+            dirty: false,
+            revision: 0,
+            recovery_id,
+            recent_id: None,
+        }
     }
 
     /// Selected elements that still exist, in selection order.
@@ -118,6 +132,21 @@ impl DocState {
     /// File name for titles: the file's name, else the document title.
     pub fn display_name(&self) -> String {
         self.path.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| self.doc.title.clone())
+    }
+}
+
+/// A document with one curved text box shown straight: (source document, element, result).
+type Straightened = (Arc<Document>, NodeId, Arc<Document>);
+
+/// This run's [`Session::instance`]: the process id (hosts without processes set their own).
+fn default_instance() -> String {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::process::id().to_string()
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        "web".to_string()
     }
 }
 
@@ -132,14 +161,22 @@ pub struct Session {
     pub tools: ToolState,
     /// The preview of a gesture in progress.
     pub preview: Option<Preview>,
+    /// The text box being edited in place (`text.beginEdit` … `text.endEdit`).
+    pub text_editing: Option<TextEditing>,
+    /// The last straightened document for [`Session::display_document`]: (source, shown).
+    straight: std::sync::Mutex<Option<Straightened>>,
     /// Status messages for the UI (latest last).
     pub messages: Vec<String>,
     /// `merge_key` of the command running now (from its params).
     merge_key: Option<String>,
     /// Fonts for text layout and exports (shared with the UI).
     pub fonts: Arc<genha_text::FontBook>,
-    /// Where Data Recovery keeps copies of unsaved designs (`recovery.*` commands); none = off.
-    pub recovery_dir: Option<PathBuf>,
+    /// Where Data Recovery copies, recent designs and added fonts are kept ([`store`]); none: the
+    /// `recovery.*` and `recent.*` commands are off and added fonts last until the app quits.
+    pub store: Option<Box<dyn store::Store>>,
+    /// Names this run's Data Recovery copies, so copies left by another run (one that ended
+    /// unexpectedly) can be told apart: the process id on the desktop, set by the host elsewhere.
+    pub instance: String,
 }
 
 impl Default for Session {
@@ -157,10 +194,13 @@ impl Session {
             style_clipboard: None,
             tools: ToolState::default(),
             preview: None,
+            text_editing: None,
+            straight: std::sync::Mutex::new(None),
             messages: vec![],
             merge_key: None,
             fonts: Arc::new(genha_text::FontBook::new()),
-            recovery_dir: None,
+            store: None,
+            instance: default_instance(),
         }
     }
 
@@ -203,6 +243,7 @@ impl Session {
         self.merge_key = params.get("merge_key").and_then(Value::as_str).map(str::to_string);
         let result = guard::catch_panic(|| (spec.run)(self, &params));
         self.merge_key = None;
+        cmd::textedit::check(self);
         match result {
             Ok(r) => r,
             Err(msg) => {
@@ -310,9 +351,35 @@ impl Session {
         Ok(out)
     }
 
-    /// The document as the UI should draw it: with the gesture preview's frames applied.
+    /// The document as the UI should draw it: with the gesture preview's frames applied, and
+    /// curved text being edited shown straight (the caret follows straight lines).
     pub fn display_document(&self) -> Option<Arc<Document>> {
         let d = self.active()?;
+        if let Some(e) = &self.text_editing
+            && let Some((_, el)) = d.doc.find(e.id)
+            && let genha_doc::ElementKind::Text(t) = &el.kind
+            && t.curve != 0.0
+        {
+            // Cached, so the canvas sees the same document (and does not redraw) until it changes.
+            let mut cache = self.straight.lock().ok();
+            if let Some(Some((src, id, shown))) = cache.as_deref()
+                && Arc::ptr_eq(src, &d.doc)
+                && *id == e.id
+            {
+                return Some(Arc::clone(shown));
+            }
+            let mut doc = (*d.doc).clone();
+            if let Some(el) = doc.find_mut(e.id)
+                && let genha_doc::ElementKind::Text(t) = &mut el.kind
+            {
+                t.curve = 0.0;
+            }
+            let shown = Arc::new(doc);
+            if let Some(c) = cache.as_deref_mut() {
+                *c = Some((Arc::clone(&d.doc), e.id, Arc::clone(&shown)));
+            }
+            return Some(shown);
+        }
         match &self.preview {
             Some(p) if !p.frames.is_empty() => {
                 let mut doc = (*d.doc).clone();

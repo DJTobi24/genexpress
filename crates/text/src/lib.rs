@@ -1,17 +1,24 @@
 //! Text for GenHa (layer L2): a [`FontBook`] of installed or added fonts, family matching
-//! with generic fallbacks ("Sans", "Serif", "Mono", "Display"), and simple line layout
-//! ([`layout`], [`measure`]) producing glyph outlines as [`kurbo::BezPath`]s, or one outline per
-//! glyph with its position ([`layout_glyphs`]) for text placed along a curve.
+//! with generic fallbacks ("Sans", "Serif", "Mono", "Display"), and line layout ([`layout`],
+//! [`measure`]) producing glyph outlines as [`kurbo::BezPath`]s, or one outline per glyph with its
+//! position, glyph id, face and source offset ([`layout_glyphs`]) for curved text, caret placement
+//! and exporters that embed fonts.
 //!
-//! Shaping is deliberately simple: one glyph per character from the font's character map, advance
-//! widths, letter spacing, no kerning or ligatures. Characters the chosen face lacks are taken from
-//! another face that has them. With an empty book text still lays out, using an approximate
-//! advance of 0.55 em, so the UI can size text boxes before any font is available (the paths are
-//! then empty).
+//! Text is shaped with HarfRust (the Rust port of HarfBuzz) on the same `read-fonts` parser as
+//! `skrifa`, which draws the outlines: kerning, ligatures (turned off for letter-spaced text), mark
+//! positioning and complex scripts (Arabic joining, Indic reordering…). Paragraphs are split into
+//! bidi runs (UAX #9) and each line is reordered for display; lines break at UAX #14 opportunities.
+//! Grapheme clusters the chosen face cannot draw are set in another face that can (per-cluster font
+//! fallback). With an empty book text still lays out, using an approximate advance of 0.55 em per
+//! character, so the UI can size text boxes before any font is available (the paths are then
+//! empty).
 #![forbid(unsafe_code)]
 
 mod book;
+pub mod caret;
+pub mod edit;
 mod layout;
+mod shape;
 
 pub use book::{FontBook, MAX_FACES, MAX_FONT_FILE, MAX_FONT_FILES, MONO_FALLBACKS, SANS_FALLBACKS, SERIF_FALLBACKS};
 pub use layout::{MAX_FONT_SIZE, MAX_TEXT_CHARS, layout, layout_glyphs, measure};
@@ -42,8 +49,11 @@ pub struct LineLayout {
     pub baseline: f64,
     /// Line box height (`line_height` × font size).
     pub height: f64,
-    /// The characters on the line (after uppercasing).
+    /// The characters on the line, in logical (reading) order, after uppercasing.
     pub text: String,
+    /// Byte range of the line in the text passed to [`layout`] (trailing spaces included, the
+    /// newline left out).
+    pub range: std::ops::Range<usize>,
 }
 
 /// Laid-out text: its lines and the size they take.
@@ -57,20 +67,39 @@ pub struct TextLayout {
 }
 
 /// One glyph placed by [`layout_glyphs`]. Coordinates as in [`LineLayout`].
+///
+/// A cluster (a ligature, a letter with its marks, an Indic syllable…) may be drawn by several
+/// glyphs, and several characters may be drawn by one glyph: [`cluster`](Self::cluster) maps
+/// glyphs back to the text.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PlacedGlyph {
+    /// The first character of the glyph's cluster.
     pub ch: char,
-    /// Left edge of the glyph's advance (its origin).
+    /// Left edge of the glyph's advance (the pen position).
     pub x: f64,
-    /// Advance width, letter spacing not included.
+    /// Advance width (kerning included), letter spacing not included.
     pub advance: f64,
-    /// The glyph's outline, already at `x` on its line's baseline (empty for spaces).
+    /// The glyph's outline, already in place on its line's baseline (empty for spaces).
     pub path: kurbo::BezPath,
+    /// The glyph in its face (None when nothing is drawn: spaces, or no font).
+    pub glyph_id: Option<u32>,
+    /// The face that draws it, an index for [`FontBook::face_data`] (None without a font).
+    pub face: Option<usize>,
+    /// Byte offset, in the text passed to [`layout_glyphs`], of the first character of the
+    /// glyph's cluster.
+    pub cluster: usize,
+    /// Where the glyph is drawn relative to (`x`, baseline): mark positioning and the like,
+    /// pixels, y down.
+    pub x_offset: f64,
+    pub y_offset: f64,
+    /// The glyph belongs to right-to-left text (its cluster starts at its right edge).
+    pub rtl: bool,
 }
 
 /// A line of separately placed glyphs.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct GlyphLine {
+    /// The glyphs in display order, left to right.
     pub glyphs: Vec<PlacedGlyph>,
     /// Left edge of the line (after alignment).
     pub x: f64,
@@ -79,6 +108,10 @@ pub struct GlyphLine {
     pub top: f64,
     pub baseline: f64,
     pub height: f64,
+    /// Byte range of the line in the text (as [`LineLayout::range`]).
+    pub range: std::ops::Range<usize>,
+    /// The line's paragraph reads right to left.
+    pub rtl: bool,
 }
 
 /// Text laid out glyph by glyph (see [`layout_glyphs`]).
@@ -87,7 +120,11 @@ pub struct GlyphLayout {
     pub lines: Vec<GlyphLine>,
     pub width: f64,
     pub height: f64,
+    /// The font size the glyphs were set in (the style's, made safe), pixels.
+    pub font_size: f64,
 }
 
+#[cfg(test)]
+mod caret_tests;
 #[cfg(test)]
 mod tests;

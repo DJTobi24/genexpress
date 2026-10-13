@@ -23,7 +23,9 @@ cargo xtask web                                   # builds dist/web (wasm + wasm
 python3 -m http.server -d dist/web 8080           # any static server; open http://127.0.0.1:8080
 ```
 
-`cargo xtask web` runs `cargo build -p genha-web --target wasm32-unknown-unknown --release`, then
+`cargo xtask web` runs `cargo build -p genha-web --target wasm32-unknown-unknown --profile web` (the
+`web` profile in `Cargo.toml`: `opt-level = "s"`, fat LTO, one codegen unit; it measured smaller
+than `"z"`), then
 `wasm-bindgen --target web` into `dist/web/` (it installs `wasm-bindgen-cli` with `cargo install
 wasm-bindgen-cli --locked --version =<the wasm-bindgen version in Cargo.lock>` when missing; without
 network, install that by hand), runs `wasm-opt -Oz` when Binaryen is installed, and copies
@@ -37,10 +39,18 @@ In the browser:
   (`cmd::file::open_bytes`, `image.place` with `data`, `cmd::content::quick_image_bytes`).
 - **Save** downloads the `.genha` file (`cmd::file::design_bytes`); **Download** makes PNG, JPEG,
   SVG or PDF in memory (`cmd::export::page_bytes` / `pdf_bytes`) and the browser downloads it.
-- **Fonts**: pages can't read installed fonts, so text is set in egui's built-in faces (Ubuntu
-  Light, Hack, Noto Emoji from the `epaint_default_fonts` crate; `genha_ui_egui::fonts`). The
-  desktop app uses them too when the system has no fonts. Only one weight, so bold looks light.
-- Not in the browser (yet): the control channel, recent files, Data Recovery, adding font files.
+- **Fonts**: text starts in egui's built-in faces (Ubuntu Light, Hack, Noto Emoji from the
+  `epaint_default_fonts` crate; `genha_ui_egui::fonts`). **Add fonts…** (or dropping `.ttf` /
+  `.otf` / `.ttc` files) adds fonts with `font.add`, kept in IndexedDB; **Use installed fonts**
+  loads the computer's fonts through the Local Font Access API (Chromium, after a permission
+  prompt). Families without a bold or italic face get synthetic ones (`genha_render::synthetic`).
+- **Storage**: Data Recovery copies, recent designs and added fonts go through the engine's
+  `store::Store` trait: a folder on the desktop (`DirStore`), IndexedDB in the browser
+  (`web::IdbStore`, loaded before the app starts, written back in the background). Recovery copies
+  are written every 15 s in the browser; a reload offers them on the home screen.
+- **Clipboard**: Ctrl+V of a picture places it (the page's paste event); Edit › Paste Picture
+  reads the Clipboard API.
+- Not in the browser (yet): the control channel.
 
 Check the browser code with `cargo clippy -p genha-ui-egui -p genha-web --target
 wasm32-unknown-unknown -- -D warnings` (`cargo xtask wasm`, part of `cargo xtask ci`, does this).

@@ -6,6 +6,7 @@
 #![forbid(unsafe_code)]
 
 pub mod canvas;
+mod clipboard;
 pub mod control;
 pub mod editor;
 pub mod fonts;
@@ -13,10 +14,13 @@ pub mod home;
 mod io;
 pub mod motion;
 pub mod properties;
+pub mod textedit;
 pub mod theme;
 mod thumbs;
 #[cfg(target_arch = "wasm32")]
 mod web;
+#[cfg(target_arch = "wasm32")]
+pub use web::{instance_id as web_instance_id, open_store as open_web_store};
 
 use std::sync::Arc;
 
@@ -76,19 +80,26 @@ impl Default for View {
 }
 
 /// Options from the command line.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct AppOptions {
     /// Files to open at start.
     pub open: Vec<std::path::PathBuf>,
     pub dark: Option<bool>,
-    /// Where the app keeps recent files and Data Recovery copies (none: neither is kept).
+    /// Where the app keeps recent designs, Data Recovery copies and added fonts (none, and no
+    /// `store`: none of them is kept).
     pub data_dir: Option<std::path::PathBuf>,
+    /// Keep them here instead of in `data_dir` (the browser: IndexedDB).
+    pub store: Option<Box<dyn genha_engine::store::Store>>,
+    /// Names this run's Data Recovery copies (default: the process id).
+    pub instance: Option<String>,
 }
 
-/// Seconds between Data Recovery copies of unsaved designs.
+/// Seconds between Data Recovery copies of unsaved designs (the browser copies more often: a
+/// closed or reloaded tab gives no chance to copy at the end).
+#[cfg(not(target_arch = "wasm32"))]
 const RECOVERY_INTERVAL: f64 = 60.0;
-/// Recent files shown on the home screen.
-const MAX_RECENT: usize = 12;
+#[cfg(target_arch = "wasm32")]
+const RECOVERY_INTERVAL: f64 = 15.0;
 
 pub struct App {
     pub session: Session,
@@ -108,23 +119,46 @@ pub struct App {
     pub control: Option<control::ControlServer>,
     font_families: Vec<String>,
     theme_applied: Option<bool>,
-    data_dir: Option<std::path::PathBuf>,
     last_recovery: f64,
-    /// Recently opened or saved designs, newest first.
-    pub recent: Vec<std::path::PathBuf>,
-    /// Copies of designs from a session that ended unexpectedly: (path, title).
+    /// The designs (recovery id, revision, unsaved) when copies were last written.
+    recovery_state: Vec<(u64, u64, bool)>,
+    /// Recently opened or saved designs, newest first (`recent.*`).
+    pub recent: Vec<genha_engine::cmd::recent::RecentEntry>,
+    /// Bumped when [`App::recent`] is reloaded (thumbnails are drawn again).
+    pub recent_rev: u64,
+    /// Copies of designs from a session that ended unexpectedly: (key, title).
     pub recovered: Vec<(String, String)>,
+    /// Text to put on the system clipboard next frame (after copying objects).
+    pub(crate) clip_out: Option<String>,
+}
+
+/// Font families for pickers: generic names first, then the book's families.
+fn family_list(book: &FontBook) -> Vec<String> {
+    let mut families = book.families();
+    for g in ["Display", "Mono", "Serif", "Sans"] {
+        families.insert(0, g.to_string());
+    }
+    families
 }
 
 impl App {
     pub fn new(fonts: Arc<FontBook>, opts: AppOptions) -> Self {
-        let mut families = fonts.families();
-        for g in ["Display", "Mono", "Serif", "Sans"] {
-            families.insert(0, g.to_string());
-        }
         let mut session = Session::new();
         session.fonts = fonts;
-        session.recovery_dir = opts.data_dir.as_ref().map(|d| d.join("recovery"));
+        #[cfg(not(target_arch = "wasm32"))]
+        let dir_store = opts.data_dir.as_ref().map(|d| Box::new(genha_engine::store::DirStore::new(d)) as Box<dyn genha_engine::store::Store>);
+        #[cfg(target_arch = "wasm32")]
+        let dir_store = None;
+        session.store = opts.store.or(dir_store);
+        if let Some(i) = opts.instance {
+            session.instance = i;
+        }
+        // Fonts the user added before.
+        let added = genha_engine::cmd::fonts::load_stored_fonts(&mut session);
+        if added > 0 {
+            log::info!("{added} added font faces");
+        }
+        let families = family_list(&session.fonts);
         let mut app = App {
             session,
             renderer: Renderer::new(),
@@ -141,18 +175,20 @@ impl App {
             control: None,
             font_families: families,
             theme_applied: None,
-            data_dir: opts.data_dir.clone(),
             last_recovery: now(),
+            recovery_state: vec![],
             recent: vec![],
+            recent_rev: 0,
             recovered: vec![],
+            clip_out: None,
         };
-        app.recent = app.load_recent();
+        app.refresh_recent();
         if let Ok(list) = app.session.execute("recovery.list", &json!({})) {
             app.recovered = list
                 .as_array()
                 .into_iter()
                 .flatten()
-                .filter_map(|v| Some((v.get("path")?.as_str()?.to_string(), v.get("title")?.as_str()?.to_string())))
+                .filter_map(|v| Some((v.get("key")?.as_str()?.to_string(), v.get("title")?.as_str()?.to_string())))
                 .collect();
         }
         for path in &opts.open {
@@ -169,16 +205,41 @@ impl App {
         &self.font_families
     }
 
+    /// Reloads the recent designs (after opening or saving).
+    pub fn refresh_recent(&mut self) {
+        self.recent = genha_engine::cmd::recent::entries(&self.session);
+        self.recent_rev += 1;
+    }
+
+    /// Reloads the font families (after fonts were added).
+    pub fn refresh_fonts(&mut self) {
+        self.font_families = family_list(&self.session.fonts);
+        // Text drawn before the font arrived is drawn again.
+        self.thumbs.forget_prefix("");
+        if self.session.text_editing.is_none() {
+            self.canvas = canvas::CanvasState::default();
+        }
+    }
+
     /// Runs an engine command; errors go to the status bar. Returns the result on success.
     pub fn run(&mut self, id: &str, params: &Value) -> Option<Value> {
+        // Paste Picture without a picture: read it from the system clipboard first.
+        if id == "image.paste" && params.get("data").is_none() {
+            clipboard::paste_picture(self);
+            return None;
+        }
         match self.session.execute(id, params) {
             Ok(v) => {
-                if matches!(id, "file.open" | "file.save" | "file.saveAs")
-                    && let Some(p) = self.session.active().and_then(|d| d.path.clone())
-                {
-                    self.remember_recent(p);
+                if id.starts_with("file.") || id.starts_with("recent.") {
+                    self.refresh_recent();
                 }
-                if id.starts_with("file.") || id.starts_with("template.") || id == "document.switch" {
+                if id.starts_with("font.") {
+                    self.refresh_fonts();
+                }
+                if matches!(id, "edit.copy" | "edit.cut") {
+                    clipboard::copied(self);
+                }
+                if id.starts_with("file.") || id.starts_with("template.") || id.starts_with("recent.") || id == "document.switch" {
                     self.view.fit_pending = true;
                     if !self.session.docs.is_empty() {
                         self.screen = Screen::Editor;
@@ -193,30 +254,9 @@ impl App {
         }
     }
 
-    fn recent_file(&self) -> Option<std::path::PathBuf> {
-        self.data_dir.as_ref().map(|d| d.join("recent.json"))
-    }
-
-    fn load_recent(&self) -> Vec<std::path::PathBuf> {
-        let Some(f) = self.recent_file() else { return vec![] };
-        let Ok(text) = std::fs::read_to_string(f) else { return vec![] };
-        serde_json::from_str::<Vec<String>>(&text).unwrap_or_default().into_iter().take(MAX_RECENT).map(Into::into).collect()
-    }
-
-    fn remember_recent(&mut self, path: std::path::PathBuf) {
-        self.recent.retain(|p| p != &path);
-        self.recent.insert(0, path);
-        self.recent.truncate(MAX_RECENT);
-        if let (Some(f), Some(dir)) = (self.recent_file(), self.data_dir.clone()) {
-            let list: Vec<String> = self.recent.iter().map(|p| p.display().to_string()).collect();
-            // Recent files are a convenience: failing to store them is not worth bothering the user.
-            let _ = std::fs::create_dir_all(dir).and_then(|_| std::fs::write(f, serde_json::to_string(&list).unwrap_or_default()));
-        }
-    }
-
     /// Writes Data Recovery copies of unsaved designs every [`RECOVERY_INTERVAL`] seconds.
     fn autosave(&mut self, ctx: &egui::Context) {
-        if self.session.recovery_dir.is_none() {
+        if self.session.store.is_none() {
             return;
         }
         let t = now();
@@ -225,11 +265,18 @@ impl App {
             return;
         }
         self.last_recovery = t;
-        if self.session.docs.iter().any(|d| d.dirty)
+        // Only when something changed since the last copies.
+        let state: Vec<(u64, u64, bool)> = self.session.docs.iter().map(|d| (d.recovery_id, d.revision, d.dirty)).collect();
+        if state == self.recovery_state {
+            return;
+        }
+        if (self.session.docs.iter().any(|d| d.dirty) || self.recovery_state.iter().any(|s| s.2))
             && let Err(e) = self.session.execute("recovery.save", &json!({}))
         {
             self.set_status(format!("Data Recovery: {e}"));
+            return;
         }
+        self.recovery_state = state;
     }
 
     pub fn set_status(&mut self, msg: impl Into<String>) {
@@ -255,6 +302,7 @@ impl App {
         }
         control::process(self, &ctx);
         self.autosave(&ctx);
+        clipboard::process(self, &ctx);
         #[cfg(not(target_arch = "wasm32"))]
         self.handle_dropped_files(&ctx);
         // Files picked or dropped in the browser arrive asynchronously.
@@ -284,7 +332,23 @@ impl App {
                 let p = path.display().to_string();
                 let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
                 let is_picture = genha_effects::OutputFormat::from_extension(ext).is_some() || ext.eq_ignore_ascii_case("svg");
-                if is_picture && self.screen == Screen::Editor {
+                let is_font = fonts::FONT_FILES.1.iter().any(|f| ext.eq_ignore_ascii_case(f));
+                if is_font {
+                    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "font.ttf".into());
+                    let added = match std::fs::metadata(&path) {
+                        Ok(m) if m.len() <= genha_text::MAX_FONT_FILE as u64 => std::fs::read(&path)
+                            .map_err(|e| e.to_string())
+                            .and_then(|b| genha_engine::cmd::fonts::add_font_bytes(&mut self.session, &name, b, true).map_err(|e| e.to_string())),
+                        _ => Err(format!("{name} is too large or can't be read")),
+                    };
+                    match added {
+                        Ok((_, families)) => {
+                            self.refresh_fonts();
+                            self.set_status(format!("Added {}", if families.is_empty() { name } else { families.join(", ") }));
+                        }
+                        Err(e) => self.set_status(e),
+                    }
+                } else if is_picture && self.screen == Screen::Editor {
                     self.run("image.place", &json!({"path": p}));
                 } else {
                     self.run("file.open", &json!({"path": p}));
