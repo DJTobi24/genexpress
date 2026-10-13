@@ -19,5 +19,5 @@ Every known shortfall, most valuable first. Pick work from the top unless the us
 | 11 | Timeline with scenes, audio; MP4 at 4K and smaller files (sub-sample motion, CABAC); MP4 export off the main thread in the browser | Video | MP4 export landed (M6.1: our own pure-Rust H.264 encoder, `crates/video`, desktop and web); animations, playback, present mode and GIF/animated PNG export landed (`crates/motion`) |
 | 12 | PDF import; text inside imported SVGs | Formats | SVG shapes, gradients and borders import (`genha_svg::import`) |
 | 13 | Screen reader support (AccessKit) and UI translations (German first); UI widgets (property fields, layer names) use egui's own font, so Arabic/CJK text shows as boxes there (the canvas is fine) | Accessibility | |
-| 14 | Template library growth (target 100+ original templates) | Content | 65 templates with search tags, 114 icons, 25 text styles, 40 palettes (M2.3); still short of the target library |
+| 14 | Template library growth (target 100+ original templates) | Content | 121 templates in 6 categories with search tags (M2.20; animated, chart, table, curved-text and QR templates included), 114 icons, 25 text styles, 40 palettes; the target app's library is still far larger and has photo-based designs (we have no stock photos by design) |
 | 15 | Rendering off the UI thread, tiles for very large pages | Performance | |

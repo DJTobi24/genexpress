@@ -30,7 +30,7 @@ pub(super) const DEFS: &[Def] = &[
         DOCUMENTS,
         "presentation-4x3",
         &["presentation", "report", "annual report", "slides", "charity", "numbers"],
-        || Theme::new(0x1b998b, 0xed217c, 0x2d3047, 0xf7f7f2, "Sans", "Sans"),
+        || Theme::new(0x13786d, 0xed217c, 0x2d3047, 0xf7f7f2, "Sans", "Sans"),
         report_deck,
     ),
     def(
@@ -39,7 +39,7 @@ pub(super) const DEFS: &[Def] = &[
         DOCUMENTS,
         "resume",
         &["resume", "cv", "job", "a4"],
-        || Theme::new(0x334155, 0x0ea5e9, 0x0f172a, 0xffffff, "Sans", "Sans"),
+        || Theme::new(0x334155, 0x38bdf8, 0x0f172a, 0xffffff, "Sans", "Sans"),
         resume,
     ),
     def(
@@ -90,7 +90,7 @@ fn presentation(b: &mut B) {
         let n = i + 1;
         b.rect(&format!("Card {n}"), x, 300.0, 500.0, 480.0, 24.0, solid(t.primary.lerp(t.light, 0.9)));
         b.ellipse(&format!("Card {n} disc"), x + 40.0, 344.0, 96.0, 96.0, solid(if i == 1 { t.secondary } else { t.primary }));
-        b.text(&format!("Card {n} number"), x + 40.0, 364.0, 96.0, &n.to_string(), t.h(48.0, t.light).lh(1.0));
+        b.text(&format!("Card {n} number"), x + 40.0, 364.0, 96.0, &n.to_string(), t.h(48.0, if i == 1 { t.dark } else { t.light }).lh(1.0));
         b.text(&format!("Card {n} title"), x + 40.0, 488.0, 420.0, title, t.h(44.0, t.dark).left());
         b.text(&format!("Card {n} text"), x + 40.0, 568.0, 420.0, body, t.b(30.0, t.dark.lerp(t.light, 0.25)).lh(1.45).left());
     }
@@ -176,11 +176,11 @@ fn pitch_deck(b: &mut B) {
     b.pill("Contact", 140.0, 640.0, 560.0, 96.0, solid(t.secondary), "hello@lumen.example", t.b(36.0, t.dark).bold());
     for (i, (initials, name)) in [("AK", "Ada, CEO"), ("JM", "Jun, hardware"), ("SR", "Sol, design")].iter().enumerate() {
         let x = 1180.0 + 220.0 * i as f64;
-        b.ellipse(&format!("{name} photo"), x, 380.0, 180.0, 180.0, solid(t.light.with_alpha(230)));
+        b.ellipse(&format!("{name} photo"), x, 380.0, 180.0, 180.0, solid(t.light));
         b.text(&format!("{name} initials"), x, 440.0, 180.0, initials, t.h(56.0, t.primary).lh(1.0));
         b.text(&format!("{name} name"), x - 20.0, 590.0, 220.0, name, t.b(28.0, t.light));
     }
-    b.text("Page number", 1680.0, 990.0, 100.0, "05", t.b(26.0, t.secondary).bold().right());
+    b.text("Page number", 1680.0, 990.0, 100.0, "05", t.b(26.0, t.light).bold().right());
     b.notes("Thank you. Happy to take questions.");
 }
 
@@ -196,7 +196,7 @@ fn report_deck(b: &mut B) {
     b.bg(solid(t.dark));
     b.rect("Accent band", 0.0, 0.0, 24.0, h, 0.0, solid(t.primary));
     b.icon("Chart", "chart-bars", 760.0, 90.0, 180.0, 180.0, solid(t.secondary));
-    b.text("Kicker", 80.0, 230.0, 700.0, "Riverside Community Trust", t.b(24.0, t.primary).bold().upper().ls(200.0).left());
+    b.text("Kicker", 80.0, 230.0, 700.0, "Riverside Community Trust", t.b(24.0, t.primary.lerp(t.light, 0.45)).bold().upper().ls(200.0).left());
     b.text("Title", 80.0, 280.0, 860.0, "Annual report\n2026", t.h(80.0, t.light).left());
     b.text("Subtitle", 80.0, 490.0, 860.0, "What we did together this year", t.b(28.0, t.light.lerp(t.dark, 0.25)).left());
     b.notes("Thank everyone for coming; this takes about ten minutes.");
@@ -224,7 +224,7 @@ fn report_deck(b: &mut B) {
         b.rect(&format!("{label} bar"), 80.0, y + 40.0, 760.0 * share / 0.38, 28.0, 14.0, solid(if i == 0 { t.secondary } else { t.primary }));
         b.text(&format!("{label} share"), 850.0, y + 36.0, 100.0, &format!("{:.0}%", share * 100.0), t.b(24.0, t.dark).bold().right());
     }
-    b.text("Footnote", 80.0, 660.0, 860.0, "Shares of total spending; full accounts on our website.", t.b(16.0, t.dark.lerp(t.light, 0.35)).left());
+    b.text("Footnote", 80.0, 660.0, 860.0, "Shares of total spending; full accounts on our website.", t.b(16.0, t.dark.lerp(t.light, 0.25)).left());
     b.notes("Youth work grew most; running costs stayed under 15 percent.");
 
     b.new_page("Next year");
@@ -250,7 +250,7 @@ fn resume(b: &mut B) {
     b.bg(solid(t.light));
     b.rect("Sidebar", 0.0, 0.0, 260.0, h, 0.0, solid(t.primary));
     b.ellipse("Photo placeholder", 60.0, 60.0, 140.0, 140.0, solid(t.secondary));
-    b.text("Initials", 60.0, 100.0, 140.0, "AM", t.h(48.0, t.light).lh(1.0));
+    b.text("Initials", 60.0, 100.0, 140.0, "AM", t.h(48.0, t.dark).lh(1.0));
     let side = |b: &mut B, title: &str, y: f64, body: &str| {
         b.text(&format!("{title} heading"), 36.0, y, 190.0, title, t.b(16.0, t.secondary).bold().upper().ls(200.0).left());
         b.text(title, 36.0, y + 30.0, 190.0, body, t.b(15.0, t.light).lh(1.6).left());
@@ -261,7 +261,7 @@ fn resume(b: &mut B) {
 
     let x = 300.0;
     b.text("Name", x, 64.0, 450.0, "Alex Morgan", t.h(52.0, t.dark).left());
-    b.text("Job title", x, 136.0, 450.0, "Senior Graphic Designer", t.b(24.0, t.secondary).left());
+    b.text("Job title", x, 136.0, 450.0, "Senior Graphic Designer", t.b(24.0, t.secondary.lerp(t.dark, 0.5)).left());
     b.text(
         "Summary",
         x,
@@ -276,7 +276,7 @@ fn resume(b: &mut B) {
     };
     let entry = |b: &mut B, name: &str, y: f64, role: &str, dates: &str, bullets: &str| {
         b.text(name, x, y, 450.0, role, t.h(18.0, t.dark).left());
-        b.text(&format!("{name} dates"), x, y + 27.0, 300.0, dates, t.b(14.0, t.secondary).left());
+        b.text(&format!("{name} dates"), x, y + 27.0, 300.0, dates, t.b(14.0, t.secondary.lerp(t.dark, 0.5)).left());
         if !bullets.is_empty() {
             b.text(&format!("{name} details"), x, y + 51.0, 450.0, bullets, t.b(15.0, t.dark.lerp(t.light, 0.15)).lh(1.5).left());
         }
@@ -377,7 +377,7 @@ fn creative_resume(b: &mut B) {
     b.bg(solid(t.light));
     b.rect("Header", 0.0, 0.0, w, 230.0, 0.0, solid(t.dark));
     b.ellipse("Photo placeholder", 60.0, 45.0, 140.0, 140.0, solid(t.primary));
-    b.text("Initials", 60.0, 89.0, 140.0, "KO", t.h(52.0, t.light).lh(1.0));
+    b.text("Initials", 60.0, 89.0, 140.0, "KO", t.h(52.0, t.dark).lh(1.0));
     b.text("Name", 230.0, 56.0, 520.0, "Kai Osei", t.h(52.0, t.light).left());
     b.text("Job title", 230.0, 126.0, 520.0, "UX and Visual Designer", t.b(22.0, t.primary).bold().left());
     b.text("Contact", 230.0, 168.0, 520.0, "kai@osei.example · osei.example · Accra", t.b(14.0, t.light.lerp(t.dark, 0.25)).left());
@@ -399,7 +399,8 @@ fn creative_resume(b: &mut B) {
     b.text("Languages", 60.0, 828.0, 220.0, "English (fluent)\nTwi (native)\nFrench (basic)", t.b(14.0, t.dark).lh(1.7).left());
 
     let x = 320.0;
-    heading(b, "About", x, 270.0, t.primary);
+    let accent = t.primary.lerp(t.dark, 0.35);
+    heading(b, "About", x, 270.0, accent);
     b.text(
         "About",
         x,
@@ -408,7 +409,7 @@ fn creative_resume(b: &mut B) {
         "I design calm, useful products for\nhealth and education teams, and I\nlove turning research into ideas.",
         t.b(15.0, t.dark).lh(1.55).left(),
     );
-    heading(b, "Experience", x, 410.0, t.primary);
+    heading(b, "Experience", x, 410.0, accent);
     b.rect("Timeline", x + 6.0, 452.0, 2.0, 330.0, 1.0, solid(t.primary.lerp(t.light, 0.6)));
     let jobs = [
         ("Senior Product Designer", "Brightpath Health · 2023 – now", "Redesigned patient booking, cutting\nmissed appointments by a fifth"),
@@ -422,7 +423,7 @@ fn creative_resume(b: &mut B) {
         b.text(&format!("{role} meta"), x + 30.0, y + 24.0, 383.0, meta, t.b(13.0, t.secondary).bold().left());
         b.text(&format!("{role} details"), x + 30.0, y + 46.0, 383.0, details, t.b(14.0, t.dark).lh(1.5).left());
     }
-    heading(b, "Education", x, 830.0, t.primary);
+    heading(b, "Education", x, 830.0, accent);
     b.text("Education", x, 868.0, 413.0, "BSc Computer Science\nCoastal University · 2014 – 2018", t.b(14.0, t.dark).lh(1.5).left());
     b.rect("Footer", 0.0, h - 40.0, w, 40.0, 0.0, solid(t.primary));
 }

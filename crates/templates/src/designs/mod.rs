@@ -10,9 +10,16 @@ use genha_doc::{BrandKit, Document, Fill, GradientStop, preset};
 
 use crate::build::{B, Theme};
 
+mod brand;
 mod cards;
+mod decks;
 mod documents;
+mod events;
+mod greetings;
 mod marketing;
+mod motion;
+mod office;
+mod posts;
 mod print;
 mod social;
 
@@ -62,15 +69,32 @@ impl Def {
     }
 }
 
-const SOCIAL: &str = "Social";
-const PRINT: &str = "Print";
-const CARDS: &str = "Cards & invitations";
-const DOCUMENTS: &str = "Documents";
-const MARKETING: &str = "Marketing";
-const LOGOS: &str = "Logos";
+pub(crate) const SOCIAL: &str = "Social";
+pub(crate) const PRINT: &str = "Print";
+pub(crate) const CARDS: &str = "Cards & invitations";
+pub(crate) const DOCUMENTS: &str = "Documents";
+pub(crate) const MARKETING: &str = "Marketing";
+pub(crate) const LOGOS: &str = "Logos";
+/// The categories in the order the catalogue lists them.
+pub(crate) const CATEGORIES: [&str; 6] = [SOCIAL, PRINT, CARDS, DOCUMENTS, MARKETING, LOGOS];
 
 fn defs() -> impl Iterator<Item = &'static Def> {
-    [social::DEFS, print::DEFS, cards::DEFS, documents::DEFS, marketing::DEFS].into_iter().flatten()
+    [
+        social::DEFS,
+        posts::DEFS,
+        motion::DEFS,
+        print::DEFS,
+        events::DEFS,
+        cards::DEFS,
+        greetings::DEFS,
+        documents::DEFS,
+        office::DEFS,
+        decks::DEFS,
+        marketing::DEFS,
+        brand::DEFS,
+    ]
+    .into_iter()
+    .flatten()
 }
 
 fn size(d: &Def) -> (f64, f64) {
@@ -78,14 +102,16 @@ fn size(d: &Def) -> (f64, f64) {
     if d.landscape { (w.max(h), w.min(h)) } else { (w, h) }
 }
 
-/// Every template, grouped by category.
+/// Every template, grouped by category (in [`CATEGORIES`] order).
 pub fn catalog() -> Vec<TemplateInfo> {
-    defs()
+    let mut list: Vec<TemplateInfo> = defs()
         .map(|d| {
             let (width, height) = size(d);
             TemplateInfo { id: d.id, name: d.name, category: d.category, preset: d.preset, width, height, tags: d.tags }
         })
-        .collect()
+        .collect();
+    list.sort_by_key(|t| CATEGORIES.iter().position(|c| *c == t.category).unwrap_or(CATEGORIES.len()));
+    list
 }
 
 /// A new document from template `id`. With a brand kit, the template's primary, secondary, dark

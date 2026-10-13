@@ -1,9 +1,10 @@
 use std::collections::HashSet;
 
 use genha_color::Color;
-use genha_doc::{BrandColor, Document, Element, ElementKind, Fill, ShapeKind, preset};
+use genha_doc::{BrandColor, Document, Element, ElementKind, Fill, ShapeKind, TextEffect, preset};
 
 use super::*;
+use crate::designs::CATEGORIES;
 
 /// Average advance of a sans character, in ems (a deliberately rough width estimate).
 const EM_PER_CHAR: f64 = 0.55;
@@ -36,6 +37,22 @@ fn colors_and_fonts(doc: &Document) -> (Vec<Color>, HashSet<String>) {
             ElementKind::Text(t) => {
                 colors.push(t.style.color);
                 fonts.insert(t.style.font_family.clone());
+                for sp in &t.spans {
+                    colors.extend(sp.style.color);
+                    fonts.extend(sp.style.font_family.clone());
+                }
+            }
+            ElementKind::Chart(c) => {
+                colors.extend(c.colors.iter().copied());
+                colors.extend(c.series.iter().filter_map(|s| s.color));
+                colors.push(c.text_color);
+                fonts.insert(c.font_family.clone());
+            }
+            ElementKind::Table(t) => {
+                colors.extend([t.text_color, t.header_fill, t.header_text, t.row_fill]);
+                colors.extend(t.alt_row_fill);
+                colors.extend(t.cell_styles.iter().flat_map(|c| [c.style.fill, c.style.text_color]).flatten());
+                fonts.insert(t.font_family.clone());
             }
             _ => {}
         });
@@ -46,11 +63,21 @@ fn colors_and_fonts(doc: &Document) -> (Vec<Color>, HashSet<String>) {
 #[test]
 fn catalog_is_complete() {
     let cat = catalog();
-    assert!(cat.len() >= 45, "{} templates", cat.len());
+    assert!(cat.len() >= 110, "{} templates", cat.len());
+    // Six categories (the UI translates these names), each with a good number of designs.
+    let categories = CATEGORIES;
+    for c in categories {
+        let n = cat.iter().filter(|t| t.category == c).count();
+        assert!(n >= 8, "only {n} templates in {c}");
+    }
     let mut ids = HashSet::new();
     for t in &cat {
         assert!(ids.insert(t.id), "duplicate template {}", t.id);
         assert!(!t.name.is_empty() && !t.category.is_empty() && t.tags.len() >= 3, "{}: name, category and tags", t.id);
+        assert!(categories.contains(&t.category), "{}: unknown category {}", t.id, t.category);
+        assert!(t.id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-'), "{}: id", t.id);
+        let unique: HashSet<_> = t.tags.iter().collect();
+        assert_eq!(unique.len(), t.tags.len(), "{}: repeated tag", t.id);
         for tag in t.tags {
             assert_eq!(*tag, tag.to_lowercase(), "{}: tags are matched in lower case", t.id);
         }
@@ -86,10 +113,20 @@ fn catalog_is_complete() {
         "presentation",
         "presentation-4x3",
         "resume",
+        "x-post",
+        "facebook-story",
+        "video-landscape",
+        "video-portrait",
+        "video-square",
+        "document-a4",
+        "webpage",
     ] {
         assert!(cat.iter().any(|t| t.preset == wanted), "no template for {wanted}");
     }
     assert!(instantiate("no-such-template", None).is_none());
+    // Listed category by category.
+    let order: Vec<usize> = cat.iter().filter_map(|t| categories.iter().position(|c| *c == t.category)).collect();
+    assert!(order.windows(2).all(|w| w[0] <= w[1]), "categories are contiguous");
 }
 
 #[test]
@@ -132,7 +169,8 @@ fn templates_are_well_formed() {
         let back: Document = serde_json::from_str(&json).unwrap();
         assert_eq!(back, doc, "{id}: JSON round trip");
         let mut repaired = doc.clone();
-        assert!(repaired.repair().is_empty(), "{id}: nothing to repair");
+        let notes = repaired.repair();
+        assert!(notes.is_empty(), "{id}: nothing to repair: {notes:?}");
     }
 }
 
@@ -341,4 +379,203 @@ fn qr_codes() {
     assert_eq!(qr_code(&"x".repeat(MAX_QR_BYTES + 1), Color::BLACK), Err(TemplateError::TooLong(MAX_QR_BYTES + 1)));
     assert_eq!(qr_code("hi", Color::rgb(250, 240, 120)), Err(TemplateError::LowContrast));
     assert!(qr_code("hi", Color::rgb(30, 60, 150)).is_ok());
+}
+
+/// Every text element (in groups too) with the page it is on.
+fn each_element(doc: &Document, mut f: impl FnMut(usize, &Element)) {
+    for (i, p) in doc.pages.iter().enumerate() {
+        p.for_each(&mut |e: &Element| f(i, e));
+    }
+}
+
+#[test]
+fn text_fits_its_box_with_and_without_fonts() {
+    let system = genha_text::FontBook::system();
+    let books = [("no fonts", genha_text::FontBook::new()), ("system fonts", system)];
+    let mut problems = vec![];
+    for (info, doc) in all_docs() {
+        for (book_name, book) in &books {
+            each_element(&doc, |page, e| {
+                let f = e.frame;
+                match &e.kind {
+                    ElementKind::Text(t) if t.curve_degrees().abs() >= 0.5 => {
+                        // Bent text is laid out in lines first: it must not wrap either.
+                        let lines = genha_text::layout_el(book, t, f.width).lines.len();
+                        if lines > t.text.lines().count().max(1) {
+                            problems.push(format!("{} p{page} {} ({book_name}): curved text wraps into {lines} lines", info.id, e.name));
+                        }
+                        if let Some((w, h)) = genha_render::curved_text_size(book, t, f.width)
+                            && (w > f.width + 2.0 || h > f.height + 2.0)
+                        {
+                            problems.push(format!(
+                                "{} p{page} {} ({book_name}): curved text needs {w:.0}×{h:.0}, has {:.0}×{:.0}",
+                                info.id, e.name, f.width, f.height
+                            ));
+                        }
+                    }
+                    ElementKind::Text(t) => {
+                        let l = genha_text::layout_el(book, t, f.width);
+                        let lines = t.text.lines().count().max(1);
+                        if l.lines.len() > lines || l.height > f.height + 1.0 {
+                            problems.push(format!(
+                                "{} p{page} {} ({book_name}): {} lines, {:.0} px tall in a {:.0} × {:.0} box",
+                                info.id,
+                                e.name,
+                                l.lines.len(),
+                                l.height,
+                                f.width,
+                                f.height
+                            ));
+                        }
+                        for line in &l.lines {
+                            if line.width > f.width + 1.0 {
+                                problems.push(format!(
+                                    "{} p{page} {} ({book_name}): `{}` is {:.0} px wide in {:.0}",
+                                    info.id, e.name, line.text, line.width, f.width
+                                ));
+                            }
+                        }
+                    }
+                    ElementKind::Table(t) => {
+                        let g = genha_render::table_geometry(book, t, f.width, f.height);
+                        if g.natural_height > f.height + 1.0 {
+                            problems.push(format!(
+                                "{} p{page} {} ({book_name}): table needs {:.0} px, has {:.0}",
+                                info.id, e.name, g.natural_height, f.height
+                            ));
+                        }
+                    }
+                    _ => {}
+                }
+            });
+        }
+    }
+    assert!(problems.is_empty(), "{} problems:\n{}", problems.len(), problems.join("\n"));
+}
+
+/// The colours behind the middle of `frame`: the topmost opaque shape drawn before element `upto`
+/// that covers it (a rectangle, an ellipse, or the middle of any other shape), else the page
+/// background (every stop of a gradient).
+fn backdrop(page: &genha_doc::Page, upto: usize, frame: genha_geom::Frame) -> Vec<Color> {
+    let b = frame.bounds();
+    let (cx, cy) = ((b.x0 + b.x1) / 2.0, (b.y0 + b.y1) / 2.0);
+    let probe = [(cx - b.width() * 0.25, cy), (cx + b.width() * 0.25, cy), (cx, cy - b.height() * 0.25), (cx, cy + b.height() * 0.25)];
+    for e in page.elements.iter().take(upto).rev() {
+        let ElementKind::Shape(s) = &e.kind else { continue };
+        if e.opacity < 1.0 || e.frame.rotation.abs() > 20.0 {
+            continue;
+        }
+        let r = e.frame.bounds();
+        let (ex, ey, rx, ry) = ((r.x0 + r.x1) / 2.0, (r.y0 + r.y1) / 2.0, r.width() / 2.0, r.height() / 2.0);
+        let inside = |&(x, y): &(f64, f64)| match s.shape {
+            ShapeKind::Rect { .. } => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1,
+            ShapeKind::Ellipse => rx > 0.0 && ry > 0.0 && ((x - ex) / rx).powi(2) + ((y - ey) / ry).powi(2) <= 1.0,
+            ShapeKind::Line => false,
+            // Path data: the point is inside the outline.
+            ShapeKind::Path { ref d, view_width, view_height } => kurbo::BezPath::from_svg(d).is_ok_and(|p| {
+                let v = kurbo::Point::new((x - r.x0) / r.width() * view_width, (y - r.y0) / r.height() * view_height);
+                kurbo::Shape::winding(&p, v) != 0
+            }),
+            // Polygons and stars: their middle.
+            _ => (x - ex).abs() <= rx * 0.6 && (y - ey).abs() <= ry * 0.6,
+        };
+        if !probe.iter().all(inside) {
+            continue;
+        }
+        let mut c = vec![];
+        fill_colors(&s.fill, &mut c);
+        if !c.is_empty() && c.iter().all(|c| c.a == 255) {
+            return c;
+        }
+    }
+    let mut c = vec![];
+    fill_colors(&page.background, &mut c);
+    if c.is_empty() { vec![Color::WHITE] } else { c }
+}
+
+#[test]
+fn text_contrasts_with_what_is_behind_it() {
+    let mut problems = vec![];
+    for (info, doc) in all_docs() {
+        for (pi, p) in doc.pages.iter().enumerate() {
+            for (i, e) in p.elements.iter().enumerate() {
+                let ElementKind::Text(t) = &e.kind else { continue };
+                // Skip see-through and decorated text, and decorative marks (no letters or digits).
+                if t.style.color.a < 255 || !matches!(t.effect, TextEffect::None) || !t.text.chars().any(char::is_alphanumeric) {
+                    continue;
+                }
+                // Body-sized text (small for its page) needs AA contrast (4.5:1), large text 3:1;
+                // bold text counts as large from a smaller size, as in WCAG.
+                let large_from = p.width.min(p.height) * if t.style.bold { 0.027 } else { 0.035 };
+                let small = t.style.font_size < large_from;
+                let need = if small { 4.5 } else { 3.0 };
+                let inks = std::iter::once(t.style.color).chain(t.spans.iter().filter_map(|s| s.style.color));
+                for ink in inks {
+                    for bg in backdrop(p, i, e.frame) {
+                        let ratio = genha_color::contrast_ratio(ink, bg);
+                        if ratio + 0.05 < need {
+                            problems.push(format!(
+                                "{} p{pi} {}: {} on {} has contrast {ratio:.2} < {need}",
+                                info.id,
+                                e.name,
+                                ink.to_hex(),
+                                bg.to_hex()
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{} problems:\n{}", problems.len(), problems.join("\n"));
+}
+
+#[test]
+fn every_template_renders_and_exports() {
+    let fonts = genha_text::FontBook::system();
+    let none = genha_text::FontBook::new();
+    for info in catalog() {
+        let doc = instantiate(info.id, None).unwrap();
+        for i in 0..doc.pages.len() {
+            let r = genha_render::render_thumbnail(&doc, i, &fonts, 160).unwrap_or_else(|e| panic!("{}: {e}", info.id));
+            assert!(r.width > 0 && r.height > 0);
+            genha_render::encode_png(&r).unwrap();
+            let svg = genha_svg::export_page(&doc, i, &fonts, &genha_svg::SvgOptions::default()).unwrap_or_else(|e| panic!("{}: {e}", info.id));
+            assert!(svg.contains("<svg"), "{}", info.id);
+        }
+        let pdf = genha_pdf::export_pdf(&doc, &none, &genha_pdf::PdfOptions::default()).unwrap_or_else(|e| panic!("{}: {e}", info.id));
+        assert!(pdf.starts_with(b"%PDF"), "{}", info.id);
+    }
+}
+
+#[test]
+fn new_document_features_are_used() {
+    let docs = all_docs();
+    let count = |f: &dyn Fn(&Element) -> bool| {
+        docs.iter()
+            .filter(|(_, d)| {
+                let mut any = false;
+                each_element(d, |_, e| any |= f(e));
+                any
+            })
+            .count()
+    };
+    let spans = count(&|e| matches!(&e.kind, ElementKind::Text(t) if !t.spans.is_empty()));
+    let curved = count(&|e| matches!(&e.kind, ElementKind::Text(t) if t.curve != 0.0));
+    let multi_series = count(&|e| matches!(&e.kind, ElementKind::Chart(c) if c.series.len() > 1));
+    let merged = count(&|e| matches!(&e.kind, ElementKind::Table(t) if !t.merges.is_empty() && !t.cell_styles.is_empty()));
+    let animated = count(&|e| e.animation.is_some());
+    assert!(spans >= 10 && curved >= 4 && multi_series >= 3 && merged >= 3 && animated >= 4, "{spans} {curved} {multi_series} {merged} {animated}");
+    for (info, doc) in &docs {
+        let mut anim = false;
+        each_element(doc, |_, e| anim |= e.animation.is_some());
+        if anim {
+            assert!(doc.pages.iter().all(|p| p.duration.is_some_and(|d| d > 0.5 && d <= 15.0)), "{}: animated pages have a duration", info.id);
+            assert!(info.tags.contains(&"animated"), "{}: tagged animated", info.id);
+        }
+        // Every slide of every deck has speaker notes.
+        if info.preset.starts_with("presentation") {
+            assert!(doc.pages.iter().all(|p| !p.notes.trim().is_empty()), "{}: speaker notes", info.id);
+        }
+    }
 }

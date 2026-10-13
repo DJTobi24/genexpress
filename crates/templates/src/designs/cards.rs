@@ -142,7 +142,7 @@ pub(super) const DEFS: &[Def] = &[
         CARDS,
         "postcard",
         &["ticket", "event", "admission", "pass", "barcode", "landscape"],
-        || Theme::new(0x00a6a6, 0xf49f0a, 0x0c1821, 0xf4f4f9, "Display", "Mono"),
+        || Theme::new(0x00787a, 0xf49f0a, 0x0c1821, 0xf4f4f9, "Display", "Mono"),
         event_ticket,
     ),
 ];
@@ -215,7 +215,7 @@ fn card_monogram(b: &mut B) {
     b.outline("Monogram ring", ShapeKind::Ellipse, 138.0, 18.0, 60.0, 60.0, t.primary, 2.0);
     b.text("Monogram", 138.0, 32.0, 60.0, "M", t.h(30.0, t.primary).lh(1.0));
     b.ctext("Name", 92.0, 300.0, "Maya Lindqvist", t.h(20.0, t.dark));
-    b.ctext("Role", 122.0, 300.0, "Ceramic artist", t.b(10.0, t.secondary).bold().upper().ls(300.0));
+    b.ctext("Role", 122.0, 300.0, "Ceramic artist", t.b(10.0, t.secondary.lerp(t.dark, 0.4)).bold().upper().ls(300.0));
     b.rect("Rule", 148.0, 145.0, 40.0, 1.5, 0.0, solid(t.secondary));
     b.ctext("Contact", 156.0, 310.0, "maya@clay.example · 555 0100 600", t.b(9.0, t.dark.lerp(t.light, 0.25)));
 }
@@ -371,7 +371,7 @@ fn certificate(b: &mut B) {
         b.rotate_last(45.0);
     }
     b.ctext("Title", 120.0, 800.0, "Certificate", t.h(72.0, t.primary).upper().ls(150.0));
-    b.ctext("Subtitle", 212.0, 600.0, "Of achievement", t.b(24.0, t.secondary).bold().upper().ls(400.0));
+    b.ctext("Subtitle", 212.0, 600.0, "Of achievement", t.b(24.0, t.secondary.lerp(t.dark, 0.4)).bold().upper().ls(400.0));
     b.ctext("Presented to", 290.0, 700.0, "This certificate is proudly presented to", t.b(22.0, t.dark.lerp(t.light, 0.3)));
     b.ctext("Recipient", 335.0, 800.0, "Jordan Lee", t.h(80.0, t.dark).italic().with(|s| s.bold = false));
     b.rect("Name line", (w - 500.0) / 2.0, 450.0, 500.0, 2.0, 1.0, solid(t.secondary));
@@ -430,7 +430,7 @@ fn gift_voucher(b: &mut B) {
     b.text("Amount", 36.0, 86.0, 300.0, "$50", t.h(110.0, t.light).lh(1.0).left());
     b.text("For", 36.0, 226.0, 330.0, "for a relaxing day at", t.b(15.0, t.light).left());
     b.text("Venue", 36.0, 250.0, 330.0, "Juniper Spa", t.h(36.0, t.light).left());
-    b.text("Validity", 36.0, 340.0, 330.0, "Valid until 31 December 2026", t.b(12.0, t.light.lerp(t.dark, 0.3)).left());
+    b.text("Validity", 36.0, 340.0, 330.0, "Valid until 31 December 2026", t.b(12.0, t.light).left());
     dashed_vline(b, "Perforation", 400.0, 8.0, h - 8.0, t.dark.with_alpha(120), 1.5);
     b.text("Number label", 410.0, 50.0, 140.0, "No.", t.b(12.0, t.dark).upper().ls(200.0));
     b.text("Number", 410.0, 72.0, 140.0, "GV-2048", t.h(20.0, t.dark));
@@ -464,7 +464,7 @@ fn event_ticket(b: &mut B) {
     b.rect("Ticket", 20.0, 60.0, 519.0, 277.0, 18.0, solid(t.primary));
     b.ellipse("Top notch", 388.0, 48.0, 24.0, 24.0, solid(t.light));
     b.ellipse("Bottom notch", 388.0, 325.0, 24.0, 24.0, solid(t.light));
-    dashed_vline(b, "Perforation", 400.0, 84.0, 313.0, t.light.with_alpha(180), 1.5);
+    dashed_vline(b, "Perforation", 400.0, 84.0, 313.0, t.secondary, 1.5);
     b.text("Kicker", 44.0, 82.0, 330.0, "Admit one", t.b(14.0, t.light).bold().upper().ls(300.0).left());
     b.text("Title", 44.0, 108.0, 340.0, "Night\nmarket", t.h(56.0, t.light).upper().lh(0.95).left());
     for (i, (label, value)) in [("Date", "25 OCT"), ("Gate", "B"), ("Time", "6 PM")].iter().enumerate() {
@@ -473,7 +473,7 @@ fn event_ticket(b: &mut B) {
         b.text(&format!("{label} value"), x, 258.0, 100.0, value, t.b(16.0, t.light).bold().left());
     }
     b.text("Venue", 44.0, 300.0, 340.0, "Harbour Square · market.example", t.b(11.0, t.light).left());
-    b.text("Seat label", 410.0, 84.0, 120.0, "Seat", t.b(11.0, t.secondary).bold().upper().ls(150.0));
+    b.text("Seat label", 410.0, 84.0, 120.0, "Seat", t.b(11.0, t.light).bold().upper().ls(150.0));
     b.text("Seat", 410.0, 100.0, 120.0, "12", t.h(32.0, t.light).lh(1.0));
     let bars = [3.0, 1.0, 2.0, 1.0, 3.0, 2.0, 1.0, 1.0, 3.0, 1.0, 2.0, 2.0, 1.0, 3.0, 1.0, 2.0, 1.0, 3.0];
     let mut x = 432.0;

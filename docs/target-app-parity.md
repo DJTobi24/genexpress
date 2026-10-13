@@ -13,7 +13,7 @@ Legend: ✅ works (basic form) · 🟡 partial · ⬜ not yet (milestone in [roa
 | Area | Score | Notes |
 |---|---|---|
 | 1. Editor & canvas | ~50% (estimated) | pages of any size, select/move/resize/rotate, groups, order, lock/hide, undo/redo, snapping, version history, crop page, Data Recovery; no comments or co-editing yet |
-| 2. Templates & content | ~25% (estimated) | 65 original templates in 6 categories, 114 icons, 40 palettes, all generated in code; no stock library (by design: open content later) |
+| 2. Templates & content | ~30% (estimated) | 121 original templates in 6 categories (animated ones, charts, tables, curved text, QR codes among them), 114 icons, 40 palettes, all generated in code; no stock library (by design: open content later) |
 | 3. Text | ~55% (estimated) | text boxes edited in place on the canvas, styles, formatting part of a box (font, size, bold, italic, underline, strikethrough, colour per word), presets, shadow/outline/highlight effects, curved text, system fonts, real shaping (kerning, ligatures, right-to-left and complex scripts, font fallback); no bulleted lists, grid text, colour emoji, spellcheck, translate |
 | 4. Pictures & AI | ~25% (estimated) | place, crop, fit, crop-to-shape, adjustments, filter presets, classic background removal, convert/resize quick actions; no generative AI yet |
 | 5. Video | ~15% (estimated) | element animations (12 entrances, 4 loops, exits) with canvas playback and present mode; MP4 (H.264), GIF and animated PNG export; no timeline, scenes or audio yet |
@@ -49,7 +49,7 @@ Sources: https://www.adobe.com/express/feature · https://www.adobe.com/express/
 
 | Feature | Status | GenHa |
 |---|---|---|
-| Templates by category (social, marketing, print, documents) | 🟡 | 65 original templates generated in code (`template.list/use`): social posts, carousels, stories, video covers, banners, pins, flyers, posters, menus, price lists, business cards, invitations, greeting cards, certificates, vouchers, coupons, tickets, multi-slide decks, resumes, logos, web ads, email headers; all take brand colours and fonts. Far fewer than the target app's library |
+| Templates by category (social, marketing, print, documents) | 🟡 | 121 original templates generated in code (`template.list/use`): social posts, carousels, animated posts, stories and short videos (entrance animations, page durations), reel covers, thumbnails, banners, pins, flyers, posters, menus, price lists, recipe card, property flyer, business and loyalty cards, invitations, save the date, greeting cards, certificates, vouchers, coupons, tickets, letterhead, invoice, cover letter, newsletter, timetable, worksheet, decks with charts, tables and speaker notes, infographic, landing page, resumes, logos (curved text), web ads, email headers; all take brand colours and fonts; tested for text that fits its box (with and without fonts) and readable contrast. Still far fewer than the target app's library, and none photo-based |
 | Template search / filters | 🟡 | category + lower-case search tags on every template (at least 3 each) |
 | Stock photos, video, audio | ➖/⬜ | no proprietary stock; M6: optional open-content sources (CC0 libraries) and local folders |
 | Icons, shapes, design assets | 🟡 | 10 basic shapes + 114 original filled icons as paths in 11 categories (arrows, interface, people & messages, media, business, food, nature, travel, celebration, badges, decorative: blobs, dividers, frames, brush stroke) (`library.list/addShape`) |

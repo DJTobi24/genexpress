@@ -2,7 +2,8 @@
 
 use genha_color::Color;
 use genha_doc::{
-    BrandKit, Document, Element, ElementKind, Fill, GroupEl, NodeId, Page, ShapeEl, ShapeKind, StrokeStyle, TextAlign, TextEffect, TextEl, TextStyle,
+    Animation, AnimationKind, BrandKit, ChartEl, ChartKind, ChartSeries, Document, Element, ElementKind, Fill, GroupEl, LoopKind, NodeId, Page,
+    ShapeEl, ShapeKind, SpanStyle, StrokeStyle, TableEl, TextAlign, TextEffect, TextEl, TextSpan, TextStyle,
 };
 use genha_geom::Frame;
 
@@ -44,6 +45,40 @@ impl Theme {
     /// A regular body style.
     pub fn b(&self, size: f64, color: Color) -> TextStyle {
         TextStyle { font_family: self.body.clone(), font_size: size, color, line_height: 1.3, ..TextStyle::default() }
+    }
+
+    /// A chart in the body font, drawn in the role colours (so a brand kit re-colours it), with
+    /// labels in `ink`; one `(name, values)` per series.
+    pub fn chart(&self, kind: ChartKind, categories: &[&str], series: &[(&str, &[f64])], size: f64, ink: Color) -> ChartEl {
+        ChartEl {
+            kind,
+            categories: categories.iter().map(|c| (*c).to_string()).collect(),
+            series: series.iter().map(|(n, v)| ChartSeries::new(*n, v.to_vec())).collect(),
+            colors: vec![self.primary, self.secondary, self.dark.lerp(self.light, 0.45), self.primary.lerp(self.light, 0.55)],
+            show_legend: series.len() > 1,
+            font_family: self.body.clone(),
+            font_size: size,
+            text_color: ink,
+            ..ChartEl::default()
+        }
+    }
+
+    /// A table in the body font: a header row in the primary colour, banded body rows.
+    pub fn table(&self, rows: &[&[&str]], size: f64) -> TableEl {
+        TableEl {
+            rows: rows.iter().map(|r| r.iter().map(|c| (*c).to_string()).collect()).collect(),
+            header_row: true,
+            font_family: self.body.clone(),
+            font_size: size,
+            text_color: self.dark,
+            header_fill: self.primary,
+            header_text: self.light,
+            row_fill: self.light,
+            alt_row_fill: Some(self.primary.lerp(self.light, 0.9)),
+            border: Some(StrokeStyle { color: self.dark.lerp(self.light, 0.8), width: 1.0, dash: vec![] }),
+            padding: (size * 0.5).round(),
+            ..TableEl::default()
+        }
     }
 }
 
@@ -240,6 +275,94 @@ impl B {
         {
             s.stroke = Some(StrokeStyle { color, width, dash: dash.to_vec() });
         }
+    }
+
+    /// Gives the first `word` in the last text element its own style (a style run); nothing when
+    /// the word is not there.
+    pub fn span_last(&mut self, word: &str, style: SpanStyle) {
+        if let Some(e) = self.last()
+            && let ElementKind::Text(t) = &mut e.kind
+            && let Some(byte) = t.text.find(word)
+        {
+            let style = style.reduced(&t.style);
+            if style.is_empty() {
+                return;
+            }
+            let start = t.text.get(..byte).map_or(0, |s| s.chars().count());
+            let end = start + word.chars().count();
+            t.spans.push(TextSpan::new(start..end, style));
+            t.spans.sort_by_key(|s| s.start);
+        }
+    }
+
+    /// Sets the first `word` of the last text element in `color` (and bold when `bold`).
+    pub fn mark_last(&mut self, word: &str, color: Color, bold: bool) {
+        self.span_last(word, SpanStyle { color: Some(color), bold: bold.then_some(true), ..SpanStyle::default() });
+    }
+
+    /// Bends the last text element along an arc of `degrees` (see `TextEl::curve`) and makes its
+    /// box `height` tall, enough for the bent lines (they are centred in the box).
+    pub fn curve_last(&mut self, degrees: f64, height: f64) {
+        if let Some(e) = self.last()
+            && let ElementKind::Text(t) = &mut e.kind
+        {
+            t.curve = degrees;
+            e.frame.height = height;
+        }
+    }
+
+    /// Gives the last element an entrance animation.
+    pub fn animate_last(&mut self, kind: AnimationKind, duration: f64, delay: f64) {
+        if let Some(e) = self.last() {
+            e.animation = Some(Animation::new(kind, duration, delay));
+        }
+    }
+
+    /// Number of elements on the current page, to pass to [`B::animate_since`] later.
+    pub fn mark(&self) -> usize {
+        self.doc.pages.get(self.page).map_or(0, |p| p.elements.len())
+    }
+
+    /// Gives every element added since `mark` the same entrance.
+    pub fn animate_since(&mut self, mark: usize, kind: AnimationKind, duration: f64, delay: f64) {
+        if let Some(p) = self.page_mut() {
+            for e in p.elements.iter_mut().skip(mark) {
+                e.animation = Some(Animation::new(kind, duration, delay));
+            }
+        }
+    }
+
+    /// Repeats `looping` on the last element after its entrance.
+    pub fn loop_last(&mut self, looping: LoopKind) {
+        if let Some(e) = self.last()
+            && let Some(a) = &mut e.animation
+        {
+            a.looping = Some(looping);
+        }
+    }
+
+    /// How long the current page plays in a video or animated export, in seconds.
+    pub fn duration(&mut self, seconds: f64) {
+        if let Some(p) = self.page_mut() {
+            p.duration = Some(seconds);
+        }
+    }
+
+    pub fn chart(&mut self, name: &str, x: f64, y: f64, w: f64, h: f64, chart: ChartEl) -> NodeId {
+        let e = self.el(name, Frame::new(x, y, w, h), ElementKind::Chart(chart));
+        self.push(e)
+    }
+
+    pub fn table(&mut self, name: &str, x: f64, y: f64, w: f64, h: f64, table: TableEl) -> NodeId {
+        let e = self.el(name, Frame::new(x, y, w, h), ElementKind::Table(table));
+        self.push(e)
+    }
+
+    /// A QR code for `data` in a `size` square; nothing when it cannot be made.
+    pub fn qr(&mut self, name: &str, data: &str, x: f64, y: f64, size: f64, color: Color) -> Option<NodeId> {
+        let shape = crate::qr_code(data, color).ok();
+        debug_assert!(shape.is_some(), "QR code for `{data}`");
+        Some(self.shape(name, shape?, x, y, size, size, Fill::solid(color)))
     }
 
     /// Groups `children` (in page coordinates) under one element whose frame is their bounds.
