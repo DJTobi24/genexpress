@@ -31,7 +31,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Download PDF…",
             ["File", "Download"],
             None,
-            "{path, dpi?: 36–600 = 150, pages?: [indexes], quality?: 1–100 = 88, text_layer?: bool = true (searchable, selectable text), print?: bool (300 dpi, 3 mm bleed, crop marks), bleed?: mm, crop_marks?: bool}",
+            "{path, pages?: [indexes], print?: bool (3 mm bleed, crop marks), bleed?: mm, crop_marks?: bool, cmyk?: bool (DeviceCMYK colours, plain conversion), text_as_outlines?: bool, dpi?: 36–600 = 300 (blurred shadows, drawn as pictures; whole pages when raster), raster?: bool (each page one picture, for compatibility), quality?: 1–100 = 88 (raster), text_layer?: bool = true (raster: invisible searchable text)} — vector PDF by default: real text with embedded fonts, shapes, gradients, pictures at full resolution",
             has_doc,
             export_pdf
         ),
@@ -87,6 +87,9 @@ pub fn pdf_bytes(s: &Session, p: &Value) -> Result<Vec<u8>> {
         text_layer: bool_or(p, "text_layer", base.text_layer),
         bleed_mm: f64_or(p, "bleed", base.bleed_mm),
         crop_marks: bool_or(p, "crop_marks", base.crop_marks),
+        raster: bool_or(p, "raster", base.raster),
+        cmyk: bool_or(p, "cmyk", base.cmyk),
+        text_as_outlines: bool_or(p, "text_as_outlines", base.text_as_outlines),
     };
     genha_pdf::export_pdf(&d.doc, &s.fonts, &opts).map_err(|e| EngineError::Other(e.to_string()))
 }

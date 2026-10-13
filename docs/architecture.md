@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last updated:** 2026-10-12 · **Change:** major (first version)
+> **Last updated:** 2026-10-13 · **Change:** minor (vector PDF)
 
 How GenHa is built. Day-to-day rules (clean-room, never crash, quality gates) are in
 [`AGENTS.md`](../AGENTS.md) and [development.md](development.md). The layout deliberately mirrors the
@@ -22,7 +22,7 @@ that nothing below L6 depends on a UI toolkit (egui, eframe, winit, rfd). Table:
 | L0 | `geom`, `color` | frames (position, size, rotation), fitting, snapping, shape outlines (on `kurbo`); sRGB colours as hex, HSL, WCAG contrast, harmonies |
 | L1 | `doc` | the document model: designs with pages of any size, elements (shapes, text, pictures, groups), brand kit, embedded assets, page-size presets; pure data + serde |
 | L2 | `text`, `effects`, `layout`, `templates`, `motion` | font discovery and text layout to outlines (`skrifa`); picture decoding, adjustments, filters and quick actions (background removal, resize, convert…); smart resize, align/distribute, collages, snapping guides; templates, shapes/icons, text styles, palettes and QR codes generated in code; animations evaluated at a time (`page_at`) |
-| L3 | `render`, `svg`, `pdf`, `format` | page → pixels (`vello_cpu`) and PNG/JPEG; SVG export; PDF export; the native `.genha` format (versioned, compressed JSON) |
+| L3 | `render`, `svg`, `pdf`, `format` | page → pixels (`vello_cpu`) and PNG/JPEG; SVG export; vector PDF export (`krilla`: embedded font subsets, pictures, print boxes); the native `.genha` format (versioned, compressed JSON) |
 | L4 | `tools` | pointer gestures → commands (select/move/resize/rotate, shape and text tools, snapping) |
 | L5 | `engine` | sessions, undo history, selection, the command registry, file I/O, the panic guard |
 | L6 | `ui-egui`, `mcp` | the egui front end (home screen, editor, panels, canvas); the MCP server (JSON-RPC over stdio) |
@@ -78,6 +78,12 @@ places each glyph's own outline (`genha_text::layout_glyphs`) along an arc.
    direction; lines carry their source byte range. Charts and tables are
 turned into a `Scene` of filled/stroked paths and laid-out text by `genha_render::{chart_scene,
 table_scene}`, which both the rasterizer and the SVG writer draw, so they agree.
+
+The PDF writer (`crates/pdf`) walks pages the same way and draws them as vectors with `krilla`:
+paths, gradients, clips and transparency groups; text as real text in the font the layout chose
+(`genha_text::layout_glyphs` gives each shaped glyph's face, id and cluster; `FontBook::face_data` the font bytes), embedded as a subset; pictures at
+their native resolution. Only blurred shadows are rendered by `genha-render` and placed as pictures,
+one element at a time. `raster: true` keeps whole pages as pictures.
 
 ## Motion
 

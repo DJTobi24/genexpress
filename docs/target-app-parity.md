@@ -1,6 +1,6 @@
 # Target-app parity
 
-> **Last updated:** 2026-10-13 · **Change:** minor (text shaping) · **Target:** Adobe Express (web, desktop and mobile), feature set as publicly documented in October 2026
+> **Last updated:** 2026-10-13 · **Change:** minor (text shaping, vector PDF) · **Target:** Adobe Express (web, desktop and mobile), feature set as publicly documented in October 2026
 
 The feature inventory of the target app, compiled from **public sources only** (help pages, product
 and pricing pages, press releases, developer docs; URLs per area below), in our own words, feature
@@ -17,10 +17,10 @@ Legend: ✅ works (basic form) · 🟡 partial · ⬜ not yet (milestone in [roa
 | 3. Text | ~45% (estimated) | text boxes, styles, presets, shadow/outline/highlight effects, curved text, system fonts, real shaping (kerning, ligatures, right-to-left and complex scripts, font fallback); no grid text, colour emoji, spellcheck, translate |
 | 4. Pictures & AI | ~25% (estimated) | place, crop, fit, crop-to-shape, adjustments, filter presets, classic background removal, convert/resize quick actions; no generative AI yet |
 | 5. Video | ~10% (estimated) | element animations (12 entrances, 4 loops, exits) with canvas playback and present mode; GIF and animated PNG export; no timeline, scenes, audio or MP4 yet |
-| 6. Documents & PDF | ~25% (estimated) | multi-page PDF export (raster), presentations as pages, QR codes, charts (bar, line, area, pie, donut, progress) and tables; no PDF editing/import, web pages |
+| 6. Documents & PDF | ~30% (estimated) | multi-page vector PDF export (real text with embedded fonts), presentations as pages, QR codes, charts (bar, line, area, pie, donut, progress) and tables; no PDF editing/import, web pages |
 | 7. Brand kits | ~35% (estimated) | colours, heading/body fonts, logos slot, apply to page; no locking/template controls |
 | 8. Social | 0% | size presets only; no scheduler (planned as an optional, self-hostable add-on) |
-| 9. Export & share | ~45% (estimated) | PNG (transparent), JPEG, SVG, PDF, animated GIF and PNG; no MP4, share links, print ordering |
+| 9. Export & share | ~50% (estimated) | PNG (transparent), JPEG, SVG, vector and print PDF, animated GIF and PNG; no MP4, share links, print ordering |
 | 10. Platform | ~30% (estimated) | MCP server, control channel, CLI, every action a command; no add-on SDK yet |
 | 11. Accessibility & localisation | ~5% (estimated) | keyboard shortcuts; no screen-reader support or translations yet |
 
@@ -108,7 +108,7 @@ Sources: https://helpx.adobe.com/express/using/charts.html · https://helpx.adob
 
 | Feature | Status | GenHa |
 |---|---|---|
-| Multi-page PDF export | ✅ | `export.pdf`: pages as pictures with an invisible text layer (search, select, copy); vector PDF M4 |
+| Multi-page PDF export | ✅ | `export.pdf`: vector PDF (krilla) — shapes, icons, borders, gradients, opacity, clipping and crop-to-shape as PDF graphics; text as real text in the layout's font, embedded as a subset (select, search, copy; curved text as glyphs placed along the arc); pictures at native resolution (JPEG as is, crops as clips; adjusted pictures as lossless pixels); charts and tables as paths and text; pages of different sizes, title metadata. Only blurred drop shadows become pictures (300 dpi, that element only). `raster: true` keeps the earlier pages-as-pictures PDF with an invisible text layer |
 | Presentations (pages + notes, present mode) | 🟡 | pages + notes; present mode (F5 or Present: full screen, page animations play, arrows/space/click to move, N for notes, Esc); no presenter view on a second screen |
 | PDF edit / combine / import | ⬜ | M9 (shared with the PDFCraft sibling) |
 | Charts, tables | 🟡 | `chart.add/setData/setStyle/setKind`: bar, horizontal bar, line, area, pie, donut, progress bar and ring; one labelled data series (typed or pasted as `Label: value` text), brand or own colours, labels/values/legend, number or percent. `table.add/setCell/insertRow/deleteRow/insertColumn/deleteColumn/setRows/setStyle`: header row, banded rows, grid lines, wrapped cell text, column widths, CSV in. Not yet: several series, axis titles, merged cells, per-cell styles |
@@ -145,7 +145,7 @@ Sources: https://www.adobe.com/express/feature · https://helpx.adobe.com/expres
 |---|---|---|
 | PNG (transparent), JPEG | ✅ | `export.png/jpeg`, scale option |
 | SVG | ✅ | `export.svg` |
-| PDF (standard), print PDF with bleed/CMYK | 🟡 | standard and print (`print: true`: 300 dpi, 3 mm bleed, crop marks, Trim/BleedBox); no CMYK yet |
+| PDF (standard), print PDF with bleed/CMYK | 🟡 | vector PDF; print (`print: true`: 3 mm bleed, crop marks, Trim/BleedBox); `cmyk: true` writes DeviceCMYK colours and pictures (plain conversion, no ICC profile or output intent, no PDF/X) |
 | MP4 / GIF | 🟡 | animated GIF and PNG (`export.gif`, `export.apng`); MP4 M6 |
 | Share links, publish to web | ⬜ | M7 / M9 |
 | Print ordering | ➖ | not planned (third-party service) |
@@ -179,6 +179,7 @@ Source: https://www.adobe.com/accessibility/compliance/adobe-express-android-202
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Vector PDF (krilla): real text with embedded fonts, vectors, native-resolution pictures; CMYK option |
 | 2026-10-13 | minor | Text shaping (kerning, ligatures, bidi, complex scripts, font fallback) |
 | 2026-10-12 | minor | PDF text layer and print PDF (bleed, crop marks) |
 | 2026-10-12 | minor | Version history, crop page to content, Data Recovery, recent files, SVG import |
