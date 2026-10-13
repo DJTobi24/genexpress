@@ -13,6 +13,7 @@ repository = "https://github.com/DJTobi24/genexpress"
 [workspace.dependencies]
 # internal
 genha-geom = { path = "crates/geom" }
+genha-i18n = { path = "crates/i18n" }
 genha-color = { path = "crates/color" }
 genha-doc = { path = "crates/doc" }
 genha-text = { path = "crates/text" }
@@ -24,6 +25,7 @@ genha-render = { path = "crates/render" }
 genha-svg = { path = "crates/svg" }
 genha-pdf = { path = "crates/pdf" }
 genha-video = { path = "crates/video" }
+genha-segment = { path = "crates/segment" }
 genha-format = { path = "crates/format" }
 genha-tools = { path = "crates/tools" }
 genha-engine = { path = "crates/engine" }
@@ -38,8 +40,12 @@ serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 base64 = "0.22"
 log = "0.4"
+# The system's (or the browser's) language for the UI (MIT OR Apache-2.0).
+sys-locale = "0.3"
 proptest = "1"
 qrcode = { version = "0.14", default-features = false }
+# SHA-256 for checking downloaded models (MIT OR Apache-2.0, pure Rust)
+sha2 = "0.11"
 
 # rendering / formats
 vello_cpu = "0.2"
@@ -66,6 +72,13 @@ flate2 = { version = "1", default-features = false, features = ["rust_backend"] 
 krilla = { version = "0.8.2", default-features = false, features = ["raster-images"] }
 # Reading PDFs back in tests (MIT).
 lopdf = { version = "0.45", default-features = false }
+
+# Machine learning: ONNX inference in pure Rust (MIT OR Apache-2.0). No default features: the
+# transformer operators are not needed by segmentation models.
+tract-onnx = { version = "0.23.8", default-features = false }
+# Model downloads on the desktop (MIT OR Apache-2.0): rustls (with ring) and the operating system's
+# certificate verifier, so proxies with their own certificate authority work. No gzip, no cookies.
+ureq = { version = "3.4", default-features = false, features = ["rustls", "platform-verifier"] }
 
 # ui
 egui = "0.36"

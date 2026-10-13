@@ -27,7 +27,7 @@ mod shape;
 pub use book::{FontBook, MAX_FACES, MAX_FONT_FILE, MAX_FONT_FILES, MONO_FALLBACKS, SANS_FALLBACKS, SERIF_FALLBACKS};
 pub use layout::{
     MAX_FONT_SIZE, MAX_STYLE_RUNS, MAX_TEXT_CHARS, layout, layout_el, layout_glyphs, layout_glyphs_el, layout_glyphs_rich, layout_rich, measure,
-    measure_el, measure_rich,
+    measure_el, measure_rich, measure_wrapped_el,
 };
 
 #[derive(Debug, thiserror::Error)]

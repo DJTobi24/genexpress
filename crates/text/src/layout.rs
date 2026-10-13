@@ -234,6 +234,15 @@ pub fn measure_el(book: &FontBook, t: &TextEl) -> (f64, f64) {
     measure_rich(book, &t.text, &t.style, &t.style_runs())
 }
 
+/// The size of a text element (with its style runs) wrapped in a box `box_width` wide, without
+/// drawing it: (widest line, height). Cheaper than [`layout_el`] when only the size matters
+/// (fitting boxes, smart resize).
+pub fn measure_wrapped_el(book: &FontBook, t: &TextEl, box_width: f64) -> (f64, f64) {
+    let runs = if t.spans.is_empty() { vec![] } else { t.style_runs() };
+    let (l, _, _) = layout_impl(book, &t.text, &t.style, &runs, box_width, Out::Measure);
+    (l.width, l.height)
+}
+
 /// What [`layout_impl`] produces besides the lines' sizes.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Out {

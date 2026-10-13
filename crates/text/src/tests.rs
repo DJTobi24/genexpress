@@ -51,6 +51,21 @@ fn wraps_words_and_honours_newlines() {
 }
 
 #[test]
+fn measure_wrapped_matches_layout() {
+    for book in [&FontBook::new(), system()] {
+        let mut t = genha_doc::TextEl::new("Fresh drops every Friday at noon", style(40.0));
+        for w in [120.0, 300.0, 2000.0, f64::INFINITY] {
+            let l = layout_el(book, &t, w);
+            assert_eq!(measure_wrapped_el(book, &t, w), (l.width, l.height), "{w}");
+        }
+        // With style runs too.
+        t.spans.push(genha_doc::TextSpan::new(0..5, genha_doc::SpanStyle { font_size: Some(80.0), ..Default::default() }));
+        let l = layout_el(book, &t, 300.0);
+        assert_eq!(measure_wrapped_el(book, &t, 300.0), (l.width, l.height));
+    }
+}
+
+#[test]
 fn alignment_and_spacing() {
     let book = FontBook::new();
     let mut s = style(10.0);

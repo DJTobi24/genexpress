@@ -4,7 +4,8 @@
 //! Pictures are [`RgbaImage`]s with straight (not premultiplied) alpha.
 //!
 //! Quick actions: [`encode`] (convert to PNG/JPEG/WebP/GIF/BMP), [`resize`], [`rotate`], [`flip`],
-//! [`auto_crop`], [`remove_background`] / [`change_background`] (a classical, non-AI heuristic),
+//! [`auto_crop`], [`remove_background`] / [`change_background`] (a classical, non-AI heuristic;
+//! [`cut_out`] and the `*_masked` versions take a mask from elsewhere, e.g. `genha-segment`'s model),
 //! filter presets ([`filter_presets`], [`blend_preset`]) and [`dominant_colors`] for palettes.
 #![forbid(unsafe_code)]
 
@@ -13,9 +14,10 @@ mod encode;
 mod filters;
 mod transform;
 
-pub use background::{blur_background, change_background, pixelate, remove_background};
+pub use background::{blur_background, blur_background_masked, change_background, change_background_masked, cut_out, pixelate, remove_background};
 pub use encode::{OutputFormat, encode, flatten_on_white};
 pub use filters::{FilterPreset, MAX_DOMINANT, blend_preset, dominant_colors, filter_preset, filter_presets};
+pub use image::GrayImage;
 pub use image::RgbaImage;
 pub use transform::{auto_crop, flip, resize, rotate};
 

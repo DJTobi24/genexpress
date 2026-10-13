@@ -7,6 +7,7 @@ use std::sync::Arc;
 use crate::App;
 use crate::theme::Tokens;
 use genha_doc::{AnimationKind, Document};
+use genha_i18n::tr;
 
 /// Largest side of a present-mode frame in pixels.
 const MAX_PRESENT_SIDE: f32 = 2400.0;
@@ -77,7 +78,7 @@ pub fn playback_frame(app: &mut App, ctx: &egui::Context, display: &mut Arc<Docu
     if pb.page != page || t > genha_motion::page_duration(pg) || !genha_motion::is_animated(pg) {
         app.motion.playing = None;
         if !genha_motion::is_animated(pg) {
-            app.set_status("Nothing on this page is animated (Animation in the properties panel)");
+            app.set_status(tr("Nothing on this page is animated (Animation in the properties panel)"));
         }
         return None;
     }
@@ -214,12 +215,12 @@ pub fn present(app: &mut App, ui: &mut egui::Ui) {
         painter.text(
             area.left_bottom() + egui::vec2(16.0, -12.0),
             egui::Align2::LEFT_BOTTOM,
-            "Right or click: next   Left: back   N: notes   Esc: exit",
+            tr("Right or click: next   Left: back   N: notes   Esc: exit"),
             small,
             t.stage_text.gamma_multiply(0.6),
         );
         if state.show_notes {
-            let text = if pg.notes.trim().is_empty() { "(no speaker notes on this page)".to_string() } else { pg.notes.clone() };
+            let text = if pg.notes.trim().is_empty() { tr("(no speaker notes on this page)").to_string() } else { pg.notes.clone() };
             let galley = painter.layout(text, egui::FontId::proportional(18.0), egui::Color32::WHITE, (area.width() - 120.0).max(100.0));
             let pos = egui::pos2(area.center().x - galley.size().x / 2.0, area.bottom() - 48.0 - galley.size().y);
             let back = egui::Rect::from_min_size(pos, galley.size()).expand(12.0);

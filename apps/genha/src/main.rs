@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 
+use genha_ui_egui::i18n::tr;
 use genha_ui_egui::{App, AppOptions, control::ControlServer};
 
 const USAGE: &str = "usage: genha [--control PORT] [--dark] [FILE.genha | PICTURE …]
@@ -24,7 +25,7 @@ impl eframe::App for Shell {
         self.app.ui(ui);
         // Window title follows the design.
         let title = match self.app.session.active() {
-            Some(d) => format!("{}{} — GenHa", d.display_name(), if d.dirty { " •" } else { "" }),
+            Some(d) => format!("{}{} — GenHa", genha_ui_egui::shown_name(&d.display_name()), if d.dirty { " •" } else { "" }),
             None => "GenHa".to_string(),
         };
         if title != self.title {
@@ -38,16 +39,16 @@ impl eframe::App for Shell {
             self.confirm_close = true;
         }
         if self.confirm_close {
-            egui::Window::new("Unsaved changes").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO).show(
+            egui::Window::new(tr("Unsaved changes")).collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO).show(
                 &ctx,
                 |ui| {
-                    ui.label("Some designs have changes that are not saved.");
+                    ui.label(tr("Some designs have changes that are not saved."));
                     ui.horizontal(|ui| {
-                        if ui.button("Quit without saving").clicked() {
+                        if ui.button(tr("Quit without saving")).clicked() {
                             self.allow_close = true;
                             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                         }
-                        if ui.button("Cancel").clicked() {
+                        if ui.button(tr("Cancel")).clicked() {
                             self.confirm_close = false;
                         }
                     });
@@ -55,18 +56,6 @@ impl eframe::App for Shell {
             );
         }
     }
-}
-
-/// Per-user data folder: recent files and Data Recovery copies.
-fn data_dir() -> Option<std::path::PathBuf> {
-    let env = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(std::path::PathBuf::from);
-    if cfg!(target_os = "windows") {
-        return env("APPDATA").map(|d| d.join("GenHa"));
-    }
-    if cfg!(target_os = "macos") {
-        return env("HOME").map(|h| h.join("Library/Application Support/GenHa"));
-    }
-    env("XDG_DATA_HOME").or_else(|| env("HOME").map(|h| h.join(".local/share"))).map(|d| d.join("genha"))
 }
 
 fn main() -> std::process::ExitCode {
@@ -91,7 +80,8 @@ fn main() -> std::process::ExitCode {
             f => opts.open.push(f.into()),
         }
     }
-    opts.data_dir = data_dir();
+    // Recent designs, Data Recovery copies, added fonts and downloaded models.
+    opts.data_dir = genha_engine::store::user_data_dir();
     // The system's fonts, or built-in fallback faces when there are none.
     let fonts = Arc::new(genha_ui_egui::fonts::system_or_fallback());
     log::info!("{} font families found", fonts.families().len());

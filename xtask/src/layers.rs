@@ -14,12 +14,14 @@ pub enum Class {
 pub const TABLE: &[(&str, Class)] = &[
     ("geom", Class::Layer(0)),
     ("color", Class::Layer(0)),
+    ("i18n", Class::Layer(0)),
     ("doc", Class::Layer(1)),
     ("text", Class::Layer(2)),
     ("effects", Class::Layer(2)),
     ("layout", Class::Layer(2)),
     ("templates", Class::Layer(2)),
     ("motion", Class::Layer(2)),
+    ("segment", Class::Layer(2)),
     ("render", Class::Layer(3)),
     ("svg", Class::Layer(3)),
     ("pdf", Class::Layer(3)),
@@ -38,7 +40,7 @@ pub const TABLE: &[(&str, Class)] = &[
 
 /// Allowed dependencies *within* a layer (earlier may be used by later).
 pub const INTRA_LAYER_ORDER: &[&[&str]] =
-    &[&["geom", "color"], &["effects", "templates"], &["layout", "templates"], &["render", "svg"], &["render", "pdf"]];
+    &[&["geom", "color"], &["effects", "templates"], &["layout", "templates"], &["text", "layout"], &["render", "svg"], &["render", "pdf"]];
 
 /// External crates that make up a UI toolkit; only L6 and above may use them.
 pub const UI_CRATES: &[&str] = &["egui", "eframe", "winit", "egui_extras", "egui_kittest", "rfd"];

@@ -253,6 +253,32 @@ fn smart_guides_preference_and_temporary_off() {
 }
 
 #[test]
+fn language_setting_is_kept() {
+    let mut s = Session::new();
+    s.store = Some(Box::new(crate::store::MemStore::default()));
+    assert_eq!(s.language, genha_i18n::Setting::System);
+    // Without `lang` it only reports.
+    let r = s.execute("ui.setLanguage", &json!({})).unwrap();
+    assert_eq!(r["lang"], "system");
+    assert!(r["available"].as_array().unwrap().iter().any(|l| l["lang"] == "de" && l["name"] == "Deutsch"));
+    let r = s.execute("ui.setLanguage", &json!({"lang": "de-AT"})).unwrap();
+    assert_eq!((r["lang"].as_str(), r["resolved"].as_str()), (Some("de"), Some("de")));
+    assert!(s.execute("ui.setLanguage", &json!({"lang": "xx"})).is_err());
+    assert!(s.execute("ui.setLanguage", &json!({"lang": 3})).is_err());
+    assert_eq!(s.language, genha_i18n::Setting::Fixed(genha_i18n::Lang::De));
+    // The next run reads it back.
+    let mut next = Session::new();
+    next.store = s.store.take();
+    crate::cmd::edit::load_preferences(&mut next);
+    assert_eq!(next.language, genha_i18n::Setting::Fixed(genha_i18n::Lang::De));
+    next.execute("ui.setLanguage", &json!({"lang": "system"})).unwrap();
+    let mut third = Session::new();
+    third.store = next.store.take();
+    crate::cmd::edit::load_preferences(&mut third);
+    assert_eq!(third.language, genha_i18n::Setting::System);
+}
+
+#[test]
 fn every_command_survives_junk_params() {
     // Untrusted params never panic (the guard would turn a panic into Internal: that's a bug too).
     let junk = [
@@ -405,8 +431,15 @@ fn smart_resize_align_distribute() {
     assert_eq!(d.doc.pages.len(), 2);
     assert_eq!((d.doc.pages[1].width, d.doc.pages[1].height), (1080.0, 1920.0));
     assert_eq!(d.page, 1);
-    s.execute("page.resize", &json!({"width": 500, "height": 500})).unwrap();
+    let r = s.execute("page.resize", &json!({"width": 500, "height": 500})).unwrap();
     assert_eq!(s.doc().unwrap().doc.pages[1].width, 500.0);
+    assert!(r["notes"].is_array());
+    for mode in ["scale", "none", "smart"] {
+        s.execute("page.resize", &json!({"width": 600, "height": 400, "mode": mode})).unwrap();
+        assert_eq!(s.doc().unwrap().doc.pages[1].height, 400.0);
+    }
+    assert!(s.execute("page.resize", &json!({"width": 600, "height": 400, "mode": "stretch"})).is_err());
+    s.execute("page.resize", &json!({"width": 500, "height": 500})).unwrap();
     let a = id(&s.execute("shape.add", &json!({"x": 0, "y": 0, "width": 10, "height": 10})).unwrap());
     s.execute("object.align", &json!({"how": "right"})).unwrap();
     assert_eq!(s.doc().unwrap().doc.element(NodeId(a)).unwrap().frame.x, 490.0);

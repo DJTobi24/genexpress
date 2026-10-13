@@ -13,6 +13,11 @@ file dialogs). Fonts come from the system; with none installed the app falls bac
 faces of the `epaint_default_fonts` crate (the CLI and tests then lay text out with approximate
 metrics but draw nothing).
 
+Templates are designed for **Inter** as the "Sans" / "Display" face (the first choice of
+`genha_text::SANS_FALLBACKS`). The template tests check that text fits its box with the system's
+fonts and with none; install Inter for them (`sudo apt-get install fonts-inter` on Debian/Ubuntu,
+as CI does), otherwise a wider fallback such as DejaVu Sans makes some headlines wrap.
+
 ## Web
 
 The same UI runs in the browser (`apps/genha-web`: eframe's web runner, WebGL2):
@@ -50,6 +55,12 @@ In the browser:
   are written every 15 s in the browser; a reload offers them on the home screen.
 - **Clipboard**: Ctrl+V of a picture places it (the page's paste event); Edit › Paste Picture
   reads the Clipboard API.
+- **Background removal with the AI model**: only in a build made with `cargo xtask web --ml` (the
+  model runtime adds about 11 MB of WebAssembly; the default build has the colour method only).
+  It fetches the model from `models/<file>`
+  next to the app (copy `u2netp.onnx` there when hosting; its download site does not allow
+  cross-site fetches) or from `?models=<https address of a folder>` in the page's address, checks
+  the pinned SHA-256 and keeps it in IndexedDB. It runs on the page's thread (the page waits).
 - Not in the browser (yet): the control channel.
 
 Check the browser code with `cargo clippy -p genha-ui-egui -p genha-web --target
@@ -67,6 +78,14 @@ Video tests decode what the H.264 encoder wrote with `ffmpeg` when it is install
 require every sample to match the encoder's own reconstruction; without `ffmpeg` they are skipped.
 `cargo test -p genha-video speed -- --ignored --nocapture` prints the encoder's speed.
 
+Background removal tests run the real models only when they are on the machine (in
+`GENHA_MODEL_DIR`, else the data folder's `models/`; `genha-cli model download [u2net]` puts them
+there); otherwise they are skipped and only the pre/post-processing and the commands are tested.
+`GENHA_ML_OUT=<folder>` writes colour-based vs AI cut-outs on a checkerboard for looking at, and
+`GENHA_ML_PHOTOS=<folder>` adds your own photos to them (keep photos out of the repository):
+`cargo test -p genha-segment --test real_model -- --nocapture`. `GENHA_DATA_DIR` moves the data
+folder (tests, portable installs); `GENHA_OFFLINE=1` forbids network use.
+
 ## Robustness: GenHa never crashes
 
 See [`AGENTS.md`](../AGENTS.md) › Never crash. In short: return `Result`, never index with numbers that
@@ -78,5 +97,37 @@ came from data, cap sizes, check floats, and fuzz every parser (`proptest`).
    still open (bump `genha_format::VERSION` only for breaking changes, and keep reading old ones).
 2. Behaviour: a command in `crates/engine/src/cmd/<area>.rs` with a params doc and tests.
 3. Rendering/export: `crates/render`, `crates/svg`, `crates/pdf`.
-4. UI: a panel or button in `crates/ui-egui` that calls the command (`app.run(id, params)`).
+4. UI: a panel or button in `crates/ui-egui` that calls the command (`app.run(id, params)`), its
+   text translated (below).
 5. Docs: the feature's row in [target-app-parity.md](target-app-parity.md), [gaps.md](gaps.md), the ROADMAP.
+
+## Translating GenHa
+
+The UI is written in English and translated where text is shown (`crates/i18n`, layer L0). English
+strings are the keys; a string without a translation shows in English, and nothing can fail.
+
+- **In code:** `tr("Download")` for a plain string; `tr!("Saved {path}", path = p.display())` with
+  named values; `tr_n!("{n} page", "{n} pages", n)` for counted strings (the language picks the plural
+  form). Strings kept in tables or constants and translated later with `tr(label)` are marked
+  `N_("Left")`. Labels from lower crates (command labels and menus, size presets, chart kinds,
+  animations, filters, template categories, shapes, text styles, palettes) are translated where the
+  UI shows them. Text that is part of a design (template content, names the user typed) is not.
+- **Catalogues:** gettext PO files in `crates/i18n/po/<code>.po`, compiled in (`include_str!`); any PO
+  editor works. German style: neutral and concise, no "du"/"Sie" ("Bild hochladen",
+  "Hintergrund entfernen"); keep placeholders and trailing spaces; capitals stay capitals.
+- **Checks:** `cargo test -p genha-i18n` (the catalogue parses, placeholders match, plural forms);
+  `cargo test -p genha-ui-egui every_ui_string` lists every UI string missing from `de.po` and every
+  entry no longer used; `the_german_ui_shows_no_english` draws the screens in German and fails on
+  English left over. Run the app with `ui.setLanguage {lang: "de"}` (or the picker on the home
+  screen) and look at it: German words are longer.
+- **A new language:** add a `Lang` variant (code, native name, plural rule) in `crates/i18n/src/lib.rs`
+  and `po/<code>.po`; the picker and `ui.setLanguage` offer it from then on.
+
+The language is a preference (`ui.setLanguage {lang: "system"|"en"|"de"}`, kept in the store like
+the smart-guides setting); "system" follows the computer's or the browser's language (`sys-locale`).
+
+**Fonts for every script in the UI:** egui's own faces cover Latin, Greek, Cyrillic and emoji. At start
+(on a worker thread) and when fonts are added, `fonts::ui_fallback_faces` picks from the system's
+fonts (`FontBook`) a face for each script they lack (Arabic, Hebrew, Indic scripts, Thai, CJK,
+Hangul…; at most 10 faces, 120 MB) and adds them after egui's own. egui does not shape text, so Arabic
+and Indic scripts in fields and layer names show unjoined letters; the canvas shapes them properly.

@@ -221,7 +221,7 @@ fn garage_sale(b: &mut B) {
     b.rect("Header", 0.0, 0.0, w, 360.0, 0.0, solid(t.primary));
     b.icon("Price tag", "tag", 560.0, 70.0, 200.0, 200.0, solid(t.secondary));
     b.rotate_last(-12.0);
-    b.text("Kicker", 60.0, 70.0, 480.0, "Everything must go", t.b(24.0, t.secondary).bold().upper().ls(300.0).left());
+    b.text("Kicker", 60.0, 70.0, 480.0, "Everything must go", t.b(24.0, t.light).bold().upper().ls(300.0).left());
     b.text("Headline", 60.0, 110.0, 520.0, "Garage\nsale", t.h(110.0, t.light).upper().lh(0.95).left());
     b.rect("Date banner", 60.0, 400.0, w - 120.0, 90.0, 16.0, solid(t.dark));
     b.ctext("Date", 427.0, w - 140.0, "Saturday 4 October · 8 am – 2 pm", t.b(32.0, t.light).bold());
@@ -250,7 +250,7 @@ fn lost_pet(b: &mut B) {
     b.ctext("Headline", 22.0, 760.0, "Lost cat", t.h(110.0, t.light).upper().lh(1.0));
     b.rect("Photo frame", 60.0, 210.0, 360.0, 360.0, 24.0, solid(t.dark.lerp(t.light, 0.9)));
     b.icon("Photo icon", "image", 165.0, 300.0, 150.0, 150.0, solid(t.dark.lerp(t.light, 0.6)));
-    b.text("Photo hint", 60.0, 480.0, 360.0, "Add a photo", t.b(20.0, t.dark.lerp(t.light, 0.4)));
+    b.text("Photo hint", 60.0, 480.0, 360.0, "Add a photo", t.b(20.0, t.dark.lerp(t.light, 0.25)));
     b.text("Name", 450.0, 205.0, 320.0, "Pepper", t.h(64.0, t.dark).left());
     b.text(
         "Description",
@@ -298,7 +298,7 @@ fn yoga_flyer(b: &mut B) {
         b.text(&format!("{what} time"), x, 650.0, 142.0, time, t.b(20.0, t.dark).bold());
         b.text(&format!("{what} label"), x, 680.0, 142.0, what, t.b(15.0, t.dark.lerp(t.light, 0.2)));
     }
-    b.rect("Footer", 0.0, h - 50.0, w, 50.0, 0.0, solid(t.primary));
+    b.rect("Footer", 0.0, h - 50.0, w, 50.0, 0.0, solid(t.primary.lerp(t.dark, 0.3)));
     b.ctext("Footer text", h - 36.0, w - 40.0, "First class free · yogaclub.example", t.b(15.0, t.light).bold());
 }
 
@@ -346,10 +346,10 @@ fn exhibition_poster(b: &mut B) {
     for (i, (label, value)) in [("Dates", "12 March – 30 June"), ("Hours", "Tue–Sun · 10–18 h"), ("Venue", "City Gallery, Hall 2")].iter().enumerate()
     {
         let x = 200.0 + 450.0 * i as f64;
-        b.text(&format!("{label} label"), x, 1990.0, 430.0, label, t.b(30.0, t.primary).bold().upper().ls(200.0).left());
+        b.text(&format!("{label} label"), x, 1990.0, 430.0, label, t.b(30.0, t.primary.lerp(t.dark, 0.5)).bold().upper().ls(200.0).left());
         b.text(&format!("{label} value"), x, 2040.0, 430.0, value, t.b(36.0, t.dark).left());
     }
-    b.text("Website", 200.0, 2170.0, 1328.0, "citygallery.example · free entry on Sundays", t.b(32.0, t.primary).bold().left());
+    b.text("Website", 200.0, 2170.0, 1328.0, "citygallery.example · free entry on Sundays", t.b(32.0, t.primary.lerp(t.dark, 0.5)).bold().left());
 }
 
 // ---------------------------------------------------------------- menus and price lists
@@ -363,7 +363,7 @@ fn bistro_menu(b: &mut B) {
     b.shape("Leaf right", ShapeKind::Ellipse, w - 140.0, 110.0, 70.0, 26.0, solid(t.secondary));
     b.rotate_last(30.0);
     b.ctext("Restaurant name", 80.0, 600.0, "Little Olive", t.h(72.0, t.primary).italic());
-    b.ctext("Tagline", 175.0, 500.0, "Kitchen & wine bar", t.b(20.0, t.secondary).bold().upper().ls(400.0));
+    b.ctext("Tagline", 175.0, 500.0, "Kitchen & wine bar", t.b(20.0, t.secondary.lerp(t.dark, 0.35)).bold().upper().ls(400.0));
     b.rect("Divider", (w - 100.0) / 2.0, 220.0, 100.0, 3.0, 1.5, solid(t.secondary));
     // dish, price, description
     type Dish = (&'static str, &'static str, &'static str);
@@ -447,7 +447,7 @@ fn price_list(b: &mut B) {
     b.bg(solid(t.light));
     b.icon("Flower", "flower", w / 2.0 - 20.0, 18.0, 40.0, 40.0, solid(t.primary));
     b.ctext("Name", 66.0, w - 60.0, "Bloom Studio", t.h(44.0, t.dark));
-    b.ctext("Tagline", 124.0, w - 100.0, "Hair · Nails · Brows", t.b(14.0, t.primary).bold().upper().ls(400.0));
+    b.ctext("Tagline", 124.0, w - 100.0, "Hair · Nails · Brows", t.b(14.0, t.primary.lerp(t.dark, 0.2)).bold().upper().ls(400.0));
     // title, top, (service, price) rows
     type Section = (&'static str, f64, &'static [(&'static str, &'static str)]);
     let sections: [Section; 3] = [
@@ -464,6 +464,6 @@ fn price_list(b: &mut B) {
             b.text(&format!("{service} price"), w - 170.0, iy, 120.0, price, t.b(16.0, t.dark).bold().right());
         }
     }
-    b.rect("Footer", 0.0, h - 90.0, w, 90.0, 0.0, solid(t.primary));
+    b.rect("Footer", 0.0, h - 90.0, w, 90.0, 0.0, solid(t.primary.lerp(t.dark, 0.2)));
     b.ctext("Footer text", h - 55.0, w - 40.0, "Book online: bloom.example · 555 0100 300", t.b(15.0, t.light).bold());
 }

@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 use crate::theme::{Tokens, to_egui};
 use crate::{App, LeftTab, io, thumbs};
 use genha_doc::{ElementKind, NodeId, preset};
+use genha_i18n::{N_, tr, tr_n};
 
 #[derive(Default)]
 pub struct EditorState {
@@ -17,6 +18,8 @@ pub struct EditorState {
     pub new_brand_color: [u8; 3],
     pub versions_open: bool,
     pub version_name: String,
+    /// The top bar's groups as last drawn (document, tools, file, view, commands), in points.
+    pub top_bar_widths: Option<[f32; 5]>,
     /// A video being exported on a worker thread (desktop; the browser exports in place).
     #[cfg(not(target_arch = "wasm32"))]
     pub video_job: Option<VideoJob>,
@@ -69,10 +72,10 @@ impl VideoJob {
 fn poll_video(app: &mut App) {
     let Some(job) = &app.editor.video_job else { return };
     let msg = match job.done.try_recv() {
-        Ok(Ok(_)) => format!("Downloaded {}", job.path.display()),
+        Ok(Ok(_)) => tr!("Downloaded {path}", path = job.path.display()),
         Ok(Err(e)) => e,
         Err(std::sync::mpsc::TryRecvError::Empty) => return,
-        Err(std::sync::mpsc::TryRecvError::Disconnected) => "The video export stopped unexpectedly".into(),
+        Err(std::sync::mpsc::TryRecvError::Disconnected) => tr!("The video export stopped unexpectedly"),
     };
     app.editor.video_job = None;
     app.set_status(msg);
@@ -97,6 +100,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.canvas)).show(ui, |ui| crate::canvas::show(app, ui, &t));
     palette(app, ui.ctx(), &t);
     versions_window(app, ui.ctx(), &t);
+    crate::models::show(app, ui.ctx());
 }
 
 fn panel_frame(t: &Tokens) -> egui::Frame {
@@ -104,130 +108,202 @@ fn panel_frame(t: &Tokens) -> egui::Frame {
 }
 
 fn top_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
+    // One row when everything fits (text is longer in some languages, windows can be narrow);
+    // otherwise two: document and file actions above, tools and view below. The groups' widths
+    // are measured as they are drawn (estimated from their labels until then).
+    let gaps = 4.0 * (ui.ctx().global_style().spacing.item_spacing.x * 2.0 + 2.0) + 24.0;
+    let need = app.editor.top_bar_widths.map_or_else(|| top_bar_width(app, ui), |w| w.iter().sum::<f32>() + gaps);
+    let one_row = need <= ui.available_width();
+    let mut widths = [0.0f32; 5];
+    let mut measure = |i: usize, r: egui::Response| {
+        if let Some(w) = widths.get_mut(i) {
+            *w = r.rect.width();
+        }
+    };
     egui::Panel::top("top_bar")
-        .exact_size(48.0)
+        .exact_size(if one_row { 48.0 } else { 84.0 })
         .frame(egui::Frame::new().fill(t.panel).inner_margin(egui::Margin::symmetric(12, 8)).stroke(egui::Stroke::new(1.0, t.border)))
         .show(ui, |ui| {
-            ui.horizontal_centered(|ui| {
-                if ui.button(egui::RichText::new("GenHa").strong().color(t.accent)).on_hover_text("Home").clicked() {
-                    app.screen = crate::Screen::Home;
-                }
-                ui.separator();
-                let title = app.session.active().map(|d| d.doc.title.clone()).unwrap_or_default();
-                match &mut app.editor.renaming {
-                    Some(name) => {
-                        let r = ui.add(egui::TextEdit::singleline(name).desired_width(200.0));
-                        r.request_focus();
-                        if r.lost_focus() {
-                            let name = name.clone();
-                            app.editor.renaming = None;
-                            app.run("document.rename", &json!({"title": name}));
-                        }
-                    }
-                    None => {
-                        let dirty = app.session.active().is_some_and(|d| d.dirty);
-                        if ui
-                            .add(
-                                egui::Label::new(egui::RichText::new(format!("{title}{}", if dirty { " •" } else { "" })).strong())
-                                    .sense(egui::Sense::click()),
-                            )
-                            .on_hover_text("Click to rename")
-                            .clicked()
-                        {
-                            app.editor.renaming = Some(title);
-                        }
-                    }
-                }
-                ui.separator();
-                let can_undo = app.session.active().is_some_and(|d| !d.history.undo.is_empty());
-                let can_redo = app.session.active().is_some_and(|d| !d.history.redo.is_empty());
-                if ui.add_enabled(can_undo, egui::Button::new("Undo")).on_hover_text("Undo (Ctrl+Z)").clicked() {
-                    app.run("edit.undo", &json!({}));
-                }
-                if ui.add_enabled(can_redo, egui::Button::new("Redo")).on_hover_text("Redo (Ctrl+Shift+Z)").clicked() {
-                    app.run("edit.redo", &json!({}));
-                }
-                ui.separator();
-                resize_menu(app, ui);
-                ui.separator();
-                tools(app, ui, t);
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.menu_button(egui::RichText::new("Download").strong().color(t.accent), |ui| download_menu(app, ui))
-                        .response
-                        .on_hover_text("Export as PNG, JPEG, SVG, PDF, GIF, animated PNG or MP4 video");
-                    if ui.button("Versions").on_hover_text("Version history").clicked() {
-                        app.editor.versions_open = !app.editor.versions_open;
-                    }
-                    if ui.button("Save").on_hover_text("Save (Ctrl+S)").clicked() {
-                        save(app, false);
-                    }
+            if one_row {
+                ui.horizontal_centered(|ui| {
+                    measure(0, ui.scope(|ui| document_group(app, ui, t)).response);
                     ui.separator();
-                    if ui.button("Present").on_hover_text("Show the design full screen, page by page (F5)").clicked() {
-                        crate::motion::start_presenting(app, ui.ctx());
-                    }
-                    let playing = app.motion.playing.is_some();
-                    if ui
-                        .add(egui::Button::new(if playing { "Stop" } else { "Play" }).selected(playing))
-                        .on_hover_text("Play this page's animations")
-                        .clicked()
-                    {
-                        if playing {
-                            crate::motion::stop(app);
-                        } else {
-                            crate::motion::play(app, ui.ctx());
-                        }
-                    }
-                    ui.separator();
-                    let snapping = app.session.snapping;
-                    if ui
-                        .add(egui::Button::new("Snap").selected(snapping))
-                        .on_hover_text("Smart guides: snap to the page, other objects, equal gaps and sizes (hold Ctrl/Cmd while dragging to skip)")
-                        .clicked()
-                    {
-                        app.run("view.snapping", &json!({"on": !snapping}));
-                    }
-                    if ui.button("Fit").on_hover_text("Fit page (Ctrl+0)").clicked() {
-                        app.view.fit_pending = true;
-                    }
-                    ui.label(format!("{:.0}%", app.view.zoom * 100.0));
-                    if ui.button("+").clicked() {
-                        crate::canvas::zoom_by(app, 1.25, None);
-                    }
-                    if ui.button("-").clicked() {
-                        crate::canvas::zoom_by(app, 0.8, None);
-                    }
-                    if ui.button("Commands").on_hover_text("All commands (Ctrl+K)").clicked() {
-                        app.editor.palette_open = true;
-                    }
+                    measure(1, ui.scope(|ui| tools(app, ui, t)).response);
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        measure(2, ui.scope(|ui| file_group(app, ui, t)).response);
+                        ui.separator();
+                        measure(3, ui.scope(|ui| view_group(app, ui)).response);
+                        measure(4, ui.scope(|ui| commands_button(app, ui)).response);
+                    });
                 });
-            });
+            } else {
+                ui.horizontal(|ui| {
+                    measure(0, ui.scope(|ui| document_group(app, ui, t)).response);
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        measure(2, ui.scope(|ui| file_group(app, ui, t)).response);
+                        measure(4, ui.scope(|ui| commands_button(app, ui)).response);
+                    });
+                });
+                ui.horizontal(|ui| {
+                    measure(1, ui.scope(|ui| tools(app, ui, t)).response);
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        measure(3, ui.scope(|ui| view_group(app, ui)).response);
+                    });
+                });
+            }
         });
+    app.editor.top_bar_widths = Some(widths);
+}
+
+/// About how wide the top bar is on one row, from its labels in the UI's language.
+fn top_bar_width(app: &App, ui: &egui::Ui) -> f32 {
+    // The app's style (the theme may only reach this frame's widgets next frame).
+    let style = ui.ctx().global_style();
+    let font = egui::TextStyle::Button.resolve(&style);
+    let pad = style.spacing.button_padding.x * 2.0 + style.spacing.item_spacing.x;
+    let w = |s: &str| ui.painter().layout_no_wrap(s.to_string(), font.clone(), egui::Color32::WHITE).size().x + pad;
+    let sep = style.spacing.item_spacing.x * 2.0 + 2.0;
+    let title = app.session.active().map(|d| crate::shown_name(&d.doc.title)).unwrap_or_default();
+    let labels = [
+        "GenHa",
+        "Undo",
+        "Redo",
+        "Resize",
+        "Download",
+        "Versions",
+        "Save",
+        "Present",
+        if tr("Stop").len() > tr("Play").len() { "Stop" } else { "Play" },
+        "Snap",
+        "Fit",
+        "Commands",
+    ];
+    let tools: f32 = genha_tools::ToolId::ALL.iter().map(|tool| w(tr(tool.label()))).sum();
+    labels.iter().map(|l| w(tr(l))).sum::<f32>() + tools + w(&format!("{title} •")) + w("100%") + w("+") + w("-") + 7.0 * sep
+}
+
+/// Home, the design's name, undo and redo, resize.
+fn document_group(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
+    if ui.button(egui::RichText::new("GenHa").strong().color(t.accent)).on_hover_text(tr("Home")).clicked() {
+        app.screen = crate::Screen::Home;
+    }
+    ui.separator();
+    let title = app.session.active().map(|d| crate::shown_name(&d.doc.title)).unwrap_or_default();
+    match &mut app.editor.renaming {
+        Some(name) => {
+            let r = ui.add(egui::TextEdit::singleline(name).desired_width(200.0));
+            r.request_focus();
+            if r.lost_focus() {
+                let name = name.clone();
+                app.editor.renaming = None;
+                app.run("document.rename", &json!({"title": name}));
+            }
+        }
+        None => {
+            let dirty = app.session.active().is_some_and(|d| d.dirty);
+            if ui
+                .add(egui::Label::new(egui::RichText::new(format!("{title}{}", if dirty { " •" } else { "" })).strong()).sense(egui::Sense::click()))
+                .on_hover_text(tr("Click to rename"))
+                .clicked()
+            {
+                app.editor.renaming = Some(title);
+            }
+        }
+    }
+    ui.separator();
+    let can_undo = app.session.active().is_some_and(|d| !d.history.undo.is_empty());
+    let can_redo = app.session.active().is_some_and(|d| !d.history.redo.is_empty());
+    if ui.add_enabled(can_undo, egui::Button::new(tr("Undo"))).on_hover_text(tr("Undo (Ctrl+Z)")).clicked() {
+        app.run("edit.undo", &json!({}));
+    }
+    if ui.add_enabled(can_redo, egui::Button::new(tr("Redo"))).on_hover_text(tr("Redo (Ctrl+Shift+Z)")).clicked() {
+        app.run("edit.redo", &json!({}));
+    }
+    ui.separator();
+    resize_menu(app, ui);
+}
+
+/// Download, versions, save (right to left).
+fn file_group(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
+    ui.menu_button(egui::RichText::new(tr("Download")).strong().color(t.accent), |ui| download_menu(app, ui))
+        .response
+        .on_hover_text(tr("Export as PNG, JPEG, SVG, PDF, GIF, animated PNG or MP4 video"));
+    if ui.button(tr("Versions")).on_hover_text(tr("Version history")).clicked() {
+        app.editor.versions_open = !app.editor.versions_open;
+    }
+    if ui.button(tr("Save")).on_hover_text(tr("Save (Ctrl+S)")).clicked() {
+        save(app, false);
+    }
+}
+
+/// Present, play, snapping, zoom (right to left).
+fn view_group(app: &mut App, ui: &mut egui::Ui) {
+    if ui.button(tr("Present")).on_hover_text(tr("Show the design full screen, page by page (F5)")).clicked() {
+        crate::motion::start_presenting(app, ui.ctx());
+    }
+    let playing = app.motion.playing.is_some();
+    if ui
+        .add(egui::Button::new(if playing { tr("Stop") } else { tr("Play") }).selected(playing))
+        .on_hover_text(tr("Play this page's animations"))
+        .clicked()
+    {
+        if playing {
+            crate::motion::stop(app);
+        } else {
+            crate::motion::play(app, ui.ctx());
+        }
+    }
+    ui.separator();
+    let snapping = app.session.snapping;
+    if ui
+        .add(egui::Button::new(tr("Snap")).selected(snapping))
+        .on_hover_text(tr("Smart guides: snap to the page, other objects, equal gaps and sizes (hold Ctrl/Cmd while dragging to skip)"))
+        .clicked()
+    {
+        app.run("view.snapping", &json!({"on": !snapping}));
+    }
+    if ui.button(tr("Fit")).on_hover_text(tr("Fit page (Ctrl+0)")).clicked() {
+        app.view.fit_pending = true;
+    }
+    ui.label(format!("{:.0}%", app.view.zoom * 100.0));
+    if ui.button("+").clicked() {
+        crate::canvas::zoom_by(app, 1.25, None);
+    }
+    if ui.button("-").clicked() {
+        crate::canvas::zoom_by(app, 0.8, None);
+    }
+}
+
+fn commands_button(app: &mut App, ui: &mut egui::Ui) {
+    if ui.button(tr("Commands")).on_hover_text(tr("All commands (Ctrl+K)")).clicked() {
+        app.editor.palette_open = true;
+    }
 }
 
 fn tools(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     use genha_tools::ToolId;
     for tool in ToolId::ALL {
-        let icon = tool.label();
+        let icon = tr(tool.label());
         let on = app.session.tools.tool == tool;
         let b = egui::Button::new(egui::RichText::new(icon).color(if on { t.accent_text } else { t.text })).selected(on).fill(if on {
             t.accent
         } else {
             t.panel_alt
         });
-        if ui.add(b).on_hover_text(format!("{} ({})", tool.label(), tool.shortcut())).clicked() {
+        if ui.add(b).on_hover_text(format!("{icon} ({})", tool.shortcut())).clicked() {
             app.run("tool.set", &json!({"tool": tool.id()}));
         }
     }
 }
 
 fn resize_menu(app: &mut App, ui: &mut egui::Ui) {
-    ui.menu_button("Resize", |ui| {
-        ui.checkbox(&mut app.editor.resize_copy, "Keep this page, add a resized copy");
+    ui.menu_button(tr("Resize"), |ui| {
+        ui.checkbox(&mut app.editor.resize_copy, tr("Keep this page, add a resized copy"));
         ui.separator();
         for cat in preset::categories() {
-            ui.menu_button(cat, |ui| {
+            ui.menu_button(tr(cat), |ui| {
                 for p in preset::PRESETS.iter().filter(|p| p.category == cat) {
-                    if ui.button(format!("{}  ({:.0}×{:.0})", p.label, p.width, p.height)).clicked() {
+                    if ui.button(format!("{}  ({:.0}×{:.0})", tr(p.label), p.width, p.height)).clicked() {
                         let copy = app.editor.resize_copy;
                         app.run("page.resize", &json!({"preset": p.id, "copy": copy}));
                         app.view.fit_pending = true;
@@ -243,15 +319,15 @@ fn download_menu(app: &mut App, ui: &mut egui::Ui) {
     let name = app.session.active().map(|d| io::file_stem(&d.doc.title)).unwrap_or_else(|| "design".into());
     let entries: [(&str, &str, &str, Value); 10] = [
         ("PNG", "export.png", "png", json!({})),
-        ("PNG — transparent background", "export.png", "png", json!({"transparent": true})),
-        ("PNG — 2× size", "export.png", "png", json!({"scale": 2.0})),
+        (N_("PNG — transparent background"), "export.png", "png", json!({"transparent": true})),
+        (N_("PNG — 2× size"), "export.png", "png", json!({"scale": 2.0})),
         ("JPEG", "export.jpeg", "jpg", json!({})),
         ("SVG", "export.svg", "svg", json!({})),
-        ("PDF — all pages", "export.pdf", "pdf", json!({})),
-        ("PDF — print (bleed, crop marks)", "export.pdf", "pdf", json!({"print": true})),
-        ("GIF (animated)", "export.gif", "gif", json!({})),
-        ("Animated PNG", "export.apng", "png", json!({})),
-        ("MP4 video", "export.mp4", "mp4", json!({})),
+        (N_("PDF — all pages"), "export.pdf", "pdf", json!({})),
+        (N_("PDF — print (bleed, crop marks)"), "export.pdf", "pdf", json!({"print": true})),
+        (N_("GIF (animated)"), "export.gif", "gif", json!({})),
+        (N_("Animated PNG"), "export.apng", "png", json!({})),
+        (N_("MP4 video"), "export.mp4", "mp4", json!({})),
     ];
     for (label, cmd, ext, extra) in entries {
         let video = cmd == "export.mp4";
@@ -259,8 +335,8 @@ fn download_menu(app: &mut App, ui: &mut egui::Ui) {
         let busy = video && app.editor.video_job.is_some();
         #[cfg(target_arch = "wasm32")]
         let busy = false;
-        let button = ui.add_enabled(!busy, egui::Button::new(label));
-        let button = if video { button.on_hover_text("Every page in turn, each for its duration (30 frames per second)") } else { button };
+        let button = ui.add_enabled(!busy, egui::Button::new(tr(label)));
+        let button = if video { button.on_hover_text(tr("Every page in turn, each for its duration (30 frames per second)")) } else { button };
         if button.clicked() {
             ui.close();
             #[cfg(target_arch = "wasm32")]
@@ -274,12 +350,12 @@ fn download_menu(app: &mut App, ui: &mut egui::Ui) {
                 if video {
                     app.editor.video_job = VideoJob::start(app, ui.ctx(), p, path);
                     if app.editor.video_job.is_none() {
-                        app.set_status("Could not start the video export");
+                        app.set_status(tr("Could not start the video export"));
                     }
                     continue;
                 }
                 if app.run(cmd, &p).is_some() {
-                    app.set_status(format!("Downloaded {}", path.display()));
+                    app.set_status(tr!("Downloaded {path}", path = path.display()));
                 }
             }
         }
@@ -298,7 +374,7 @@ pub fn save(app: &mut App, save_as: bool) {
     if let Some(path) = io::pick_save(&format!("{name}.genha"), io::DESIGNS)
         && app.run("file.saveAs", &json!({"path": path.display().to_string()})).is_some()
     {
-        app.set_status(format!("Saved {}", path.display()));
+        app.set_status(tr!("Saved {path}", path = path.display()));
     }
 }
 
@@ -309,13 +385,11 @@ fn status_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             ui.horizontal_centered(|ui| {
                 if let Some(d) = app.session.active() {
                     if let Some(p) = d.doc.pages.get(d.page) {
-                        ui.colored_label(
-                            t.text_dim,
-                            format!("{}  ·  {:.0} × {:.0} px  ·  page {} of {}", p.name, p.width, p.height, d.page + 1, d.doc.pages.len()),
-                        );
+                        let page = tr!("page {page} of {pages}", page = d.page + 1, pages = d.doc.pages.len());
+                        ui.colored_label(t.text_dim, format!("{}  ·  {:.0} × {:.0} px  ·  {page}", crate::shown_name(&p.name), p.width, p.height));
                     }
                     if !d.selection.is_empty() {
-                        ui.colored_label(t.text_dim, format!("·  {} selected", d.selection.len()));
+                        ui.colored_label(t.text_dim, format!("·  {}", tr!("{n} selected", n = d.selection.len())));
                     }
                 }
                 if let Some((msg, at)) = &app.status
@@ -330,8 +404,8 @@ fn status_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                     let (n, total) = (job.progress.0.load(Ordering::Relaxed), job.progress.1.load(Ordering::Relaxed));
                     ui.separator();
                     ui.add(egui::ProgressBar::new(if total > 0 { n as f32 / total as f32 } else { 0.0 }).desired_width(120.0));
-                    ui.colored_label(t.text, format!("Exporting video… {n} of {total} frames"));
-                    if ui.small_button("Cancel").clicked() {
+                    ui.colored_label(t.text, tr!("Exporting video… {n} of {total} frames", n = n, total = total));
+                    if ui.small_button(tr("Cancel")).clicked() {
                         job.cancel();
                     }
                 }
@@ -388,25 +462,25 @@ fn page_strip(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                             goto = Some(i);
                         }
                         r.context_menu(|ui| {
-                            if ui.button("Duplicate page").clicked() {
+                            if ui.button(tr("Duplicate page")).clicked() {
                                 action = Some(("page.duplicate", json!({"index": i})));
                                 ui.close();
                             }
-                            if ui.button("Delete page").clicked() {
+                            if ui.button(tr("Delete page")).clicked() {
                                 action = Some(("page.delete", json!({"index": i})));
                                 ui.close();
                             }
-                            if i > 0 && ui.button("Move left").clicked() {
+                            if i > 0 && ui.button(tr("Move left")).clicked() {
                                 action = Some(("page.move", json!({"from": i, "to": i - 1})));
                                 ui.close();
                             }
-                            if i + 1 < doc.pages.len() && ui.button("Move right").clicked() {
+                            if i + 1 < doc.pages.len() && ui.button(tr("Move right")).clicked() {
                                 action = Some(("page.move", json!({"from": i, "to": i + 1})));
                                 ui.close();
                             }
                         });
                     }
-                    if ui.add(egui::Button::new(egui::RichText::new("+\nAdd page").size(13.0)).min_size(egui::vec2(90.0, 80.0))).clicked() {
+                    if ui.add(egui::Button::new(egui::RichText::new(tr("+\nAdd page")).size(13.0)).min_size(egui::vec2(90.0, 80.0))).clicked() {
                         action = Some(("page.add", json!({})));
                     }
                 });
@@ -435,7 +509,7 @@ fn left_rail(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             ui.vertical_centered(|ui| {
                 for tab in LeftTab::ALL {
                     let on = app.left_tab == tab;
-                    let text = egui::RichText::new(tab.label()).size(12.0).color(if on { t.accent } else { t.text_dim });
+                    let text = egui::RichText::new(tr(tab.label())).size(12.0).color(if on { t.accent } else { t.text_dim });
                     let b = egui::Button::new(text)
                         .min_size(egui::vec2(92.0, 40.0))
                         .fill(if on { t.accent_soft } else { egui::Color32::TRANSPARENT })
@@ -467,9 +541,9 @@ fn left_panel(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 }
 
 fn templates_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    heading(ui, "Templates");
-    ui.add(egui::TextEdit::singleline(&mut app.editor.template_query).hint_text("Search templates"));
-    ui.label(egui::RichText::new("Click: open as a new design · right-click: add as a page").size(11.0).color(t.text_dim));
+    heading(ui, tr("Templates"));
+    ui.add(egui::TextEdit::singleline(&mut app.editor.template_query).hint_text(tr("Search templates")));
+    ui.label(egui::RichText::new(tr("Click: open as a new design · right-click: add as a page")).size(11.0).color(t.text_dim));
     let q = app.editor.template_query.to_lowercase();
     let ctx = ui.ctx().clone();
     let mut chosen: Option<(&'static str, bool)> = None;
@@ -478,6 +552,7 @@ fn templates_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             if !q.is_empty()
                 && !tp.name.to_lowercase().contains(&q)
                 && !tp.category.to_lowercase().contains(&q)
+                && !tr(tp.category).to_lowercase().contains(&q)
                 && !tp.tags.iter().any(|g| g.contains(&q))
             {
                 continue;
@@ -501,7 +576,7 @@ fn templates_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             if r.hovered() {
                 ui.painter().rect_stroke(img, 4, egui::Stroke::new(2.0, t.accent), egui::StrokeKind::Outside);
             }
-            let r = r.on_hover_text(format!("{} — {}", tp.name, tp.category));
+            let r = r.on_hover_text(format!("{} — {}", tp.name, tr(tp.category)));
             if r.clicked() {
                 chosen = Some((tp.id, false));
             }
@@ -517,7 +592,7 @@ fn templates_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 }
 
 fn elements_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    heading(ui, "Shapes & icons");
+    heading(ui, tr("Shapes & icons"));
     let ctx = ui.ctx().clone();
     let mut add: Option<&'static str> = None;
     let lib = genha_templates::shape_library();
@@ -528,7 +603,7 @@ fn elements_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         }
     }
     for cat in cats {
-        ui.label(egui::RichText::new(cat).color(t.text_dim).size(12.0));
+        ui.label(egui::RichText::new(tr(cat)).color(t.text_dim).size(12.0));
         ui.horizontal_wrapped(|ui| {
             for item in lib.iter().filter(|s| s.category == cat) {
                 let fonts = app.session.fonts.clone();
@@ -566,7 +641,7 @@ fn elements_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                         egui::Color32::WHITE,
                     );
                 }
-                if r.on_hover_text(item.label).clicked() {
+                if r.on_hover_text(tr(item.label)).clicked() {
                     add = Some(item.id);
                 }
             }
@@ -576,39 +651,39 @@ fn elements_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         app.run("library.addShape", &json!({"id": id}));
     }
     ui.separator();
-    heading(ui, "Charts & tables");
+    heading(ui, tr("Charts & tables"));
     ui.horizontal_wrapped(|ui| {
-        for (label, kind) in [
-            ("Bar", "bar"),
-            ("Horizontal bar", "horizontal-bar"),
-            ("Line", "line"),
-            ("Area", "area"),
-            ("Pie", "pie"),
-            ("Donut", "donut"),
-            ("Progress", "progress"),
-            ("Ring", "ring"),
+        for (label, kind, hint) in [
+            (N_("Bar"), "bar", N_("Add a bar chart")),
+            (N_("Horizontal bar"), "horizontal-bar", N_("Add a horizontal bar chart")),
+            (N_("Line"), "line", N_("Add a line chart")),
+            (N_("Area"), "area", N_("Add an area chart")),
+            (N_("Pie"), "pie", N_("Add a pie chart")),
+            (N_("Donut"), "donut", N_("Add a donut chart")),
+            (N_("Progress"), "progress", N_("Add a progress bar")),
+            (N_("Ring"), "ring", N_("Add a progress ring")),
         ] {
-            if ui.button(label).on_hover_text(format!("Add a {} chart", label.to_lowercase())).clicked() {
+            if ui.button(tr(label)).on_hover_text(tr(hint)).clicked() {
                 app.run("chart.add", &json!({"kind": kind}));
             }
         }
-        if ui.button("Table").on_hover_text("Add a 3 x 3 table").clicked() {
+        if ui.button(tr("Table")).on_hover_text(tr("Add a 3 x 3 table")).clicked() {
             app.run("table.add", &json!({}));
         }
     });
     ui.separator();
-    heading(ui, "QR code");
+    heading(ui, tr("QR code"));
     ui.add(egui::TextEdit::singleline(&mut app.editor.qr_text).hint_text("https://…"));
-    if ui.add_enabled(!app.editor.qr_text.trim().is_empty(), egui::Button::new("Add QR code")).clicked() {
+    if ui.add_enabled(!app.editor.qr_text.trim().is_empty(), egui::Button::new(tr("Add QR code"))).clicked() {
         let text = app.editor.qr_text.trim().to_string();
         app.run("element.qrCode", &json!({"text": text}));
     }
     ui.separator();
-    heading(ui, "Collage");
+    heading(ui, tr("Collage"));
     let pictures =
         app.session.active().map(|d| d.selected_elements().iter().filter(|e| matches!(e.kind, ElementKind::Image(_))).count()).unwrap_or(0);
     if pictures == 0 {
-        ui.colored_label(t.text_dim, "Select pictures on the page to arrange them as a collage.");
+        ui.colored_label(t.text_dim, tr("Select pictures on the page to arrange them as a collage."));
     } else {
         let mut chosen = None;
         ui.horizontal_wrapped(|ui| {
@@ -622,7 +697,7 @@ fn elements_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                     );
                     ui.painter().rect_filled(cell.shrink(1.0), 2, if r.hovered() { t.accent } else { t.border });
                 }
-                if r.on_hover_text(l.label).clicked() {
+                if r.on_hover_text(tr(l.label)).clicked() {
                     chosen = Some(l.id);
                 }
             }
@@ -634,23 +709,26 @@ fn elements_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 }
 
 fn text_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    heading(ui, "Text");
-    for (role, label, size) in [("heading", "Add a heading", 22.0), ("subheading", "Add a subheading", 17.0), ("body", "Add body text", 13.0)] {
-        let b = egui::Button::new(egui::RichText::new(label).size(size).strong()).min_size(egui::vec2(ui.available_width(), 40.0));
+    heading(ui, tr("Text"));
+    for (role, label, size) in
+        [("heading", N_("Add a heading"), 22.0), ("subheading", N_("Add a subheading"), 17.0), ("body", N_("Add body text"), 13.0)]
+    {
+        let b = egui::Button::new(egui::RichText::new(tr(label)).size(size).strong()).min_size(egui::vec2(ui.available_width(), 40.0));
         if ui.add(b).clicked() {
+            // The new box's text, in the language of the UI.
             let text = match role {
-                "heading" => "Your headline",
-                "subheading" => "A subheading",
-                _ => "Write something here",
+                "heading" => tr("Your headline"),
+                "subheading" => tr("A subheading"),
+                _ => tr("Write something here"),
             };
             app.run("text.add", &json!({"text": text, "role": role}));
         }
     }
     ui.separator();
-    heading(ui, "Text styles");
+    heading(ui, tr("Text styles"));
     for p in genha_templates::text_presets() {
         let color = to_egui(p.style.color);
-        let mut rt = egui::RichText::new(p.sample).size((p.style.font_size as f32 / 4.0).clamp(11.0, 26.0));
+        let mut rt = egui::RichText::new(tr(p.sample)).size((p.style.font_size as f32 / 4.0).clamp(11.0, 26.0));
         if p.style.bold {
             rt = rt.strong();
         }
@@ -659,20 +737,20 @@ fn text_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         }
         let readable = if t.dark && color.r() < 80 && color.g() < 80 && color.b() < 80 { t.text } else { color };
         let b = egui::Button::new(rt.color(readable)).min_size(egui::vec2(ui.available_width(), 36.0));
-        if ui.add(b).on_hover_text(p.label).clicked() {
-            app.run("text.addPreset", &json!({"id": p.id}));
+        if ui.add(b).on_hover_text(tr(p.label)).clicked() {
+            app.run("text.addPreset", &json!({"id": p.id, "text": tr(p.sample)}));
         }
     }
     ui.separator();
-    heading(ui, "Fonts");
+    heading(ui, tr("Fonts"));
     crate::fonts::add_fonts_ui(app, ui);
 }
 
 fn media_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    heading(ui, "Your pictures");
+    heading(ui, tr("Your pictures"));
     if ui
         .add(
-            egui::Button::new(egui::RichText::new("Upload picture…").color(t.accent_text))
+            egui::Button::new(egui::RichText::new(tr("Upload picture…")).color(t.accent_text))
                 .fill(t.accent)
                 .min_size(egui::vec2(ui.available_width(), 36.0)),
         )
@@ -681,7 +759,7 @@ fn media_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     {
         app.run("image.place", &json!({"path": p.display().to_string()}));
     }
-    ui.label(egui::RichText::new("…or drop pictures on the window.").size(11.0).color(t.text_dim));
+    ui.label(egui::RichText::new(tr("…or drop pictures on the window.")).size(11.0).color(t.text_dim));
     ui.add_space(6.0);
     let Some(d) = app.session.active() else { return };
     let assets: Vec<(u64, String, u32, u32)> = d.doc.assets.iter().map(|(id, a)| (id.0, a.name.clone(), a.width, a.height)).collect();
@@ -718,12 +796,12 @@ fn media_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 }
 
 fn brand_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    heading(ui, "Brand kit");
+    heading(ui, tr("Brand kit"));
     let Some(d) = app.session.active() else { return };
     let brand = d.doc.brand.clone();
-    ui.label(egui::RichText::new(&brand.name).strong());
+    ui.label(egui::RichText::new(crate::shown_name(&brand.name)).strong());
     ui.add_space(4.0);
-    ui.label(egui::RichText::new("Colours").color(t.text_dim));
+    ui.label(egui::RichText::new(tr("Colours")).color(t.text_dim));
     let mut set: Option<(usize, genha_color::Color)> = None;
     let mut remove = None;
     for (i, c) in brand.colors.iter().enumerate() {
@@ -732,8 +810,8 @@ fn brand_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             if ui.color_edit_button_srgba(&mut col).changed() {
                 set = Some((i, crate::theme::from_egui(col)));
             }
-            ui.label(format!("{}  {}", c.name, c.color.to_hex()));
-            if ui.small_button("x").on_hover_text("Remove").clicked() {
+            ui.label(format!("{}  {}", crate::shown_name(&c.name), c.color.to_hex()));
+            if ui.small_button("x").on_hover_text(tr("Remove")).clicked() {
                 remove = Some(i);
             }
         });
@@ -749,33 +827,33 @@ fn brand_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         let mut col = egui::Color32::from_rgb(r, g, b);
         ui.color_edit_button_srgba(&mut col);
         app.editor.new_brand_color = [col.r(), col.g(), col.b()];
-        if ui.button("Add colour").clicked() {
+        if ui.button(tr("Add colour")).clicked() {
             let c = genha_color::Color::rgb(col.r(), col.g(), col.b());
             app.run("brand.addColor", &json!({"color": c.to_hex()}));
         }
     });
     let has_picture = app.session.active().is_some_and(|d| d.selected_elements().iter().any(|e| matches!(e.kind, ElementKind::Image(_))));
-    if ui.add_enabled(has_picture, egui::Button::new("Colours from selected picture")).clicked() {
+    if ui.add_enabled(has_picture, egui::Button::new(tr("Colours from selected picture"))).clicked() {
         app.run("brand.fromPicture", &json!({}));
     }
     ui.separator();
-    ui.label(egui::RichText::new("Fonts").color(t.text_dim));
+    ui.label(egui::RichText::new(tr("Fonts")).color(t.text_dim));
     let families = app.font_families().to_vec();
     let (mut heading_font, mut body_font) = (brand.heading_font.clone(), brand.body_font.clone());
-    font_combo(ui, "brand_heading", "Headings", &mut heading_font, &families);
-    font_combo(ui, "brand_body", "Body", &mut body_font, &families);
+    font_combo(ui, "brand_heading", tr("Headings"), &mut heading_font, &families);
+    font_combo(ui, "brand_body", tr("Body"), &mut body_font, &families);
     if heading_font != brand.heading_font || body_font != brand.body_font {
         app.run("brand.setFonts", &json!({"heading": heading_font, "body": body_font}));
     }
     ui.separator();
-    if ui.button("Apply brand to this page").clicked() {
+    if ui.button(tr("Apply brand to this page")).clicked() {
         app.run("brand.apply", &json!({}));
     }
-    if ui.button("Apply brand to all pages").clicked() {
+    if ui.button(tr("Apply brand to all pages")).clicked() {
         app.run("brand.apply", &json!({"all_pages": true}));
     }
     ui.separator();
-    heading(ui, "Palettes");
+    heading(ui, tr("Palettes"));
     let mut chosen = None;
     for p in genha_templates::palettes() {
         let r = ui
@@ -784,11 +862,11 @@ fn brand_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                     let (rect, _) = ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::hover());
                     ui.painter().rect_filled(rect, 4, to_egui(*c));
                 }
-                ui.label(p.name);
+                ui.label(tr(p.name));
             })
             .response
             .interact(egui::Sense::click());
-        if r.on_hover_text("Use as brand colours").clicked() {
+        if r.on_hover_text(tr("Use as brand colours")).clicked() {
             chosen = Some(p.id);
         }
     }
@@ -809,30 +887,30 @@ pub(crate) fn font_combo(ui: &mut egui::Ui, id: &str, label: &str, value: &mut S
 }
 
 fn layers_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    heading(ui, "Layers");
+    heading(ui, tr("Layers"));
     let Some(d) = app.session.active() else { return };
     let Some(page) = d.doc.pages.get(d.page) else { return };
     let sel = d.selection.clone();
     let rows: Vec<(NodeId, String, &'static str, bool, bool)> =
-        page.elements.iter().rev().map(|e| (e.id, e.display_name(), e.kind.type_name(), e.hidden, e.locked)).collect();
+        page.elements.iter().rev().map(|e| (e.id, crate::element_name(e), e.kind.type_name(), e.hidden, e.locked)).collect();
     if rows.is_empty() {
-        ui.colored_label(t.text_dim, "This page is empty. Add text, shapes or pictures from the left.");
+        ui.colored_label(t.text_dim, tr("This page is empty. Add text, shapes or pictures from the left."));
         return;
     }
     let mut action: Option<(&str, Value)> = None;
     for (id, name, kind, hidden, locked) in rows {
         let on = sel.contains(&id);
         ui.horizontal(|ui| {
-            let eye = if hidden { "show" } else { "hide" };
-            if ui.small_button(eye).on_hover_text(if hidden { "Show" } else { "Hide" }).clicked() {
+            let eye = if hidden { tr("show") } else { tr("hide") };
+            if ui.small_button(eye).on_hover_text(if hidden { tr("Show") } else { tr("Hide") }).clicked() {
                 action = Some((if hidden { "object.show" } else { "object.hide" }, json!({"ids": [id.0]})));
             }
-            let lock = if locked { "unlock" } else { "lock" };
-            if ui.small_button(lock).on_hover_text(if locked { "Unlock" } else { "Lock" }).clicked() {
+            let lock = if locked { tr("unlock") } else { tr("lock") };
+            if ui.small_button(lock).on_hover_text(if locked { tr("Unlock") } else { tr("Lock") }).clicked() {
                 action = Some((if locked { "object.unlock" } else { "object.lock" }, json!({"ids": [id.0]})));
             }
             let text = egui::RichText::new(format!("{name}  ")).color(if hidden { t.text_dim } else { t.text });
-            if ui.selectable_label(on, text).on_hover_text(kind).clicked() {
+            if ui.selectable_label(on, text).on_hover_text(tr(kind)).clicked() {
                 let ids = if ui.input(|i| i.modifiers.shift) {
                     let mut s: Vec<u64> = sel.iter().map(|i| i.0).collect();
                     s.push(id.0);
@@ -847,12 +925,12 @@ fn layers_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     ui.separator();
     ui.horizontal_wrapped(|ui| {
         for (label, cmd) in [
-            ("Forward", "object.bringForward"),
-            ("Backward", "object.sendBackward"),
-            ("To front", "object.bringToFront"),
-            ("To back", "object.sendToBack"),
+            (N_("Forward"), "object.bringForward"),
+            (N_("Backward"), "object.sendBackward"),
+            (N_("To front"), "object.bringToFront"),
+            (N_("To back"), "object.sendToBack"),
         ] {
-            if ui.add_enabled(!sel.is_empty(), egui::Button::new(label)).clicked() {
+            if ui.add_enabled(!sel.is_empty(), egui::Button::new(tr(label))).clicked() {
                 action = Some((cmd, json!({})));
             }
         }
@@ -971,34 +1049,39 @@ fn palette(app: &mut App, ctx: &egui::Context, t: &Tokens) {
     }
     let mut open = true;
     let mut run: Option<&'static str> = None;
-    egui::Window::new("Commands")
+    egui::Window::new(tr("Commands"))
+        .id(egui::Id::new("command_palette"))
         .open(&mut open)
         .collapsible(false)
         .resizable(false)
         .default_width(420.0)
         .anchor(egui::Align2::CENTER_TOP, egui::vec2(0.0, 80.0))
         .show(ctx, |ui| {
-            let r = ui.add(egui::TextEdit::singleline(&mut app.editor.palette_query).hint_text("Type a command…").desired_width(f32::INFINITY));
+            let r = ui.add(egui::TextEdit::singleline(&mut app.editor.palette_query).hint_text(tr("Type a command…")).desired_width(f32::INFINITY));
             r.request_focus();
-            let q = app.editor.palette_query.to_lowercase();
             egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
                 let mut first = None;
-                for spec in genha_engine::command_specs() {
-                    if spec.menu.is_empty() || !(spec.label.to_lowercase().contains(&q) || spec.id.contains(&q)) {
-                        continue;
+                for e in palette_entries(&app.editor.palette_query) {
+                    let enabled = (e.spec.enabled)(&app.session).is_ok();
+                    first.get_or_insert(e.spec.id);
+                    let mut job = egui::text::LayoutJob::default();
+                    let font = egui::TextStyle::Button.resolve(ui.style());
+                    let dim = if enabled { t.text_dim } else { t.text_dim.gamma_multiply(0.6) };
+                    let ink = if enabled { t.text } else { t.text_dim };
+                    job.append(&format!("{}  ›  ", e.menu), 0.0, egui::TextFormat::simple(font.clone(), dim));
+                    job.append(&e.label, 0.0, egui::TextFormat::simple(font.clone(), ink));
+                    if let Some(sc) = e.spec.shortcut {
+                        job.append(&format!("    {}", shortcut_text(sc)), 0.0, egui::TextFormat::simple(font, dim));
                     }
-                    let enabled = (spec.enabled)(&app.session).is_ok();
-                    first.get_or_insert(spec.id);
-                    let label = format!("{}{}", spec.label, spec.shortcut.map(|s| format!("    {s}")).unwrap_or_default());
-                    if ui.add_enabled(enabled, egui::Button::new(label).frame(false)).on_hover_text(spec.id).clicked() {
-                        run = Some(spec.id);
+                    if ui.add_enabled(enabled, egui::Button::new(job).frame(false)).on_hover_text(e.spec.id).clicked() {
+                        run = Some(e.spec.id);
                     }
                 }
                 if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                     run = first;
                 }
             });
-            ui.colored_label(t.text_dim, "Commands that need parameters are easier from the panels.");
+            ui.colored_label(t.text_dim, tr("Commands that need parameters are easier from the panels."));
         });
     if !open || ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
         app.editor.palette_open = false;
@@ -1016,6 +1099,31 @@ fn palette(app: &mut App, ctx: &egui::Context, t: &Tokens) {
     }
 }
 
+/// A command in the palette: its menu path and label in the UI's language.
+pub(crate) struct PaletteEntry {
+    pub spec: &'static genha_engine::CommandSpec,
+    pub menu: String,
+    pub label: String,
+}
+
+/// The commands the palette lists for `query`, which matches the label and menu in the UI's
+/// language or in English, or the command id.
+pub(crate) fn palette_entries(query: &str) -> Vec<PaletteEntry> {
+    let q = query.trim().to_lowercase();
+    genha_engine::command_specs()
+        .iter()
+        .filter(|spec| !spec.menu.is_empty())
+        .map(|spec| PaletteEntry { spec, menu: spec.menu.iter().map(|m| tr(m)).collect::<Vec<_>>().join(" › "), label: tr(spec.label).to_string() })
+        .filter(|e| {
+            q.is_empty()
+                || e.label.to_lowercase().contains(&q)
+                || e.menu.to_lowercase().contains(&q)
+                || e.spec.label.to_lowercase().contains(&q)
+                || e.spec.id.to_lowercase().contains(&q)
+        })
+        .collect()
+}
+
 fn versions_window(app: &mut App, ctx: &egui::Context, t: &Tokens) {
     if !app.editor.versions_open {
         return;
@@ -1023,18 +1131,18 @@ fn versions_window(app: &mut App, ctx: &egui::Context, t: &Tokens) {
     let list = app.session.execute("version.list", &json!({})).ok().and_then(|v| v.as_array().cloned()).unwrap_or_default();
     let mut open = true;
     let mut action: Option<(&str, Value)> = None;
-    egui::Window::new("Version history").open(&mut open).default_width(360.0).show(ctx, |ui| {
+    egui::Window::new(tr("Version history")).id(egui::Id::new("versions")).open(&mut open).default_width(360.0).show(ctx, |ui| {
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut app.editor.version_name).hint_text("Name this version").desired_width(200.0));
-            if ui.button("Save version").clicked() {
+            ui.add(egui::TextEdit::singleline(&mut app.editor.version_name).hint_text(tr("Name this version")).desired_width(200.0));
+            if ui.button(tr("Save version")).clicked() {
                 action = Some(("version.save", json!({"name": app.editor.version_name.trim()})));
                 app.editor.version_name.clear();
             }
         });
-        ui.label(egui::RichText::new("Versions are kept inside the design file. Saving adds an automatic version.").size(11.0).color(t.text_dim));
+        ui.label(egui::RichText::new(tr("Versions are kept inside the design file. Saving adds an automatic version.")).size(11.0).color(t.text_dim));
         ui.separator();
         if list.is_empty() {
-            ui.colored_label(t.text_dim, "No versions yet.");
+            ui.colored_label(t.text_dim, tr("No versions yet."));
         }
         egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
             for v in &list {
@@ -1045,19 +1153,19 @@ fn versions_window(app: &mut App, ctx: &egui::Context, t: &Tokens) {
                 ui.horizontal(|ui| {
                     let label = egui::RichText::new(format!("{}{name}", if bookmarked { "* " } else { "" })).strong();
                     ui.label(label);
-                    ui.colored_label(t.text_dim, format!("{when} · {} pages", v["pages"].as_u64().unwrap_or(0)));
+                    ui.colored_label(t.text_dim, format!("{when} · {}", tr_n!("{n} page", "{n} pages", v["pages"].as_u64().unwrap_or(0))));
                 });
                 ui.horizontal(|ui| {
-                    if ui.small_button("Restore").clicked() {
+                    if ui.small_button(tr("Restore")).clicked() {
                         action = Some(("version.restore", json!({"id": id})));
                     }
-                    if ui.small_button("Open as copy").clicked() {
+                    if ui.small_button(tr("Open as copy")).clicked() {
                         action = Some(("version.copy", json!({"id": id})));
                     }
-                    if !bookmarked && ui.small_button("Keep").on_hover_text("Bookmark: never pruned").clicked() {
+                    if !bookmarked && ui.small_button(tr("Keep")).on_hover_text(tr("Bookmark: never pruned")).clicked() {
                         action = Some(("version.rename", json!({"id": id, "name": name, "bookmarked": true})));
                     }
-                    if ui.small_button("Delete").clicked() {
+                    if ui.small_button(tr("Delete")).clicked() {
                         action = Some(("version.delete", json!({"id": id})));
                     }
                 });
@@ -1078,12 +1186,29 @@ fn versions_window(app: &mut App, ctx: &egui::Context, t: &Tokens) {
 fn age(created: u64) -> String {
     let now = crate::now() as u64;
     if created == 0 || created > now {
-        return "unknown time".into();
+        return tr!("unknown time");
     }
     match now - created {
-        s if s < 60 => "just now".into(),
-        s if s < 3600 => format!("{} min ago", s / 60),
-        s if s < 86_400 => format!("{} h ago", s / 3600),
-        s => format!("{} days ago", s / 86_400),
+        s if s < 60 => tr!("just now"),
+        s if s < 3600 => tr!("{n} min ago", n = s / 60),
+        s if s < 86_400 => tr!("{n} h ago", n = s / 3600),
+        s => tr_n!("{n} day ago", "{n} days ago", s / 86_400),
     }
+}
+
+/// A command's shortcut (`Cmd+Shift+Z`) as this platform and language name the keys.
+pub(crate) fn shortcut_text(shortcut: &str) -> String {
+    let mac = cfg!(target_os = "macos");
+    shortcut
+        .split('+')
+        .map(|k| match k {
+            "Cmd" if mac => "Cmd",
+            "Cmd" | "Ctrl" => tr(N_("Ctrl")),
+            "Shift" => tr(N_("Shift")),
+            "Delete" => tr(N_("Del")),
+            "Escape" => tr(N_("Esc")),
+            k => k,
+        })
+        .collect::<Vec<_>>()
+        .join("+")
 }

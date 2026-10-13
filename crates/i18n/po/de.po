@@ -1,0 +1,2532 @@
+# German translation of the GenHa user interface.
+#
+# Keys (msgid) are the English strings in the code; a missing or empty msgstr shows in English.
+# Style: neutral and concise, no "du"/"Sie" (infinitives and nouns: "Bild hochladen",
+# "Hintergrund entfernen"). Placeholders such as {n} or {path} stay as they are; a trailing space
+# in the English (field prefixes such as "Size ") is kept. Section labels in capitals stay in
+# capitals. Checks: `cargo test -p genha-i18n` (well-formed) and `cargo test -p genha-ui-egui
+# every_ui_string` (complete, nothing unused).
+#
+# This file is part of GenHa and is licensed MIT OR Apache-2.0.
+msgid ""
+msgstr ""
+"Project-Id-Version: GenHa\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+
+# Top bar, page strip, status bar, windows
+
+msgid "Home"
+msgstr "Startseite"
+
+msgid "Click to rename"
+msgstr "Zum Umbenennen klicken"
+
+msgid "Undo"
+msgstr "Rückgängig"
+
+msgid "Undo (Ctrl+Z)"
+msgstr "Rückgängig (Strg+Z)"
+
+msgid "Redo"
+msgstr "Wiederholen"
+
+msgid "Redo (Ctrl+Shift+Z)"
+msgstr "Wiederholen (Strg+Umschalt+Z)"
+
+msgid "Download"
+msgstr "Herunterladen"
+
+msgid "Export as PNG, JPEG, SVG, PDF, GIF, animated PNG or MP4 video"
+msgstr "Als PNG, JPEG, SVG, PDF, GIF, animiertes PNG oder MP4-Video exportieren"
+
+msgid "Versions"
+msgstr "Versionen"
+
+msgid "Version history"
+msgstr "Versionsverlauf"
+
+msgid "Save"
+msgstr "Speichern"
+
+msgid "Save (Ctrl+S)"
+msgstr "Speichern (Strg+S)"
+
+msgid "Present"
+msgstr "Präsentieren"
+
+msgid "Show the design full screen, page by page (F5)"
+msgstr "Design im Vollbild zeigen, Seite für Seite (F5)"
+
+msgid "Stop"
+msgstr "Stopp"
+
+msgid "Play"
+msgstr "Abspielen"
+
+msgid "Play this page's animations"
+msgstr "Animationen dieser Seite abspielen"
+
+msgid "Snap"
+msgstr "Einrasten"
+
+msgid "Smart guides: snap to the page, other objects, equal gaps and sizes (hold Ctrl/Cmd while dragging to skip)"
+msgstr "Intelligente Hilfslinien: an Seite, anderen Objekten, gleichen Abständen und Größen einrasten (beim Ziehen Strg/Cmd halten, um es auszulassen)"
+
+msgid "Fit"
+msgstr "Einpassen"
+
+msgid "Fit page (Ctrl+0)"
+msgstr "Seite einpassen (Strg+0)"
+
+msgid "Commands"
+msgstr "Befehle"
+
+msgid "All commands (Ctrl+K)"
+msgstr "Alle Befehle (Strg+K)"
+
+msgid "Resize"
+msgstr "Größe ändern"
+
+msgid "Keep this page, add a resized copy"
+msgstr "Diese Seite behalten, angepasste Kopie hinzufügen"
+
+msgid "PNG — transparent background"
+msgstr "PNG – transparenter Hintergrund"
+
+msgid "PNG — 2× size"
+msgstr "PNG – doppelte Größe"
+
+msgid "PDF — all pages"
+msgstr "PDF – alle Seiten"
+
+msgid "PDF — print (bleed, crop marks)"
+msgstr "PDF – Druck (Beschnitt, Schnittmarken)"
+
+msgid "GIF (animated)"
+msgstr "GIF (animiert)"
+
+msgid "Animated PNG"
+msgstr "Animiertes PNG"
+
+msgid "MP4 video"
+msgstr "MP4-Video"
+
+msgid "Every page in turn, each for its duration (30 frames per second)"
+msgstr "Alle Seiten nacheinander, jede für ihre Dauer (30 Bilder pro Sekunde)"
+
+msgid "Could not start the video export"
+msgstr "Der Videoexport konnte nicht gestartet werden"
+
+msgid "Downloaded {path}"
+msgstr "{path} heruntergeladen"
+
+msgid "The video export stopped unexpectedly"
+msgstr "Der Videoexport wurde unerwartet beendet"
+
+msgid "Saved {path}"
+msgstr "{path} gespeichert"
+
+msgid "page {page} of {pages}"
+msgstr "Seite {page} von {pages}"
+
+msgid "{n} selected"
+msgstr "{n} ausgewählt"
+
+msgid "Exporting video… {n} of {total} frames"
+msgstr "Video wird exportiert… {n} von {total} Bildern"
+
+msgid "Cancel"
+msgstr "Abbrechen"
+
+msgid "Duplicate page"
+msgstr "Seite duplizieren"
+
+msgid "Delete page"
+msgstr "Seite löschen"
+
+msgid "Move left"
+msgstr "Nach links"
+
+msgid "Move right"
+msgstr "Nach rechts"
+
+msgid "+\nAdd page"
+msgstr "+\nSeite hinzufügen"
+
+msgid "Type a command…"
+msgstr "Befehl eingeben…"
+
+msgid "Commands that need parameters are easier from the panels."
+msgstr "Befehle mit Parametern gehen über die Bedienfelder leichter."
+
+msgid "Name this version"
+msgstr "Version benennen"
+
+msgid "Save version"
+msgstr "Version speichern"
+
+msgid "Versions are kept inside the design file. Saving adds an automatic version."
+msgstr "Versionen werden in der Designdatei gespeichert. Beim Speichern entsteht automatisch eine Version."
+
+msgid "No versions yet."
+msgstr "Noch keine Versionen."
+
+msgid "Restore"
+msgstr "Wiederherstellen"
+
+msgid "Open as copy"
+msgstr "Als Kopie öffnen"
+
+msgid "Keep"
+msgstr "Behalten"
+
+msgid "Bookmark: never pruned"
+msgstr "Lesezeichen: wird nie automatisch gelöscht"
+
+msgid "Delete"
+msgstr "Löschen"
+
+msgid "unknown time"
+msgstr "unbekannte Zeit"
+
+msgid "just now"
+msgstr "gerade eben"
+
+msgid "{n} min ago"
+msgstr "vor {n} Min."
+
+msgid "{n} h ago"
+msgstr "vor {n} Std."
+
+msgid "Unsaved changes"
+msgstr "Ungespeicherte Änderungen"
+
+msgid "Some designs have changes that are not saved."
+msgstr "Einige Designs haben ungespeicherte Änderungen."
+
+msgid "Quit without saving"
+msgstr "Beenden ohne Speichern"
+
+msgid "Right or click: next   Left: back   N: notes   Esc: exit"
+msgstr "Rechts oder Klick: weiter   Links: zurück   N: Notizen   Esc: beenden"
+
+msgid "(no speaker notes on this page)"
+msgstr "(keine Sprechernotizen auf dieser Seite)"
+
+# Left rail and panels
+
+msgid "Templates"
+msgstr "Vorlagen"
+
+msgid "Elements"
+msgstr "Elemente"
+
+msgid "Text"
+msgstr "Text"
+
+msgid "Media"
+msgstr "Medien"
+
+msgid "Brand"
+msgstr "Marke"
+
+msgid "Layers"
+msgstr "Ebenen"
+
+msgid "Search templates"
+msgstr "Vorlagen suchen"
+
+msgid "Click: open as a new design · right-click: add as a page"
+msgstr "Klick: als neues Design öffnen · Rechtsklick: als Seite hinzufügen"
+
+msgid "Shapes & icons"
+msgstr "Formen & Symbole"
+
+msgid "Charts & tables"
+msgstr "Diagramme & Tabellen"
+
+msgid "Bar"
+msgstr "Balken"
+
+msgid "Add a bar chart"
+msgstr "Balkendiagramm hinzufügen"
+
+msgid "Horizontal bar"
+msgstr "Horizontale Balken"
+
+msgid "Add a horizontal bar chart"
+msgstr "Horizontales Balkendiagramm hinzufügen"
+
+msgid "Line"
+msgstr "Linie"
+
+msgid "Add a line chart"
+msgstr "Liniendiagramm hinzufügen"
+
+msgid "Area"
+msgstr "Fläche"
+
+msgid "Add an area chart"
+msgstr "Flächendiagramm hinzufügen"
+
+msgid "Pie"
+msgstr "Kreis"
+
+msgid "Add a pie chart"
+msgstr "Kreisdiagramm hinzufügen"
+
+msgid "Donut"
+msgstr "Donut"
+
+msgid "Add a donut chart"
+msgstr "Donut-Diagramm hinzufügen"
+
+msgid "Progress"
+msgstr "Fortschritt"
+
+msgid "Add a progress bar"
+msgstr "Fortschrittsbalken hinzufügen"
+
+msgid "Ring"
+msgstr "Ring"
+
+msgid "Add a progress ring"
+msgstr "Fortschrittsring hinzufügen"
+
+msgid "Table"
+msgstr "Tabelle"
+
+msgid "Add a 3 x 3 table"
+msgstr "Tabelle mit 3 × 3 Zellen hinzufügen"
+
+msgid "QR code"
+msgstr "QR-Code"
+
+msgid "Add QR code"
+msgstr "QR-Code hinzufügen"
+
+msgid "Collage"
+msgstr "Collage"
+
+msgid "Select pictures on the page to arrange them as a collage."
+msgstr "Bilder auf der Seite auswählen, um sie als Collage anzuordnen."
+
+msgid "Add a heading"
+msgstr "Überschrift hinzufügen"
+
+msgid "Add a subheading"
+msgstr "Unterüberschrift hinzufügen"
+
+msgid "Add body text"
+msgstr "Fließtext hinzufügen"
+
+msgid "Your headline"
+msgstr "Überschrift"
+
+msgid "A subheading"
+msgstr "Eine Unterüberschrift"
+
+msgid "Write something here"
+msgstr "Hier Text eingeben"
+
+msgid "Text styles"
+msgstr "Textstile"
+
+msgid "Fonts"
+msgstr "Schriften"
+
+msgid "Your pictures"
+msgstr "Eigene Bilder"
+
+msgid "Upload picture…"
+msgstr "Bild hochladen…"
+
+msgid "…or drop pictures on the window."
+msgstr "…oder Bilder ins Fenster ziehen."
+
+msgid "Brand kit"
+msgstr "Markenkit"
+
+msgid "Colours"
+msgstr "Farben"
+
+msgid "Remove"
+msgstr "Entfernen"
+
+msgid "Add colour"
+msgstr "Farbe hinzufügen"
+
+msgid "Colours from selected picture"
+msgstr "Farben aus ausgewähltem Bild"
+
+msgid "Headings"
+msgstr "Überschriften"
+
+msgid "Body"
+msgstr "Fließtext"
+
+msgid "Apply brand to this page"
+msgstr "Marke auf diese Seite anwenden"
+
+msgid "Apply brand to all pages"
+msgstr "Marke auf alle Seiten anwenden"
+
+msgid "Palettes"
+msgstr "Paletten"
+
+msgid "Use as brand colours"
+msgstr "Als Markenfarben verwenden"
+
+msgid "This page is empty. Add text, shapes or pictures from the left."
+msgstr "Diese Seite ist leer. Text, Formen oder Bilder links hinzufügen."
+
+msgid "show"
+msgstr "zeigen"
+
+msgid "hide"
+msgstr "verbergen"
+
+msgid "Show"
+msgstr "Einblenden"
+
+msgid "Hide"
+msgstr "Ausblenden"
+
+msgid "unlock"
+msgstr "entsperren"
+
+msgid "lock"
+msgstr "sperren"
+
+msgid "Unlock"
+msgstr "Entsperren"
+
+msgid "Lock"
+msgstr "Sperren"
+
+msgid "Forward"
+msgstr "Nach vorne"
+
+msgid "Backward"
+msgstr "Nach hinten"
+
+msgid "To front"
+msgstr "Ganz nach vorne"
+
+msgid "To back"
+msgstr "Ganz nach hinten"
+
+msgid "Add fonts…"
+msgstr "Schriften hinzufügen…"
+
+msgid "TrueType or OpenType files (.ttf, .otf, .ttc); kept for next time"
+msgstr "TrueType- oder OpenType-Dateien (.ttf, .otf, .ttc); bleiben für das nächste Mal erhalten"
+
+msgid "Use installed fonts"
+msgstr "Installierte Schriften verwenden"
+
+msgid "Lets GenHa use the fonts installed on this computer (the browser asks first)"
+msgstr "Erlaubt GenHa, die auf diesem Computer installierten Schriften zu verwenden (der Browser fragt zuerst)"
+
+# Properties panel
+
+msgid "Page"
+msgstr "Seite"
+
+msgid "SIZE"
+msgstr "GRÖSSE"
+
+msgid "W "
+msgstr "B "
+
+msgid "H "
+msgstr "H "
+
+msgid "X "
+msgstr "X "
+
+msgid "Y "
+msgstr "Y "
+
+msgid "Rot "
+msgstr "Drehung "
+
+msgid "Use ⇲ Resize in the top bar to re-layout for another size."
+msgstr "Mit ⇲ Größe ändern oben das Layout an eine andere Größe anpassen."
+
+msgid "BACKGROUND"
+msgstr "HINTERGRUND"
+
+msgid "Gradient"
+msgstr "Verlauf"
+
+msgid "Transparent"
+msgstr "Transparent"
+
+msgid "NOTES"
+msgstr "NOTIZEN"
+
+msgid "Speaker notes"
+msgstr "Sprechernotizen"
+
+msgid "PAGE"
+msgstr "SEITE"
+
+msgid "Add page"
+msgstr "Seite hinzufügen"
+
+msgid "Crop to content"
+msgstr "Auf Inhalt zuschneiden"
+
+msgid "Shrink the page to its objects"
+msgstr "Seite auf ihre Objekte verkleinern"
+
+msgid "ANIMATION"
+msgstr "ANIMATION"
+
+msgid "Entrance"
+msgstr "Erscheinen"
+
+msgid "Pick an entrance to animate this object."
+msgstr "Eine Erscheinen-Animation wählen, um dieses Objekt zu animieren."
+
+msgid "Duration (s)"
+msgstr "Dauer (s)"
+
+msgid "Delay (s)"
+msgstr "Verzögerung (s)"
+
+msgid "Loop"
+msgstr "Schleife"
+
+msgid "Exit"
+msgstr "Verschwinden"
+
+msgid "Preview"
+msgstr "Vorschau"
+
+msgid "Play this page's animations on the canvas"
+msgstr "Animationen dieser Seite auf der Arbeitsfläche abspielen"
+
+msgid "Style"
+msgstr "Stil"
+
+msgid "Stagger (s)"
+msgstr "Versatz (s)"
+
+msgid "Animate all elements"
+msgstr "Alle Elemente animieren"
+
+msgid "One after another; backgrounds stay still"
+msgstr "Nacheinander; Hintergründe bleiben stehen"
+
+msgid "Remove all"
+msgstr "Alle entfernen"
+
+msgid "Fixed length"
+msgstr "Feste Länge"
+
+msgid "Off: the page plays until its animations finish"
+msgstr "Aus: Die Seite läuft, bis ihre Animationen enden"
+
+msgid "Plays for {seconds} s"
+msgstr "Läuft {seconds} s"
+
+msgid "Changes apply to the next text you type"
+msgstr "Änderungen gelten für den nächsten eingegebenen Text"
+
+msgid "Changes apply to the selected text"
+msgstr "Änderungen gelten für den ausgewählten Text"
+
+msgid "Font (mixed)"
+msgstr "Schrift (gemischt)"
+
+msgid "Font"
+msgstr "Schrift"
+
+msgid "Size (mixed) "
+msgstr "Größe (gemischt) "
+
+msgid "Size "
+msgstr "Größe "
+
+msgid "bold"
+msgstr "fett"
+
+msgid "italic"
+msgstr "kursiv"
+
+msgid "underline"
+msgstr "unterstrichen"
+
+msgid "strikethrough"
+msgstr "durchgestrichen"
+
+msgid "{style}: mixed"
+msgstr "{style}: gemischt"
+
+msgid "uppercase"
+msgstr "Großbuchstaben"
+
+msgid "Align"
+msgstr "Ausrichten"
+
+msgid "Left"
+msgstr "Links"
+
+msgid "Center"
+msgstr "Mitte"
+
+msgid "Right"
+msgstr "Rechts"
+
+msgid "Colour: mixed"
+msgstr "Farbe: gemischt"
+
+msgid "Line height"
+msgstr "Zeilenhöhe"
+
+msgid "Letter spacing"
+msgstr "Zeichenabstand"
+
+msgid "EFFECT"
+msgstr "EFFEKT"
+
+msgid "None"
+msgstr "Ohne"
+
+msgid "Shadow"
+msgstr "Schatten"
+
+msgid "Outline"
+msgstr "Kontur"
+
+msgid "Highlight"
+msgstr "Hervorhebung"
+
+msgid "FILL"
+msgstr "FÜLLUNG"
+
+msgid "No fill"
+msgstr "Keine Füllung"
+
+msgid "Corners"
+msgstr "Ecken"
+
+msgid "BORDER"
+msgstr "RAHMEN"
+
+msgid "Border"
+msgstr "Rahmen"
+
+msgid "Width"
+msgstr "Breite"
+
+msgid "Dashed"
+msgstr "Gestrichelt"
+
+msgid "SHADOW"
+msgstr "SCHATTEN"
+
+msgid "Drop shadow"
+msgstr "Schlagschatten"
+
+msgid "Blur"
+msgstr "Weichzeichnen"
+
+msgid "FILTERS"
+msgstr "FILTER"
+
+msgid "ADJUST"
+msgstr "ANPASSEN"
+
+msgid "Brightness"
+msgstr "Helligkeit"
+
+msgid "Contrast"
+msgstr "Kontrast"
+
+msgid "Saturation"
+msgstr "Sättigung"
+
+msgid "Warmth"
+msgstr "Wärme"
+
+msgid "Sharpen"
+msgstr "Schärfen"
+
+msgid "Reset adjustments"
+msgstr "Anpassungen zurücksetzen"
+
+msgid "CROP & SHAPE"
+msgstr "ZUSCHNITT & FORM"
+
+msgid "Top"
+msgstr "Oben"
+
+msgid "Height"
+msgstr "Höhe"
+
+msgid "Circle"
+msgstr "Kreis"
+
+msgid "Rounded"
+msgstr "Abgerundet"
+
+msgid "Star"
+msgstr "Stern"
+
+msgid "Hexagon"
+msgstr "Sechseck"
+
+msgid "Triangle"
+msgstr "Dreieck"
+
+msgid "QUICK ACTIONS"
+msgstr "SCHNELLAKTIONEN"
+
+msgid "Remove background"
+msgstr "Hintergrund entfernen"
+
+msgid "Finds the subject and removes everything else"
+msgstr "Findet das Motiv und entfernt alles andere"
+
+msgid "Blur background"
+msgstr "Hintergrund weichzeichnen"
+
+msgid "White background"
+msgstr "Weißer Hintergrund"
+
+msgid "Brand background"
+msgstr "Markenhintergrund"
+
+msgid "Fill frame"
+msgstr "Rahmen füllen"
+
+msgid "Fit inside"
+msgstr "Einpassen"
+
+msgid "Colours → brand"
+msgstr "Farben → Marke"
+
+msgid "Ungroup"
+msgstr "Gruppierung aufheben"
+
+msgid "POSITION"
+msgstr "POSITION"
+
+msgid "Opacity"
+msgstr "Deckkraft"
+
+msgid "ALIGN TO PAGE"
+msgstr "AN SEITE AUSRICHTEN"
+
+msgid "ARRANGE"
+msgstr "ANORDNEN"
+
+msgid "Flip H"
+msgstr "Horiz. spiegeln"
+
+msgid "Flip V"
+msgstr "Vert. spiegeln"
+
+msgid "Duplicate"
+msgstr "Duplizieren"
+
+msgid "Copy style"
+msgstr "Stil kopieren"
+
+msgid "Paste style"
+msgstr "Stil einfügen"
+
+msgid "Align left edges"
+msgstr "Linke Kanten ausrichten"
+
+msgid "Centre horizontally"
+msgstr "Horizontal zentrieren"
+
+msgid "Align right edges"
+msgstr "Rechte Kanten ausrichten"
+
+msgid "Align top edges"
+msgstr "Obere Kanten ausrichten"
+
+msgid "Middle"
+msgstr "Mittig"
+
+msgid "Centre vertically"
+msgstr "Vertikal zentrieren"
+
+msgid "Bottom"
+msgstr "Unten"
+
+msgid "Align bottom edges"
+msgstr "Untere Kanten ausrichten"
+
+msgid "ALIGN"
+msgstr "AUSRICHTEN"
+
+msgid "DISTRIBUTE"
+msgstr "VERTEILEN"
+
+msgid "Horizontally"
+msgstr "Horizontal"
+
+msgid "Vertically"
+msgstr "Vertikal"
+
+msgid "Group"
+msgstr "Gruppieren"
+
+msgid "COLLAGE"
+msgstr "COLLAGE"
+
+msgid "Pick a layout in Elements › Collage."
+msgstr "Ein Layout unter Elemente › Collage wählen."
+
+msgid "CURVE"
+msgstr "KRÜMMUNG"
+
+msgid "Curve"
+msgstr "Krümmung"
+
+msgid "Straight"
+msgstr "Gerade"
+
+# Charts and tables
+
+msgid "CHART TYPE"
+msgstr "DIAGRAMMTYP"
+
+msgid "COLOURS"
+msgstr "FARBEN"
+
+msgid "Brand colours"
+msgstr "Markenfarben"
+
+msgid "Use the brand kit's colours"
+msgstr "Farben des Markenkits verwenden"
+
+msgid "One colour"
+msgstr "Eine Farbe"
+
+msgid "AXES"
+msgstr "ACHSEN"
+
+msgid "Stacked"
+msgstr "Gestapelt"
+
+msgid "Series on top of each other"
+msgstr "Reihen übereinander"
+
+msgid "Gridlines"
+msgstr "Gitternetzlinien"
+
+msgid "X title"
+msgstr "X-Titel"
+
+msgid "Y title"
+msgstr "Y-Titel"
+
+msgid "none"
+msgstr "keiner"
+
+msgid "Min"
+msgstr "Min."
+
+msgid "Max"
+msgstr "Max."
+
+msgid "Auto"
+msgstr "Automatisch"
+
+msgid "LEGEND"
+msgstr "LEGENDE"
+
+msgid "SHOW"
+msgstr "ANZEIGEN"
+
+msgid "Labels"
+msgstr "Beschriftungen"
+
+msgid "Values"
+msgstr "Werte"
+
+msgid "Values as"
+msgstr "Werte als"
+
+msgid "Number"
+msgstr "Zahl"
+
+msgid "Percent"
+msgstr "Prozent"
+
+msgid "Currency"
+msgstr "Währung"
+
+msgid "Currency symbol"
+msgstr "Währungssymbol"
+
+msgid "Auto decimals"
+msgstr "Dezimalstellen automatisch"
+
+msgid "Decimals "
+msgstr "Dezimalstellen "
+
+msgid "Hole"
+msgstr "Loch"
+
+msgid "Out of 100"
+msgstr "Von 100"
+
+msgid "Max "
+msgstr "Max. "
+
+msgid "TEXT"
+msgstr "TEXT"
+
+msgid "DATA"
+msgstr "DATEN"
+
+msgid "Series {n}"
+msgstr "Reihe {n}"
+
+msgid "Remove this series"
+msgstr "Diese Reihe entfernen"
+
+msgid "Label"
+msgstr "Beschriftung"
+
+msgid "Remove this row"
+msgstr "Diese Zeile entfernen"
+
+msgid "Add row"
+msgstr "Zeile hinzufügen"
+
+msgid "Item {n}"
+msgstr "Eintrag {n}"
+
+msgid "Add series"
+msgstr "Reihe hinzufügen"
+
+msgid "Paste a table"
+msgstr "Tabelle einfügen"
+
+msgid "Rows from a spreadsheet or CSV: first row the series names, first column the labels."
+msgstr "Zeilen aus einer Tabellenkalkulation oder CSV: erste Zeile die Reihennamen, erste Spalte die Beschriftungen."
+
+msgid "Month, Sales, Costs\nJan, 12, 8\nFeb, 19, 11"
+msgstr "Monat, Umsatz, Kosten\nJan, 12, 8\nFeb, 19, 11"
+
+msgid "Use this data"
+msgstr "Diese Daten verwenden"
+
+msgid "CELLS"
+msgstr "ZELLEN"
+
+msgid "Click a cell to pick it, shift-click to pick a range."
+msgstr "Zelle anklicken, um sie zu wählen; mit Umschalt-Klick einen Bereich wählen."
+
+msgid "merged"
+msgstr "verbunden"
+
+msgid "Part of the merged cell at row {row}, column {col}"
+msgstr "Teil der verbundenen Zelle in Zeile {row}, Spalte {col}"
+
+msgid "Row above"
+msgstr "Zeile darüber"
+
+msgid "Insert a row above the picked cells"
+msgstr "Zeile über den gewählten Zellen einfügen"
+
+msgid "Row below"
+msgstr "Zeile darunter"
+
+msgid "Delete row"
+msgstr "Zeile löschen"
+
+msgid "Column left"
+msgstr "Spalte links"
+
+msgid "Column right"
+msgstr "Spalte rechts"
+
+msgid "Delete column"
+msgstr "Spalte löschen"
+
+msgid "Header row"
+msgstr "Kopfzeile"
+
+msgid "Padding "
+msgstr "Innenabstand "
+
+msgid "HEADER"
+msgstr "KOPFZEILE"
+
+msgid "ROWS"
+msgstr "ZEILEN"
+
+msgid "Banded rows"
+msgstr "Gestreifte Zeilen"
+
+msgid "LINES"
+msgstr "LINIEN"
+
+msgid "Lines"
+msgstr "Linien"
+
+msgid "Different outside line"
+msgstr "Andere Außenlinie"
+
+msgid "Outside width"
+msgstr "Außenbreite"
+
+msgid "PICKED CELLS"
+msgstr "GEWÄHLTE ZELLEN"
+
+msgid "Row "
+msgstr "Zeile "
+
+msgid "Col "
+msgstr "Spalte "
+
+msgid "Rows "
+msgstr "Zeilen "
+
+msgid "Cols "
+msgstr "Spalten "
+
+msgid "Merge cells"
+msgstr "Zellen verbinden"
+
+msgid "Split cells"
+msgstr "Zellen teilen"
+
+msgid "Clear cell style"
+msgstr "Zellstil entfernen"
+
+msgid "Fill"
+msgstr "Füllung"
+
+msgid "Reset"
+msgstr "Zurücksetzen"
+
+msgid "Text colour"
+msgstr "Textfarbe"
+
+msgid "Bold"
+msgstr "Fett"
+
+msgid "Text size "
+msgstr "Textgröße "
+
+msgid "COLUMN AND ROW SIZE"
+msgstr "SPALTEN- UND ZEILENGRÖSSE"
+
+msgid "Column {n} width "
+msgstr "Breite Spalte {n}: "
+
+msgid "Fit columns"
+msgstr "Spalten anpassen"
+
+msgid "Each column as wide as its text"
+msgstr "Jede Spalte so breit wie ihr Text"
+
+msgid "Equal columns"
+msgstr "Gleiche Spalten"
+
+msgid "Row {n} fits its text"
+msgstr "Zeile {n} passt sich dem Text an"
+
+msgid "Least height "
+msgstr "Mindesthöhe "
+
+# Home screen
+
+msgid "Design anything — open source, made in Rust."
+msgstr "Alles gestalten – quelloffen, gebaut mit Rust."
+
+msgid "Light mode"
+msgstr "Heller Modus"
+
+msgid "Dark mode"
+msgstr "Dunkler Modus"
+
+msgid "Open…"
+msgstr "Öffnen…"
+
+msgid "What do you want to create?"
+msgstr "Was soll gestaltet werden?"
+
+msgid "Search sizes and templates"
+msgstr "Größen und Vorlagen suchen"
+
+msgid "All"
+msgstr "Alle"
+
+msgid "Custom size"
+msgstr "Eigene Größe"
+
+msgid "Create"
+msgstr "Erstellen"
+
+msgid "Custom design"
+msgstr "Eigenes Design"
+
+msgid "Start from a template"
+msgstr "Mit einer Vorlage beginnen"
+
+msgid "No templates match."
+msgstr "Keine passenden Vorlagen."
+
+msgid "Quick actions"
+msgstr "Schnellaktionen"
+
+msgid "One click, file in, file out — nothing leaves your computer."
+msgstr "Ein Klick, Datei rein, Datei raus – nichts verlässt diesen Computer."
+
+msgid "Open designs"
+msgstr "Geöffnete Designs"
+
+msgid "Recovered designs"
+msgstr "Wiederhergestellte Designs"
+
+msgid "These designs had unsaved changes when GenHa was last closed or reloaded."
+msgstr "Diese Designs hatten ungespeicherte Änderungen, als GenHa zuletzt geschlossen oder neu geladen wurde."
+
+msgid "GenHa closed unexpectedly last time. These designs had unsaved changes."
+msgstr "GenHa wurde beim letzten Mal unerwartet beendet. Diese Designs hatten ungespeicherte Änderungen."
+
+msgid "Open"
+msgstr "Öffnen"
+
+msgid "Discard"
+msgstr "Verwerfen"
+
+msgid "Recent designs"
+msgstr "Zuletzt verwendete Designs"
+
+msgid "Remove from recent designs"
+msgstr "Aus zuletzt verwendeten Designs entfernen"
+
+msgid "System language ({name})"
+msgstr "Systemsprache ({name})"
+
+msgid "Language of the user interface"
+msgstr "Sprache der Benutzeroberfläche"
+
+msgid "Added:"
+msgstr "Hinzugefügt:"
+
+msgid "Don't load this font next time"
+msgstr "Diese Schrift beim nächsten Mal nicht laden"
+
+msgid "Resize picture"
+msgstr "Bildgröße ändern"
+
+msgid "Scale a picture to 50%"
+msgstr "Ein Bild auf 50 % verkleinern"
+
+msgid "Convert to PNG"
+msgstr "In PNG umwandeln"
+
+msgid "Any picture to PNG"
+msgstr "Beliebiges Bild in PNG"
+
+msgid "Convert to JPEG"
+msgstr "In JPEG umwandeln"
+
+msgid "Any picture to JPEG"
+msgstr "Beliebiges Bild in JPEG"
+
+msgid "Convert to WebP"
+msgstr "In WebP umwandeln"
+
+msgid "Any picture to WebP"
+msgstr "Beliebiges Bild in WebP"
+
+msgid "Cut out the subject of a photo with a plain backdrop"
+msgstr "Das Motiv eines Fotos vor einfarbigem Hintergrund freistellen"
+
+msgid "Keep the subject sharp, blur what is behind"
+msgstr "Das Motiv scharf lassen, den Hintergrund weichzeichnen"
+
+msgid "Replace a plain backdrop with white"
+msgstr "Einen einfarbigen Hintergrund durch Weiß ersetzen"
+
+msgid "Pixelate"
+msgstr "Verpixeln"
+
+msgid "Big blocky pixels"
+msgstr "Große, grobe Pixel"
+
+msgid "Trim borders"
+msgstr "Ränder abschneiden"
+
+msgid "Remove empty or uniform edges"
+msgstr "Leere oder einfarbige Ränder entfernen"
+
+msgid "Black & white"
+msgstr "Schwarzweiß"
+
+msgid "Turn a photo black and white"
+msgstr "Ein Foto in Schwarzweiß umwandeln"
+
+# Default names of designs, pages and brand colours; more sizes; filter names (context)
+
+msgid "Fewer sizes"
+msgstr "Weniger Größen"
+
+msgid "More sizes…"
+msgstr "Mehr Größen…"
+
+msgid "Page {n}"
+msgstr "Seite {n}"
+
+msgid "Untitled design"
+msgstr "Unbenanntes Design"
+
+msgid "Untitled"
+msgstr "Unbenannt"
+
+msgid "My brand"
+msgstr "Meine Marke"
+
+msgid "Primary"
+msgstr "Primär"
+
+msgid "Secondary"
+msgstr "Sekundär"
+
+msgid "Dark"
+msgstr "Dunkel"
+
+msgid "Light"
+msgstr "Hell"
+
+msgctxt "filter"
+msgid "Fade"
+msgstr "Verblasst"
+
+# Key names in shortcuts
+
+msgid "Ctrl"
+msgstr "Strg"
+
+msgid "Shift"
+msgstr "Umschalt"
+
+msgid "Del"
+msgstr "Entf"
+
+msgid "Esc"
+msgstr "Esc"
+
+# Messages
+
+msgid "Could not draw the page: {error}"
+msgstr "Die Seite konnte nicht gezeichnet werden: {error}"
+
+msgid "Could not keep {key} in the browser's storage: {error}"
+msgstr "{key} konnte nicht im Speicher des Browsers abgelegt werden: {error}"
+
+msgid "Added {fonts}"
+msgstr "{fonts} hinzugefügt"
+
+msgid "Could not download {name}: {error}"
+msgstr "{name} konnte nicht heruntergeladen werden: {error}"
+
+msgid "Pasted picture"
+msgstr "Eingefügtes Bild"
+
+msgid "There is no picture on the clipboard"
+msgstr "In der Zwischenablage ist kein Bild"
+
+msgid "Reading the clipboard…"
+msgstr "Zwischenablage wird gelesen…"
+
+msgid "Could not read the clipboard: {error} (paste with Ctrl+V instead)"
+msgstr "Die Zwischenablage konnte nicht gelesen werden: {error} (stattdessen mit Strg+V einfügen)"
+
+msgid "No installed fonts were found"
+msgstr "Keine installierten Schriften gefunden"
+
+msgid "Installed fonts are not available: {error}"
+msgstr "Installierte Schriften sind nicht verfügbar: {error}"
+
+msgid "Nothing on this page is animated (Animation in the properties panel)"
+msgstr "Auf dieser Seite ist nichts animiert (Animation im Eigenschaften-Bedienfeld)"
+
+msgid "{name} is too large or can't be read"
+msgstr "{name} ist zu groß oder kann nicht gelesen werden"
+
+msgid "Data Recovery: {error}"
+msgstr "Datenwiederherstellung: {error}"
+
+msgid "Internal error: {error} (please report this bug)"
+msgstr "Interner Fehler: {error} (bitte diesen Fehler melden)"
+
+msgid "picture"
+msgstr "Bild"
+
+msgid "no document open"
+msgstr "kein Dokument geöffnet"
+
+msgid "nothing selected"
+msgstr "nichts ausgewählt"
+
+msgid "select at least two objects"
+msgstr "mindestens zwei Objekte auswählen"
+
+msgid "nothing to undo"
+msgstr "nichts rückgängig zu machen"
+
+msgid "nothing to redo"
+msgstr "nichts zu wiederholen"
+
+msgid "the clipboard is empty"
+msgstr "die Zwischenablage ist leer"
+
+msgid "{command} is not available right now: {reason}"
+msgstr "{command} ist gerade nicht verfügbar: {reason}"
+
+# Commands: menus (command palette)
+
+msgid "Edit"
+msgstr "Bearbeiten"
+
+msgid "View"
+msgstr "Ansicht"
+
+msgid "Insert"
+msgstr "Einfügen"
+
+msgid "File"
+msgstr "Datei"
+
+msgid "Arrange"
+msgstr "Anordnen"
+
+msgid "Animate"
+msgstr "Animieren"
+
+msgid "History"
+msgstr "Verlauf"
+
+# Commands: labels (command palette)
+
+msgid "Position & Size"
+msgstr "Position & Größe"
+
+msgid "Rotate"
+msgstr "Drehen"
+
+msgid "Flip Horizontal"
+msgstr "Horizontal spiegeln"
+
+msgid "Flip Vertical"
+msgstr "Vertikal spiegeln"
+
+msgid "Bring Forward"
+msgstr "Eine Ebene nach vorne"
+
+msgid "Send Backward"
+msgstr "Eine Ebene nach hinten"
+
+msgid "Bring to Front"
+msgstr "In den Vordergrund"
+
+msgid "Send to Back"
+msgstr "In den Hintergrund"
+
+msgid "Cut"
+msgstr "Ausschneiden"
+
+msgid "Copy"
+msgstr "Kopieren"
+
+msgid "Paste"
+msgstr "Einfügen"
+
+msgid "Select All"
+msgstr "Alles auswählen"
+
+msgid "Deselect"
+msgstr "Auswahl aufheben"
+
+msgid "Smart Guides"
+msgstr "Intelligente Hilfslinien"
+
+msgid "Resize Design…"
+msgstr "Designgröße ändern…"
+
+msgid "Distribute"
+msgstr "Verteilen"
+
+msgid "Make Collage"
+msgstr "Collage erstellen"
+
+msgid "Add QR Code"
+msgstr "QR-Code hinzufügen"
+
+msgid "Brand Colours from Picture"
+msgstr "Markenfarben aus Bild"
+
+msgid "Use Palette as Brand Colours"
+msgstr "Palette als Markenfarben verwenden"
+
+msgid "Add Page"
+msgstr "Seite hinzufügen"
+
+msgid "Duplicate Page"
+msgstr "Seite duplizieren"
+
+msgid "Delete Page"
+msgstr "Seite löschen"
+
+msgid "Next Page"
+msgstr "Nächste Seite"
+
+msgid "Previous Page"
+msgstr "Vorherige Seite"
+
+msgid "Rename Page"
+msgstr "Seite umbenennen"
+
+msgid "Page Size…"
+msgstr "Seitengröße…"
+
+msgid "Page Background"
+msgstr "Seitenhintergrund"
+
+msgid "Crop Page to Content"
+msgstr "Seite auf Inhalt zuschneiden"
+
+msgid "Add Shape"
+msgstr "Form hinzufügen"
+
+msgid "Add Text"
+msgstr "Text hinzufügen"
+
+msgid "Place Picture…"
+msgstr "Bild platzieren…"
+
+msgid "New Design…"
+msgstr "Neues Design…"
+
+msgid "Save As…"
+msgstr "Speichern unter…"
+
+msgid "Close"
+msgstr "Schließen"
+
+msgid "Rename Design"
+msgstr "Design umbenennen"
+
+msgid "Add Chart"
+msgstr "Diagramm hinzufügen"
+
+msgid "Add Table"
+msgstr "Tabelle hinzufügen"
+
+msgid "Italic"
+msgstr "Kursiv"
+
+msgid "Underline"
+msgstr "Unterstrichen"
+
+msgid "Strikethrough"
+msgstr "Durchgestrichen"
+
+msgid "Animate…"
+msgstr "Animieren…"
+
+msgid "Remove Animation"
+msgstr "Animation entfernen"
+
+msgid "Animate All Elements"
+msgstr "Alle Elemente animieren"
+
+msgid "Download GIF (animated)…"
+msgstr "GIF herunterladen (animiert)…"
+
+msgid "Download Animated PNG…"
+msgstr "Animiertes PNG herunterladen…"
+
+msgid "Download MP4 Video…"
+msgstr "MP4-Video herunterladen…"
+
+msgid "Rename Brand"
+msgstr "Marke umbenennen"
+
+msgid "Add Brand Colour"
+msgstr "Markenfarbe hinzufügen"
+
+msgid "Brand Fonts"
+msgstr "Markenschriften"
+
+msgid "Apply Brand to Page"
+msgstr "Marke auf Seite anwenden"
+
+msgid "Download PNG…"
+msgstr "PNG herunterladen…"
+
+msgid "Download JPEG…"
+msgstr "JPEG herunterladen…"
+
+msgid "Download SVG…"
+msgstr "SVG herunterladen…"
+
+msgid "Download PDF…"
+msgstr "PDF herunterladen…"
+
+msgid "Edit Text in Place"
+msgstr "Text direkt bearbeiten"
+
+msgid "Copy Style"
+msgstr "Stil kopieren"
+
+msgid "Paste Style"
+msgstr "Stil einfügen"
+
+msgid "Save Version"
+msgstr "Version speichern"
+
+msgid "Version History"
+msgstr "Versionsverlauf"
+
+msgid "Paste Picture"
+msgstr "Bild einfügen"
+
+# Object kinds and tools
+
+msgid "Shape"
+msgstr "Form"
+
+msgid "Image"
+msgstr "Bild"
+
+msgid "Chart"
+msgstr "Diagramm"
+
+msgid "Select"
+msgstr "Auswählen"
+
+msgid "Rectangle"
+msgstr "Rechteck"
+
+msgid "Ellipse"
+msgstr "Ellipse"
+
+msgid "Hand"
+msgstr "Hand"
+
+# Page sizes
+
+msgid "Social"
+msgstr "Social Media"
+
+msgid "Video"
+msgstr "Video"
+
+msgid "Print"
+msgstr "Druck"
+
+msgid "Marketing"
+msgstr "Marketing"
+
+msgid "Documents"
+msgstr "Dokumente"
+
+msgid "Instagram post (square)"
+msgstr "Instagram-Beitrag (quadratisch)"
+
+msgid "Instagram post (portrait)"
+msgstr "Instagram-Beitrag (Hochformat)"
+
+msgid "Instagram story / reel"
+msgstr "Instagram-Story / Reel"
+
+msgid "Facebook post"
+msgstr "Facebook-Beitrag"
+
+msgid "Facebook cover"
+msgstr "Facebook-Titelbild"
+
+msgid "Facebook story"
+msgstr "Facebook-Story"
+
+msgid "TikTok video"
+msgstr "TikTok-Video"
+
+msgid "X post"
+msgstr "X-Beitrag"
+
+msgid "X header"
+msgstr "X-Header"
+
+msgid "LinkedIn post"
+msgstr "LinkedIn-Beitrag"
+
+msgid "LinkedIn banner"
+msgstr "LinkedIn-Banner"
+
+msgid "Pinterest pin"
+msgstr "Pinterest-Pin"
+
+msgid "YouTube thumbnail"
+msgstr "YouTube-Miniaturbild"
+
+msgid "YouTube channel banner"
+msgstr "YouTube-Kanalbanner"
+
+msgid "Video 16:9 (Full HD)"
+msgstr "Video 16:9 (Full HD)"
+
+msgid "Video 9:16"
+msgstr "Video 9:16"
+
+msgid "Video 1:1"
+msgstr "Video 1:1"
+
+msgid "Flyer A4"
+msgstr "Flyer A4"
+
+msgid "Flyer A5"
+msgstr "Flyer A5"
+
+msgid "Flyer US Letter"
+msgstr "Flyer US-Letter"
+
+msgid "Poster A3"
+msgstr "Poster A3"
+
+msgid "Poster 18×24 in"
+msgstr "Poster 18 × 24 Zoll"
+
+msgid "Business card 85×55 mm"
+msgstr "Visitenkarte 85 × 55 mm"
+
+msgid "Business card 3.5×2 in"
+msgstr "Visitenkarte 3,5 × 2 Zoll"
+
+msgid "Invitation 5×7 in"
+msgstr "Einladung 5 × 7 Zoll"
+
+msgid "Postcard A6"
+msgstr "Postkarte A6"
+
+msgid "Logo"
+msgstr "Logo"
+
+msgid "Web banner 728×90"
+msgstr "Webbanner 728 × 90"
+
+msgid "Web banner 300×250"
+msgstr "Webbanner 300 × 250"
+
+msgid "Email header"
+msgstr "E-Mail-Header"
+
+msgid "Presentation 16:9"
+msgstr "Präsentation 16:9"
+
+msgid "Presentation 4:3"
+msgstr "Präsentation 4:3"
+
+msgid "Document A4"
+msgstr "Dokument A4"
+
+msgid "Resume (A4)"
+msgstr "Lebenslauf (A4)"
+
+msgid "Web page"
+msgstr "Webseite"
+
+# Charts, table lines, animations, filters, collages
+
+msgid "Bar chart"
+msgstr "Balkendiagramm"
+
+msgid "Pie chart"
+msgstr "Kreisdiagramm"
+
+msgid "Outside"
+msgstr "Außen"
+
+msgid "Inside"
+msgstr "Innen"
+
+msgid "Rows"
+msgstr "Zeilen"
+
+msgid "Fade"
+msgstr "Einblenden"
+
+msgid "Rise"
+msgstr "Aufsteigen"
+
+msgid "Slide left"
+msgstr "Nach links gleiten"
+
+msgid "Slide right"
+msgstr "Nach rechts gleiten"
+
+msgid "Slide up"
+msgstr "Nach oben gleiten"
+
+msgid "Slide down"
+msgstr "Nach unten gleiten"
+
+msgid "Pop"
+msgstr "Aufploppen"
+
+msgid "Zoom"
+msgstr "Zoomen"
+
+msgid "Bounce"
+msgstr "Hüpfen"
+
+msgid "Spin"
+msgstr "Drehen"
+
+msgid "Flip"
+msgstr "Kippen"
+
+msgid "Typewriter"
+msgstr "Schreibmaschine"
+
+msgid "Pulse"
+msgstr "Pulsieren"
+
+msgid "Float"
+msgstr "Schweben"
+
+msgid "Sway"
+msgstr "Wiegen"
+
+msgid "Blink"
+msgstr "Blinken"
+
+msgid "Vivid"
+msgstr "Lebhaft"
+
+msgid "Mono"
+msgstr "Mono"
+
+msgid "Noir"
+msgstr "Noir"
+
+msgid "Warm"
+msgstr "Warm"
+
+msgid "Cool"
+msgstr "Kühl"
+
+msgid "Sepia"
+msgstr "Sepia"
+
+msgid "Dramatic"
+msgstr "Dramatisch"
+
+msgid "Soft"
+msgstr "Weich"
+
+msgid "Retro"
+msgstr "Retro"
+
+msgid "Sunny"
+msgstr "Sonnig"
+
+msgid "Frost"
+msgstr "Frost"
+
+msgid "Invert"
+msgstr "Invertieren"
+
+msgid "Single"
+msgstr "Einzeln"
+
+msgid "Columns"
+msgstr "Spalten"
+
+msgid "Grid"
+msgstr "Raster"
+
+msgid "Feature left"
+msgstr "Groß links"
+
+msgid "Feature top"
+msgstr "Groß oben"
+
+msgid "Mosaic"
+msgstr "Mosaik"
+
+msgid "Spotlight"
+msgstr "Rampenlicht"
+
+# Template categories
+
+msgid "Cards & invitations"
+msgstr "Karten & Einladungen"
+
+# Shapes and icons
+
+msgid "Basic shapes"
+msgstr "Grundformen"
+
+msgid "Arrows"
+msgstr "Pfeile"
+
+msgid "Badges & awards"
+msgstr "Abzeichen & Auszeichnungen"
+
+msgid "Business & shopping"
+msgstr "Business & Shopping"
+
+msgid "Celebration"
+msgstr "Feiern"
+
+msgid "Decorative"
+msgstr "Dekorativ"
+
+msgid "Food & drink"
+msgstr "Essen & Trinken"
+
+msgid "Interface"
+msgstr "Bedienoberfläche"
+
+msgid "Logos"
+msgstr "Logos"
+
+msgid "Nature & weather"
+msgstr "Natur & Wetter"
+
+msgid "People & messages"
+msgstr "Menschen & Nachrichten"
+
+msgid "Travel & places"
+msgstr "Reisen & Orte"
+
+msgid "Arrow down"
+msgstr "Pfeil nach unten"
+
+msgid "Arrow left"
+msgstr "Pfeil nach links"
+
+msgid "Arrow right"
+msgstr "Pfeil nach rechts"
+
+msgid "Arrow up"
+msgstr "Pfeil nach oben"
+
+msgid "Arrow up right"
+msgstr "Pfeil nach rechts oben"
+
+msgid "At sign"
+msgstr "At-Zeichen"
+
+msgid "Award badge"
+msgstr "Auszeichnungsabzeichen"
+
+msgid "Balloon"
+msgstr "Luftballon"
+
+msgid "Battery"
+msgstr "Akku"
+
+msgid "Bell"
+msgstr "Glocke"
+
+msgid "Bicycle"
+msgstr "Fahrrad"
+
+msgid "Blob 1"
+msgstr "Klecks 1"
+
+msgid "Blob 2"
+msgstr "Klecks 2"
+
+msgid "Blob 3"
+msgstr "Klecks 3"
+
+msgid "Bookmark"
+msgstr "Lesezeichen"
+
+msgid "Briefcase"
+msgstr "Aktentasche"
+
+msgid "Brush stroke"
+msgstr "Pinselstrich"
+
+msgid "Cake"
+msgstr "Torte"
+
+msgid "Calendar"
+msgstr "Kalender"
+
+msgid "Camera"
+msgstr "Kamera"
+
+msgid "Car"
+msgstr "Auto"
+
+msgid "Check in a circle"
+msgstr "Häkchen im Kreis"
+
+msgid "Check mark"
+msgstr "Häkchen"
+
+msgid "Chevron down"
+msgstr "Winkel nach unten"
+
+msgid "Chevron left"
+msgstr "Winkel nach links"
+
+msgid "Chevron right"
+msgstr "Winkel nach rechts"
+
+msgid "Chevron up"
+msgstr "Winkel nach oben"
+
+msgid "Clock"
+msgstr "Uhr"
+
+msgid "Cloud"
+msgstr "Wolke"
+
+msgid "Code tag"
+msgstr "Code-Tag"
+
+msgid "Coffee cup"
+msgstr "Kaffeetasse"
+
+msgid "Confetti"
+msgstr "Konfetti"
+
+msgid "Conversation"
+msgstr "Unterhaltung"
+
+msgid "Cross"
+msgstr "Kreuz"
+
+msgid "Crown"
+msgstr "Krone"
+
+msgid "Diamond"
+msgstr "Raute"
+
+msgid "Dollar coin"
+msgstr "Dollarmünze"
+
+msgid "Envelope"
+msgstr "Briefumschlag"
+
+msgid "Euro coin"
+msgstr "Euromünze"
+
+msgid "Eye"
+msgstr "Auge"
+
+msgid "Flag"
+msgstr "Flagge"
+
+msgid "Flower"
+msgstr "Blume"
+
+msgid "Gift"
+msgstr "Geschenk"
+
+msgid "Globe"
+msgstr "Globus"
+
+msgid "Graduation cap"
+msgstr "Doktorhut"
+
+msgid "Hashtag"
+msgstr "Hashtag"
+
+msgid "Headphones"
+msgstr "Kopfhörer"
+
+msgid "Heart"
+msgstr "Herz"
+
+msgid "Information"
+msgstr "Information"
+
+msgid "Key"
+msgstr "Schlüssel"
+
+msgid "Leaf"
+msgstr "Blatt"
+
+msgid "Light bulb"
+msgstr "Glühbirne"
+
+msgid "Lightning"
+msgstr "Blitz"
+
+msgid "Location pin"
+msgstr "Standortmarkierung"
+
+msgid "Map"
+msgstr "Karte"
+
+msgid "Megaphone"
+msgstr "Megafon"
+
+msgid "Microphone"
+msgstr "Mikrofon"
+
+msgid "Minus"
+msgstr "Minus"
+
+msgid "Moon"
+msgstr "Mond"
+
+msgid "Music note"
+msgstr "Musiknote"
+
+msgid "Octagon"
+msgstr "Achteck"
+
+msgid "Office building"
+msgstr "Bürogebäude"
+
+msgid "Open book"
+msgstr "Offenes Buch"
+
+msgid "Paper plane"
+msgstr "Papierflieger"
+
+msgid "Paw print"
+msgstr "Pfotenabdruck"
+
+msgid "Pentagon"
+msgstr "Fünfeck"
+
+msgid "People"
+msgstr "Menschen"
+
+msgid "Person"
+msgstr "Person"
+
+msgid "Phone"
+msgstr "Telefon"
+
+msgid "Picture"
+msgstr "Bild"
+
+msgid "Pizza slice"
+msgstr "Pizzastück"
+
+msgid "Plane"
+msgstr "Flugzeug"
+
+msgid "Play button"
+msgstr "Abspielknopf"
+
+msgid "Plus"
+msgstr "Plus"
+
+msgid "Price tag"
+msgstr "Preisschild"
+
+msgid "Question"
+msgstr "Frage"
+
+msgid "Quote marks"
+msgstr "Anführungszeichen"
+
+msgid "Ribbon banner"
+msgstr "Bandbanner"
+
+msgid "Rocket"
+msgstr "Rakete"
+
+msgid "Rosette"
+msgstr "Rosette"
+
+msgid "Round frame"
+msgstr "Runder Rahmen"
+
+msgid "Rounded rectangle"
+msgstr "Abgerundetes Rechteck"
+
+msgid "Sale seal"
+msgstr "Angebotssiegel"
+
+msgid "Scalloped divider"
+msgstr "Gewellte Trennlinie"
+
+msgid "Search"
+msgstr "Suche"
+
+msgid "Settings gear"
+msgstr "Zahnrad"
+
+msgid "Share"
+msgstr "Teilen"
+
+msgid "Shield"
+msgstr "Schild"
+
+msgid "Shield with check"
+msgstr "Schild mit Häkchen"
+
+msgid "Shopping bag"
+msgstr "Einkaufstasche"
+
+msgid "Shopping cart"
+msgstr "Einkaufswagen"
+
+msgid "Smiling face"
+msgstr "Lächelndes Gesicht"
+
+msgid "Snowflake"
+msgstr "Schneeflocke"
+
+msgid "Sparkle"
+msgstr "Funkeln"
+
+msgid "Sparkles"
+msgstr "Glitzer"
+
+msgid "Speech bubble"
+msgstr "Sprechblase"
+
+msgid "Square frame"
+msgstr "Quadratischer Rahmen"
+
+msgid "Stamp frame"
+msgstr "Briefmarkenrahmen"
+
+msgid "Star medal"
+msgstr "Sternmedaille"
+
+msgid "Sticker"
+msgstr "Sticker"
+
+msgid "Sun"
+msgstr "Sonne"
+
+msgid "Swap arrows"
+msgstr "Tauschpfeile"
+
+msgid "Thumbs up"
+msgstr "Daumen hoch"
+
+msgid "Tree"
+msgstr "Baum"
+
+msgid "Trophy"
+msgstr "Pokal"
+
+msgid "Turn arrow"
+msgstr "Wendepfeil"
+
+msgid "Umbrella"
+msgstr "Regenschirm"
+
+msgid "Upload"
+msgstr "Hochladen"
+
+msgid "Video camera"
+msgstr "Videokamera"
+
+msgid "Warning"
+msgstr "Warnung"
+
+msgid "Wave divider"
+msgstr "Wellen-Trennlinie"
+
+msgid "Waving hand"
+msgstr "Winkende Hand"
+
+msgid "Wi-Fi"
+msgstr "WLAN"
+
+msgid "Wine glass"
+msgstr "Weinglas"
+
+# Text styles: names and samples
+
+msgid "Heading"
+msgstr "Überschrift"
+
+msgid "Subheading"
+msgstr "Unterüberschrift"
+
+msgid "Body text"
+msgstr "Fließtext"
+
+msgid "Caption"
+msgstr "Bildunterschrift"
+
+msgid "Quote"
+msgstr "Zitat"
+
+msgid "Big number"
+msgstr "Große Zahl"
+
+msgid "Big serif number"
+msgstr "Große Serifenzahl"
+
+msgid "Serif title"
+msgstr "Serifentitel"
+
+msgid "Serif subtitle"
+msgstr "Serifen-Untertitel"
+
+msgid "Display hero"
+msgstr "Großer Blickfang"
+
+msgid "Highlighted title"
+msgstr "Hervorgehobener Titel"
+
+msgid "Outlined title"
+msgstr "Konturtitel"
+
+msgid "Shadow title"
+msgstr "Schattentitel"
+
+msgid "Retro drop shadow"
+msgstr "Retro-Schlagschatten"
+
+msgid "Neon glow"
+msgstr "Neonleuchten"
+
+msgid "Tracked capitals"
+msgstr "Gesperrte Großbuchstaben"
+
+msgid "Kicker"
+msgstr "Dachzeile"
+
+msgid "Section label"
+msgstr "Abschnittslabel"
+
+msgid "Button label"
+msgstr "Schaltflächentext"
+
+msgid "Pull quote"
+msgstr "Hervorgehobenes Zitat"
+
+msgid "Small print"
+msgstr "Kleingedrucktes"
+
+msgid "Monospace receipt"
+msgstr "Kassenbon (Festbreite)"
+
+msgid "Quiet and spaced"
+msgstr "Ruhig und luftig"
+
+msgid "Add a little bit of body text"
+msgstr "Etwas Fließtext hinzufügen"
+
+msgid "A short caption"
+msgstr "Eine kurze Bildunterschrift"
+
+msgid "“Make it simple, but significant.”"
+msgstr "„Einfach, aber bedeutsam.“"
+
+msgid "“Good design is quiet.”"
+msgstr "„Gutes Design ist leise.“"
+
+msgid "New"
+msgstr "Neu"
+
+msgid "No. 1"
+msgstr "Nr. 1"
+
+msgid "42%"
+msgstr "42 %"
+
+msgid "$19.99"
+msgstr "19,99 €"
+
+msgid "An elegant title"
+msgstr "Ein eleganter Titel"
+
+msgid "A gentle subtitle"
+msgstr "Ein sanfter Untertitel"
+
+msgid "Big idea"
+msgstr "Große Idee"
+
+msgid "Stand out"
+msgstr "Auffallen"
+
+msgid "Bold move"
+msgstr "Mutiger Schritt"
+
+msgid "Shine bright"
+msgstr "Hell leuchten"
+
+msgid "Glow up"
+msgstr "Aufleuchten"
+
+msgid "Hello!"
+msgstr "Hallo!"
+
+msgid "v2.0 is here"
+msgstr "v2.0 ist da"
+
+msgid "Shop now"
+msgstr "Jetzt einkaufen"
+
+msgid "ORDER #0042 · READY"
+msgstr "BESTELLUNG #0042 · FERTIG"
+
+msgid "Terms apply. Offer ends Sunday."
+msgstr "Es gelten die Bedingungen. Angebot endet am Sonntag."
+
+# Palettes
+
+msgid "Harbor dawn"
+msgstr "Hafen am Morgen"
+
+msgid "Citrus pop"
+msgstr "Zitrus-Pop"
+
+msgid "Forest floor"
+msgstr "Waldboden"
+
+msgid "Midnight neon"
+msgstr "Mitternachtsneon"
+
+msgid "Terracotta"
+msgstr "Terrakotta"
+
+msgid "Lagoon"
+msgstr "Lagune"
+
+msgid "Berry jam"
+msgstr "Beerenmarmelade"
+
+msgid "Desert sage"
+msgstr "Wüstensalbei"
+
+msgid "Nordic frost"
+msgstr "Nordischer Frost"
+
+msgid "Retro diner"
+msgstr "Retro-Diner"
+
+msgid "Lavender field"
+msgstr "Lavendelfeld"
+
+msgid "Espresso"
+msgstr "Espresso"
+
+msgid "Coral reef"
+msgstr "Korallenriff"
+
+msgid "Mono ink"
+msgstr "Monotinte"
+
+msgid "Sunset strip"
+msgstr "Sonnenuntergang"
+
+msgid "Mint studio"
+msgstr "Minzstudio"
+
+msgid "Glacier mint"
+msgstr "Gletscherminze"
+
+msgid "Saffron market"
+msgstr "Safranmarkt"
+
+msgid "Plum velvet"
+msgstr "Pflaumensamt"
+
+msgid "Electric lime"
+msgstr "Neonlimette"
+
+msgid "Ocean depth"
+msgstr "Meerestiefe"
+
+msgid "Peach fuzz"
+msgstr "Pfirsichflaum"
+
+msgid "Cobalt sun"
+msgstr "Kobaltsonne"
+
+msgid "Moss and stone"
+msgstr "Moos und Stein"
+
+msgid "Candy shop"
+msgstr "Süßwarenladen"
+
+msgid "Rust and slate"
+msgstr "Rost und Schiefer"
+
+msgid "Arctic night"
+msgstr "Polarnacht"
+
+msgid "Tropical punch"
+msgstr "Tropenpunsch"
+
+msgid "Sage and blush"
+msgstr "Salbei und Rosé"
+
+msgid "Royal gold"
+msgstr "Königsgold"
+
+msgid "Cherry cola"
+msgstr "Kirschcola"
+
+msgid "Skyline"
+msgstr "Skyline"
+
+msgid "Olive grove"
+msgstr "Olivenhain"
+
+msgid "Flamingo"
+msgstr "Flamingo"
+
+msgid "Graphite"
+msgstr "Graphit"
+
+msgid "Honey oat"
+msgstr "Honighafer"
+
+msgid "Deep teal"
+msgstr "Tiefes Petrol"
+
+msgid "Lilac dusk"
+msgstr "Fliederdämmerung"
+
+msgid "Citrus grove"
+msgstr "Zitronenhain"
+
+msgid "Pine cabin"
+msgstr "Kiefernhütte"
+
+# Counted strings: English singular | English plural | German singular | German plural
+
+msgid "{n} page"
+msgid_plural "{n} pages"
+msgstr[0] "{n} Seite"
+msgstr[1] "{n} Seiten"
+
+msgid "{n} day ago"
+msgid_plural "{n} days ago"
+msgstr[0] "vor {n} Tag"
+msgstr[1] "vor {n} Tagen"
+
+msgid "Added {n} installed font face"
+msgid_plural "Added {n} installed font faces"
+msgstr[0] "{n} installierte Schrift hinzugefügt"
+msgstr[1] "{n} installierte Schriften hinzugefügt"
+
+msgid "Group of {n} object"
+msgid_plural "Group of {n} objects"
+msgstr[0] "Gruppe mit {n} Objekt"
+msgstr[1] "Gruppe mit {n} Objekten"
+
+msgid "{n} object"
+msgid_plural "{n} objects"
+msgstr[0] "{n} Objekt"
+msgstr[1] "{n} Objekte"
+
+msgid "{n} font family. Add font files (kept in this browser), or use the fonts installed on this computer."
+msgid_plural "{n} font families. Add font files (kept in this browser), or use the fonts installed on this computer."
+msgstr[0] "{n} Schriftfamilie. Schriftdateien hinzufügen (bleiben in diesem Browser) oder die auf diesem Computer installierten Schriften verwenden."
+msgstr[1] "{n} Schriftfamilien. Schriftdateien hinzufügen (bleiben in diesem Browser) oder die auf diesem Computer installierten Schriften verwenden."
+
+msgid "{n} font family: the installed fonts and the ones you added."
+msgid_plural "{n} font families: the installed fonts and the ones you added."
+msgstr[0] "{n} Schriftfamilie: die installierten und die hinzugefügten Schriften."
+msgstr[1] "{n} Schriftfamilien: die installierten und die hinzugefügten Schriften."
+
+msgid "GenHa: {n} object"
+msgid_plural "GenHa: {n} objects"
+msgstr[0] "GenHa: {n} Objekt"
+msgstr[1] "GenHa: {n} Objekte"
+
+msgid "Automatic"
+msgstr "Automatisch"
+
+msgid "AI model"
+msgstr "KI-Modell"
+
+msgid "Colour-based"
+msgstr "Farbbasiert"
+
+msgid "The AI model when it is downloaded, else colour-based"
+msgstr "Das KI-Modell, sobald es heruntergeladen ist, sonst farbbasiert"
+
+msgid "Finds the subject on busy photos (the model is downloaded once)"
+msgstr "Findet das Motiv auch auf unruhigen Fotos (das Modell wird einmal heruntergeladen)"
+
+msgid "Removes the backdrop connected to the picture's edges: best on plain backgrounds"
+msgstr "Entfernt den Hintergrund, der an die Bildränder grenzt: am besten bei einfarbigem Hintergrund"
+
+msgid "Downloading the {name} model…"
+msgstr "Modell {name} wird heruntergeladen…"
+
+msgid "Find the subject"
+msgstr "Motiv finden"
+
+msgid "AI model: {label}"
+msgstr "KI-Modell: {label}"
+
+msgid "The AI model is not downloaded yet"
+msgstr "Das KI-Modell ist noch nicht heruntergeladen"
+
+msgid "Background removal is busy: wait for it to finish or cancel it"
+msgstr "Die Hintergrundentfernung läuft noch: abwarten oder abbrechen"
+
+msgid "Could not start background removal"
+msgstr "Hintergrundentfernung konnte nicht gestartet werden"
+
+msgid "Remove background with the AI model"
+msgstr "Hintergrund mit dem KI-Modell entfernen"
+
+msgid "GenHa can find the subject of a photo with an AI model, so backgrounds come off busy photos too, not only plain ones."
+msgstr "GenHa kann das Motiv eines Fotos mit einem KI-Modell finden. So lässt sich der Hintergrund auch bei unruhigen Fotos entfernen, nicht nur bei einfarbigen."
+
+msgid "The model ({model}, licence {licence}) is downloaded once from {host} and kept on this device. Nothing is uploaded: pictures stay on your device."
+msgstr "Das Modell ({model}, Lizenz {licence}) wird einmal von {host} heruntergeladen und auf diesem Gerät gespeichert. Es wird nichts hochgeladen: Bilder bleiben auf dem Gerät."
+
+msgid "High quality model instead (U²-Net, 176 MB, slower)"
+msgstr "Stattdessen das genauere Modell (U²-Net, 176 MB, langsamer)"
+
+msgid "Network use is turned off."
+msgstr "Die Netzwerknutzung ist ausgeschaltet."
+
+msgid "Download ({size} MB)"
+msgstr "Herunterladen ({size} MB)"
+
+msgid "Allow network use"
+msgstr "Netzwerknutzung erlauben"
+
+msgid "Use colour-based"
+msgstr "Farbbasiert verwenden"
+
+msgid "Downloaded the {model} model"
+msgstr "Modell {model} heruntergeladen"
+
+msgid "Could not start the download: {error}"
+msgstr "Download konnte nicht gestartet werden: {error}"
+
+msgid "Finding the subjects of {n} pictures…"
+msgstr "Motive in {n} Bildern werden gesucht…"
+
+msgid "Finding the subject…"
+msgstr "Motiv wird gesucht…"
+
+msgid "The model download stopped unexpectedly"
+msgstr "Der Modell-Download wurde unerwartet beendet"
+
+msgid "Background removal cancelled"
+msgstr "Hintergrundentfernung abgebrochen"
+
+msgid "Background removal stopped unexpectedly"
+msgstr "Die Hintergrundentfernung wurde unerwartet beendet"

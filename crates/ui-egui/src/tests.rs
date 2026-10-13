@@ -6,6 +6,13 @@ use serde_json::json;
 
 use crate::{App, AppOptions, Screen};
 
+/// The app in English, whatever this computer's language (the tests match English messages).
+pub(crate) fn english(mut app: App) -> App {
+    app.session.language = genha_i18n::Setting::Fixed(genha_i18n::Lang::En);
+    genha_i18n::set_language(genha_i18n::Lang::En);
+    app
+}
+
 fn run_frames(app: &mut App, ctx: &egui::Context, n: usize) {
     for _ in 0..n {
         let input =
@@ -19,7 +26,7 @@ fn run_frames(app: &mut App, ctx: &egui::Context, n: usize) {
 #[test]
 fn home_and_editor_frames_run() {
     let ctx = egui::Context::default();
-    let mut app = App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default());
+    let mut app = english(App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default()));
     run_frames(&mut app, &ctx, 3);
     assert_eq!(app.screen, Screen::Home);
     app.run("template.use", &json!({"id": genha_templates::catalog()[0].id}));
@@ -54,7 +61,7 @@ fn key_frame(app: &mut App, ctx: &egui::Context, time: f64, key: Option<egui::Ke
 #[test]
 fn playback_and_present_mode() {
     let ctx = egui::Context::default();
-    let mut app = App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default());
+    let mut app = english(App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default()));
     app.run("template.use", &json!({"id": genha_templates::catalog()[0].id}));
     app.run("page.add", &json!({}));
     app.run("text.add", &json!({"text": "Second"}));
@@ -93,7 +100,7 @@ fn playback_and_present_mode() {
 #[test]
 fn chart_table_and_curve_panels_run() {
     let ctx = egui::Context::default();
-    let mut app = App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default());
+    let mut app = english(App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default()));
     app.run("file.new", &json!({}));
     app.left_tab = crate::LeftTab::Elements;
     for (cmd, params) in [
@@ -139,7 +146,7 @@ fn edited_text(app: &App, id: u64) -> String {
 #[test]
 fn text_is_edited_on_the_canvas() {
     let ctx = egui::Context::default();
-    let mut app = App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default());
+    let mut app = english(App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default()));
     app.run("file.new", &json!({}));
     let id = app.run("text.add", &json!({"text": "Hello"})).unwrap()["id"].as_u64().unwrap();
     let steps = app.session.active().unwrap().history.undo.len();
@@ -194,7 +201,7 @@ fn text_is_edited_on_the_canvas() {
 #[test]
 fn clicks_place_the_caret_and_clicking_outside_ends_editing() {
     let ctx = egui::Context::default();
-    let mut app = App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default());
+    let mut app = english(App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default()));
     app.run("file.new", &json!({}));
     let id = app.run("text.add", &json!({"text": "abcdef", "x": 100, "y": 100, "width": 600, "style": {"align": "left"}})).unwrap()["id"]
         .as_u64()
@@ -236,7 +243,7 @@ fn recovery_and_recent_designs_through_a_store() {
     // The browser's setup: a store instead of a folder, one run after another.
     let store = Box::new(genha_engine::store::MemStore::default());
     let opts = AppOptions { store: Some(store), instance: Some("run1".into()), ..Default::default() };
-    let mut app = App::new(Arc::new(genha_text::FontBook::new()), opts);
+    let mut app = english(App::new(Arc::new(genha_text::FontBook::new()), opts));
     app.run("template.use", &json!({"id": genha_templates::catalog()[0].id}));
     app.run("recovery.save", &json!({}));
     // A download records it in the recent designs.
@@ -246,7 +253,8 @@ fn recovery_and_recent_designs_through_a_store() {
     app.run("recovery.save", &json!({}));
     let store = app.session.store.take();
     // The next run (a reload) offers the copy and lists the design.
-    let mut next = App::new(Arc::new(genha_text::FontBook::new()), AppOptions { store, instance: Some("run2".into()), ..Default::default() });
+    let mut next =
+        english(App::new(Arc::new(genha_text::FontBook::new()), AppOptions { store, instance: Some("run2".into()), ..Default::default() }));
     assert_eq!(next.recovered.len(), 1);
     assert_eq!(next.recent.len(), 1);
     let ctx = egui::Context::default();
@@ -268,7 +276,7 @@ fn recovery_and_recent_designs_through_a_store() {
 #[test]
 fn video_export_runs_beside_the_editor() {
     let ctx = egui::Context::default();
-    let mut app = App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default());
+    let mut app = english(App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default()));
     app.run("file.new", &json!({"width": 64, "height": 48}));
     app.run("shape.add", &json!({"width": 20, "height": 20}));
     app.run("animation.set", &json!({"kind": "pop"}));

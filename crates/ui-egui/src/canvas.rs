@@ -235,7 +235,7 @@ fn update_texture(app: &mut App, ctx: &egui::Context, doc: &Arc<Document>, page:
         }
         Err(e) => {
             app.canvas.key = Some(key);
-            app.set_status(format!("Could not draw the page: {e}"));
+            app.set_status(genha_i18n::tr!("Could not draw the page: {error}", error = e));
         }
     }
 }

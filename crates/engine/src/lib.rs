@@ -58,6 +58,12 @@ impl From<genha_format::FormatError> for EngineError {
     }
 }
 
+impl From<genha_segment::SegmentError> for EngineError {
+    fn from(e: genha_segment::SegmentError) -> Self {
+        EngineError::Other(e.to_string())
+    }
+}
+
 impl From<genha_effects::EffectError> for EngineError {
     fn from(e: genha_effects::EffectError) -> Self {
         EngineError::Other(e.to_string())
@@ -163,6 +169,9 @@ pub struct Session {
     /// Smart guides preference (`view.snapping`): moves and resizes snap to the page, other
     /// objects, equal gaps and matching sizes. Kept in the store between runs.
     pub snapping: bool,
+    /// The user interface's language (`ui.setLanguage`): the system's, or a fixed one. Kept in
+    /// the store between runs.
+    pub language: genha_i18n::Setting,
     /// The preview of a gesture in progress.
     pub preview: Option<Preview>,
     /// The text box being edited in place (`text.beginEdit` … `text.endEdit`).
@@ -178,6 +187,12 @@ pub struct Session {
     /// Where Data Recovery copies, recent designs and added fonts are kept ([`store`]); none: the
     /// `recovery.*` and `recent.*` commands are off and added fonts last until the app quits.
     pub store: Option<Box<dyn store::Store>>,
+    /// Where downloaded models are kept (`models/…`) when not in [`Session::store`]: the CLI keeps
+    /// them in the app's data folder without using its recent designs or recovery copies.
+    pub models: Option<Box<dyn store::Store>>,
+    /// Whether GenHa may use the network (model downloads; `settings.network`). `GENHA_OFFLINE`
+    /// in the environment turns it off whatever this says.
+    pub network: bool,
     /// Names this run's Data Recovery copies, so copies left by another run (one that ended
     /// unexpectedly) can be told apart: the process id on the desktop, set by the host elsewhere.
     pub instance: String,
@@ -198,6 +213,7 @@ impl Session {
             style_clipboard: None,
             tools: ToolState::default(),
             snapping: true,
+            language: genha_i18n::Setting::System,
             preview: None,
             text_editing: None,
             straight: std::sync::Mutex::new(None),
@@ -205,6 +221,8 @@ impl Session {
             merge_key: None,
             fonts: Arc::new(genha_text::FontBook::new()),
             store: None,
+            models: None,
+            network: true,
             instance: default_instance(),
         }
     }

@@ -23,6 +23,7 @@ use wasm_bindgen::{JsCast as _, JsValue};
 use wasm_bindgen_futures::JsFuture;
 
 use crate::{App, Screen};
+use genha_i18n::tr;
 
 /// Largest file the browser reads for us (pictures and designs are capped lower by the engine).
 const MAX_READ_BYTES: f64 = 512.0 * 1024.0 * 1024.0;
@@ -121,7 +122,7 @@ impl genha_engine::store::Store for IdbStore {
         let key = key.to_string();
         wasm_bindgen_futures::spawn_local(async move {
             if let Err(e) = db_change(&key, Some(&value)).await {
-                note(format!("Could not keep {key} in the browser's storage: {e}"));
+                note(genha_i18n::tr!("Could not keep {key} in the browser's storage: {error}", key = key, error = e));
             }
         });
         Ok(())
@@ -354,7 +355,7 @@ pub fn poll(app: &mut App, ctx: &egui::Context) {
                         if local {
                             local_faces += faces;
                         } else {
-                            app.set_status(format!("Added {}", if families.is_empty() { a.name } else { families.join(", ") }));
+                            app.set_status(genha_i18n::tr!("Added {fonts}", fonts = if families.is_empty() { a.name } else { families.join(", ") }));
                         }
                     }
                     // A broken installed font is not worth a message.
@@ -369,7 +370,7 @@ pub fn poll(app: &mut App, ctx: &egui::Context) {
         app.refresh_fonts();
     }
     if local_faces > 0 {
-        app.set_status(format!("Added {local_faces} installed font faces"));
+        app.set_status(genha_i18n::tr_n!("Added {n} installed font face", "Added {n} installed font faces", local_faces));
     }
     if REMEMBER_LOCAL.with(|r| r.replace(false))
         && let Some(store) = app.session.store.as_mut()
@@ -453,8 +454,8 @@ pub fn save(app: &mut App, stem: &str) {
 
 fn finish(app: &mut App, name: &str, bytes: &[u8]) {
     match download(name, bytes) {
-        Ok(()) => app.set_status(format!("Downloaded {name}")),
-        Err(e) => app.set_status(format!("Could not download {name}: {e}")),
+        Ok(()) => app.set_status(genha_i18n::tr!("Downloaded {path}", path = name)),
+        Err(e) => app.set_status(genha_i18n::tr!("Could not download {name}: {error}", name = name, error = e)),
     }
 }
 
@@ -536,9 +537,9 @@ fn install_paste() {
 pub fn read_clipboard_picture() {
     wasm_bindgen_futures::spawn_local(async {
         match clipboard_picture().await {
-            Ok(Some(bytes)) => arrive(Purpose::Paste, "Pasted picture".into(), bytes),
-            Ok(None) => note("There is no picture on the clipboard"),
-            Err(e) => note(format!("Could not read the clipboard: {e} (paste with Ctrl+V instead)")),
+            Ok(Some(bytes)) => arrive(Purpose::Paste, tr("Pasted picture").into(), bytes),
+            Ok(None) => note(tr("There is no picture on the clipboard")),
+            Err(e) => note(genha_i18n::tr!("Could not read the clipboard: {error} (paste with Ctrl+V instead)", error = e)),
         }
     });
 }
@@ -576,9 +577,9 @@ pub fn local_fonts_supported() -> bool {
 pub fn load_local_fonts(asked: bool) {
     wasm_bindgen_futures::spawn_local(async move {
         match local_fonts().await {
-            Ok(0) => note("No installed fonts were found"),
+            Ok(0) => note(tr("No installed fonts were found")),
             Ok(_) => {}
-            Err(e) if asked => note(format!("Installed fonts are not available: {e}")),
+            Err(e) if asked => note(genha_i18n::tr!("Installed fonts are not available: {error}", error = e)),
             Err(e) => log::warn!("installed fonts: {e}"),
         }
     });

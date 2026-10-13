@@ -22,5 +22,9 @@ wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 web-sys = { workspace = true, features = ["Window", "Document", "Element", "HtmlCanvasElement", "MediaQueryList"] }
 
+[features]
+# AI background removal in the browser (`cargo xtask web --ml`): about 11 MB more WebAssembly.
+ml = ["genha-ui-egui/ml"]
+
 [lints]
 workspace = true

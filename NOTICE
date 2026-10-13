@@ -24,10 +24,22 @@ no system fonts are available (always in the browser), as fallback fonts for des
 The licence texts ship with that crate (fonts/UFL.txt, fonts/OFL.txt, fonts/Hack-Regular.txt,
 fonts/emoji-icon-font-mit-license.txt).
 
+Translations: the German catalogue (crates/i18n/po/de.po) is original text written for GenHa. For
+scripts egui's fonts lack (Arabic, CJK…), the apps use fonts installed on the user's computer at run
+time; none are distributed.
+
 Video: the H.264 encoder and MP4 writer (crates/video) are original code written for GenHa from the
 public specifications (Rec. ITU-T H.264, ISO/IEC 14496-12 and 14496-15); no third-party codec code is
 included. H.264 is covered by patents licensed through a patent pool; this licence covers GenHa's
 code only (see docs/architecture.md › Video).
+
+Background removal models: none are included. On the user's request the apps download U²-Net /
+U²-Netp (Xuebin Qin, Zichen Zhang, Chenyang Huang, Masood Dehghan, Osmar R. Zaiane and Martin
+Jagersand, "U²-Net: Going Deeper with Nested U-Structure for Salient Object Detection", Pattern
+Recognition 2020; Apache License 2.0, https://github.com/xuebinqin/U-2-Net) as ONNX files converted
+by the rembg project (MIT, https://github.com/danielgatis/rembg). They run with tract (MIT OR
+Apache-2.0, https://github.com/sonos/tract). Downloads use rustls (Apache-2.0 OR ISC OR MIT) and ring
+(Apache-2.0 AND ISC, https://github.com/briansmith/ring).
 
 The repository layout, layering and agent conventions follow the ArtCraft apps (VectorCraft,
 MIT OR Apache-2.0, https://github.com/storytold/vectorcraft).

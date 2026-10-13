@@ -244,7 +244,7 @@ fn quote_card(b: &mut B) {
     b.ctext("Quote", 400.0, 840.0, "Small steps every day\nadd up to big changes.", t.h(64.0, t.dark).italic().lh(1.25).with(|s| s.bold = false));
     b.rect("Divider", 500.0, 620.0, 80.0, 6.0, 3.0, solid(t.secondary));
     b.ctext("Author", 660.0, 500.0, "— Your Name", t.b(34.0, t.primary).upper().ls(120.0).bold());
-    b.ctext("Handle", 880.0, 400.0, "@yourhandle", t.b(28.0, t.primary.lerp(t.light, 0.3)));
+    b.ctext("Handle", 880.0, 400.0, "@yourhandle", t.b(28.0, t.primary));
 }
 
 fn quote_bold(b: &mut B) {
@@ -269,7 +269,7 @@ fn quote_night(b: &mut B) {
     }
     b.ctext("Quote", 380.0, 960.0, "The quiet hours\nare where ideas\ngrow roots.", t.h(72.0, t.light).italic().lh(1.25).with(|s| s.bold = false));
     b.rect("Divider", 500.0, 720.0, 80.0, 4.0, 2.0, solid(t.secondary));
-    b.ctext("Author", 760.0, 600.0, "Night notes", t.b(32.0, t.secondary).upper().ls(300.0));
+    b.ctext("Author", 760.0, 600.0, "Night notes", t.b(32.0, t.secondary).bold().upper().ls(300.0));
 }
 
 fn quote_pastel(b: &mut B) {
@@ -296,7 +296,7 @@ fn sale_burst(b: &mut B) {
     b.ctext("Subline", 525.0, 480.0, "On everything in store", t.b(36.0, t.dark));
     b.rect("Dates pill", 340.0, 880.0, 400.0, 80.0, 40.0, solid(t.dark));
     b.ctext("Dates", 899.0, 380.0, "This weekend only", t.b(34.0, t.light).bold().lh(1.15));
-    b.ctext("Website", 985.0, 400.0, "yourshop.com", t.b(28.0, t.light));
+    b.ctext("Website", 985.0, 400.0, "yourshop.com", t.b(30.0, t.light).bold());
 }
 
 fn event_night(b: &mut B) {
@@ -355,7 +355,7 @@ fn garden_carousel(b: &mut B) {
         }
     };
     b.name_page("Cover");
-    b.bg(solid(t.primary));
+    b.bg(solid(t.primary.lerp(t.dark, 0.35)));
     b.ellipse("Leaf disc", 640.0, 470.0, 380.0, 380.0, solid(t.secondary));
     b.icon("Leaf", "leaf", 735.0, 565.0, 190.0, 190.0, solid(t.primary.lerp(t.dark, 0.3)));
     b.text("Kicker", 90.0, 130.0, 700.0, "A 3-step guide", t.b(34.0, t.secondary).bold().upper().ls(200.0).left());
@@ -459,7 +459,7 @@ fn story_poll(b: &mut B) {
     b.bg(lin(90.0, t.dark, t.primary.lerp(t.dark, 0.55)));
     b.ctext("Kicker", 190.0, 900.0, "Quick poll", t.b(40.0, t.secondary).bold().upper().ls(300.0));
     b.ctext("Headline", 260.0, 980.0, "Early bird or\nnight owl?", t.h(104.0, t.light));
-    let options = [("Early bird", "Up with the sun", "sun", t.primary, t.light), ("Night owl", "Best ideas at 1 am", "moon", t.secondary, t.dark)];
+    let options = [("Early bird", "Up with the sun", "sun", t.primary, t.dark), ("Night owl", "Best ideas at 1 am", "moon", t.secondary, t.dark)];
     for (i, (title, sub, icon, fill, ink)) in options.iter().enumerate() {
         let y = 600.0 + 520.0 * i as f64;
         let n = if i == 0 { "A" } else { "B" };
@@ -483,7 +483,7 @@ fn story_countdown(b: &mut B) {
     b.text("Lead", 90.0, 650.0, 900.0, "drops in", t.b(48.0, t.light.lerp(t.dark, 0.3)).left());
     for (i, (value, label)) in [("03", "Days"), ("12", "Hours"), ("45", "Minutes")].iter().enumerate() {
         let x = 90.0 + 310.0 * i as f64;
-        b.rect(&format!("{label} box"), x, 780.0, 280.0, 300.0, 32.0, solid(t.primary));
+        b.rect(&format!("{label} box"), x, 780.0, 280.0, 300.0, 32.0, solid(t.primary.lerp(t.dark, 0.3)));
         b.text(&format!("{label} value"), x, 830.0, 280.0, value, t.h(150.0, t.light).lh(1.0));
         b.text(&format!("{label} label"), x, 1110.0, 280.0, label, t.b(34.0, t.light).upper().ls(150.0));
     }
@@ -563,7 +563,7 @@ fn channel_banner(b: &mut B) {
 
 fn x_header(b: &mut B) {
     let t = b.t.clone();
-    b.bg(lin(0.0, t.dark, t.primary.lerp(t.dark, 0.6)));
+    b.bg(lin(0.0, t.dark, t.primary.lerp(t.dark, 0.75)));
     for row in 0..4 {
         for col in 0..6 {
             let (x, y) = (60.0 + 36.0 * f64::from(col), 50.0 + 36.0 * f64::from(row));
@@ -594,11 +594,11 @@ fn book_swap_event(b: &mut B) {
     let t = b.t.clone();
     b.bg(solid(t.light));
     b.rect("Date block", 0.0, 0.0, 380.0, 630.0, 0.0, solid(t.primary));
-    b.text("Month", 0.0, 160.0, 380.0, "Sep", t.b(48.0, t.secondary).bold().upper().ls(300.0));
+    b.text("Month", 0.0, 160.0, 380.0, "Sep", t.b(48.0, t.light).bold().upper().ls(300.0));
     b.text("Day", 0.0, 225.0, 380.0, "14", t.h(180.0, t.light).lh(1.0));
     b.text("Weekday", 0.0, 440.0, 380.0, "Saturday", t.b(36.0, t.light));
     b.icon("Book", "book", 960.0, 60.0, 170.0, 170.0, solid(t.secondary));
-    b.text("Kicker", 440.0, 110.0, 520.0, "Free community event", t.b(26.0, t.secondary).bold().upper().ls(200.0).left());
+    b.text("Kicker", 440.0, 110.0, 520.0, "Free community event", t.b(26.0, t.secondary.lerp(t.dark, 0.3)).bold().upper().ls(200.0).left());
     b.text("Headline", 440.0, 160.0, 700.0, "Community\nBook Swap", t.h(80.0, t.dark).left());
     b.text(
         "Details",
@@ -608,7 +608,7 @@ fn book_swap_event(b: &mut B) {
         "Bring a book, take a book.\n10 am – 2 pm · Riverside Library",
         t.b(30.0, t.dark.lerp(t.light, 0.2)).lh(1.45).left(),
     );
-    b.pill("Going button", 440.0, 500.0, 260.0, 72.0, solid(t.secondary), "I'm going", t.b(30.0, t.light).bold());
+    b.pill("Going button", 440.0, 500.0, 260.0, 72.0, solid(t.secondary), "I'm going", t.b(30.0, t.dark).bold());
 }
 
 fn bakery_cover(b: &mut B) {
@@ -682,7 +682,7 @@ fn habits_pin(b: &mut B) {
         b.ellipse(&format!("Number {n} disc"), 80.0, y, 80.0, 80.0, solid(if i % 2 == 0 { t.secondary } else { t.primary.lerp(t.light, 0.7) }));
         b.text(&format!("Number {n}"), 80.0, y + 17.0, 80.0, &n.to_string(), t.b(36.0, t.dark).bold().lh(1.15));
         b.text(&format!("Habit {n}"), 190.0, y + 2.0, 760.0, title, t.h(38.0, t.dark).left());
-        b.text(&format!("Habit {n} note"), 190.0, y + 52.0, 760.0, note, t.b(28.0, t.dark.lerp(t.light, 0.35)).left());
+        b.text(&format!("Habit {n} note"), 190.0, y + 52.0, 760.0, note, t.b(28.0, t.dark.lerp(t.light, 0.25)).left());
     }
     b.ctext("Website", 1410.0, 400.0, "yourblog.com", t.b(28.0, t.primary).bold());
 }
@@ -698,7 +698,7 @@ fn recipe_pin(b: &mut B) {
     b.icon("Basil leaf", "leaf", 330.0, 330.0, 90.0, 90.0, solid(t.dark.lerp(t.light, 0.25)));
     b.icon("Basil leaf", "leaf", 600.0, 190.0, 80.0, 80.0, solid(t.dark.lerp(t.light, 0.25)));
     b.rotate_last(80.0);
-    b.ctext("Kicker", 640.0, 800.0, "15-minute dinner", t.b(30.0, t.primary).bold().upper().ls(300.0));
+    b.ctext("Kicker", 640.0, 800.0, "15-minute dinner", t.b(30.0, t.primary.lerp(t.dark, 0.3)).bold().upper().ls(300.0));
     b.ctext("Title", 690.0, 900.0, "Sunny tomato\npasta", t.h(84.0, t.dark));
     b.rect("Ingredients box", 100.0, 930.0, 800.0, 420.0, 32.0, solid(t.primary.lerp(t.light, 0.88)));
     b.text("Ingredients heading", 150.0, 965.0, 700.0, "You'll need", t.h(40.0, t.dark).left());
@@ -708,13 +708,13 @@ fn recipe_pin(b: &mut B) {
         b.ellipse(&format!("Bullet {}", i + 1), 150.0, y + 12.0, 18.0, 18.0, solid(t.secondary));
         b.text(&format!("Ingredient {}", i + 1), 190.0, y, 680.0, item, t.b(32.0, t.dark).left());
     }
-    b.ctext("Footer", 1400.0, 800.0, "Full recipe on the blog", t.b(30.0, t.primary).bold());
+    b.ctext("Footer", 1400.0, 800.0, "Full recipe on the blog", t.b(30.0, t.primary.lerp(t.dark, 0.3)).bold());
 }
 
 fn packing_pin(b: &mut B) {
     let t = b.t.clone();
     b.bg(solid(t.light));
-    b.rect("Header", 0.0, 0.0, 1000.0, 560.0, 0.0, lin(135.0, t.primary, t.primary.lerp(t.dark, 0.45)));
+    b.rect("Header", 0.0, 0.0, 1000.0, 560.0, 0.0, lin(135.0, t.primary.lerp(t.dark, 0.25), t.primary.lerp(t.dark, 0.5)));
     b.icon("Plane", "plane", 720.0, 60.0, 200.0, 200.0, solid(t.secondary));
     b.rotate_last(45.0);
     b.icon("Cloud", "cloud", 80.0, 430.0, 160.0, 110.0, solid(t.light.with_alpha(210)));
