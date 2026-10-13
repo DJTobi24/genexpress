@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last updated:** 2026-10-12 · **Change:** major (first version)
+> **Last updated:** 2026-10-13 · **Change:** minor (text editing on the canvas)
 
 How GenHa is built. Day-to-day rules (clean-room, never crash, quality gates) are in
 [`AGENTS.md`](../AGENTS.md) and [development.md](development.md). The layout deliberately mirrors the
@@ -51,6 +51,12 @@ Every user-visible action is a `CommandSpec` in `crates/engine/src/cmd/*` (id, l
 shortcut, params doc, `enabled`, `run`). Tools emit commands (a preview while dragging, commands on
 release). Menus, the command palette, the control channel, the CLI and MCP all reach the same registry,
 so anything a user can do an agent can do. `command.batch` runs several as one undo step.
+
+Text edited in place is engine state too: `Session::text_editing` holds the text box and selection
+(`text.beginEdit` / `text.edit` / `text.endEdit`), and every change of one editing session merges into one undo
+step. The canvas (`ui-egui/src/textedit.rs`) only turns input into `text.edit` and draws the caret and
+selection, placed with `genha_text::caret::CaretMap`, which maps the renderer's own shaped glyph clusters (ligatures split by grapheme, right-to-left runs mirrored) to
+character indices; caret movement, word boundaries and in-edit undo are pure code in `genha_text::edit`.
 
 ## Rendering
 

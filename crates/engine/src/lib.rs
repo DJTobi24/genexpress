@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 use serde_json::Value;
 
+pub use cmd::textedit::TextEditing;
 pub use cmd::{CommandInfo, CommandSpec, command_specs, find_command};
 pub use genha_doc as doc;
 use genha_doc::{Document, Element, NodeId};
@@ -121,6 +122,9 @@ impl DocState {
     }
 }
 
+/// A document with one curved text box shown straight: (source document, element, result).
+type Straightened = (Arc<Document>, NodeId, Arc<Document>);
+
 /// Everything an app instance has open.
 pub struct Session {
     pub docs: Vec<DocState>,
@@ -132,6 +136,10 @@ pub struct Session {
     pub tools: ToolState,
     /// The preview of a gesture in progress.
     pub preview: Option<Preview>,
+    /// The text box being edited in place (`text.beginEdit` … `text.endEdit`).
+    pub text_editing: Option<TextEditing>,
+    /// The last straightened document for [`Session::display_document`]: (source, shown).
+    straight: std::sync::Mutex<Option<Straightened>>,
     /// Status messages for the UI (latest last).
     pub messages: Vec<String>,
     /// `merge_key` of the command running now (from its params).
@@ -157,6 +165,8 @@ impl Session {
             style_clipboard: None,
             tools: ToolState::default(),
             preview: None,
+            text_editing: None,
+            straight: std::sync::Mutex::new(None),
             messages: vec![],
             merge_key: None,
             fonts: Arc::new(genha_text::FontBook::new()),
@@ -203,6 +213,7 @@ impl Session {
         self.merge_key = params.get("merge_key").and_then(Value::as_str).map(str::to_string);
         let result = guard::catch_panic(|| (spec.run)(self, &params));
         self.merge_key = None;
+        cmd::textedit::check(self);
         match result {
             Ok(r) => r,
             Err(msg) => {
@@ -310,9 +321,35 @@ impl Session {
         Ok(out)
     }
 
-    /// The document as the UI should draw it: with the gesture preview's frames applied.
+    /// The document as the UI should draw it: with the gesture preview's frames applied, and
+    /// curved text being edited shown straight (the caret follows straight lines).
     pub fn display_document(&self) -> Option<Arc<Document>> {
         let d = self.active()?;
+        if let Some(e) = &self.text_editing
+            && let Some((_, el)) = d.doc.find(e.id)
+            && let genha_doc::ElementKind::Text(t) = &el.kind
+            && t.curve != 0.0
+        {
+            // Cached, so the canvas sees the same document (and does not redraw) until it changes.
+            let mut cache = self.straight.lock().ok();
+            if let Some(Some((src, id, shown))) = cache.as_deref()
+                && Arc::ptr_eq(src, &d.doc)
+                && *id == e.id
+            {
+                return Some(Arc::clone(shown));
+            }
+            let mut doc = (*d.doc).clone();
+            if let Some(el) = doc.find_mut(e.id)
+                && let genha_doc::ElementKind::Text(t) = &mut el.kind
+            {
+                t.curve = 0.0;
+            }
+            let shown = Arc::new(doc);
+            if let Some(c) = cache.as_deref_mut() {
+                *c = Some((Arc::clone(&d.doc), e.id, Arc::clone(&shown)));
+            }
+            return Some(shown);
+        }
         match &self.preview {
             Some(p) if !p.frames.is_empty() => {
                 let mut doc = (*d.doc).clone();
