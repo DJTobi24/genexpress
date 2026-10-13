@@ -241,7 +241,7 @@ fn charts_tables_and_curved_text() {
     let mut d = Document::new("Data", 900.0, 600.0);
     for (i, k) in genha_doc::ChartKind::ALL.into_iter().enumerate() {
         let mut c = genha_doc::ChartEl::sample(k);
-        c.data[0].label = "R&D <x>".into();
+        c.categories[0] = "R&D <x>".into();
         c.background = Fill::linear(90.0, Color::WHITE, Color::rgb(0xee, 0xee, 0xff));
         push(&mut d, Frame::new((i % 4) as f64 * 220.0, (i / 4) as f64 * 220.0, 200.0, 200.0), ElementKind::Chart(c));
     }

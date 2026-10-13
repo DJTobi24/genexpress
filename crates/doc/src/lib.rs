@@ -16,13 +16,14 @@ mod data;
 mod element;
 mod page;
 pub mod preset;
+mod table;
 pub mod version;
 
 use std::collections::BTreeMap;
 
 pub use asset::{Asset, AssetId, Bytes};
 pub use brand::{BrandColor, BrandKit};
-pub use data::{ChartEl, ChartKind, ChartPoint, MAX_CELL_CHARS, MAX_CHART_POINTS, MAX_TABLE_COLS, MAX_TABLE_ROWS, TableEl, ValueFormat};
+pub use data::{ChartEl, ChartKind, ChartPoint, ChartSeries, LegendPosition, MAX_CELL_CHARS, MAX_CHART_POINTS, MAX_CHART_SERIES, ValueFormat};
 pub use element::{
     Adjustments, Animation, AnimationKind, CropRect, Element, ElementKind, Fill, GradientStop, GroupEl, ImageEl, LoopKind, MAX_CURVE, Shadow,
     ShapeEl, ShapeKind, StrokeStyle, TextAlign, TextEffect, TextEl, TextStyle,
@@ -32,6 +33,7 @@ pub use genha_geom::{Fit, Frame};
 pub use page::Page;
 pub use preset::{PRESETS, PagePreset};
 use serde::{Deserialize, Serialize};
+pub use table::{BorderLines, CellFormat, CellRange, CellSpan, CellStyle, MAX_TABLE_COLS, MAX_TABLE_ROWS, TableEl};
 pub use version::Version;
 
 /// Largest page side accepted, in pixels (untrusted input is capped to this).

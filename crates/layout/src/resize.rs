@@ -310,6 +310,15 @@ fn apply(el: &mut Element, map: &Map, s: f64) {
             if let Some(st) = &mut t.border {
                 k(&mut st.width);
             }
+            if let Some(st) = &mut t.outer_border {
+                k(&mut st.width);
+            }
+            t.row_heights.iter_mut().for_each(k);
+            for f in &mut t.cell_styles {
+                if let Some(size) = &mut f.style.font_size {
+                    *size = (*size * s).max(1.0);
+                }
+            }
         }
     }
 }

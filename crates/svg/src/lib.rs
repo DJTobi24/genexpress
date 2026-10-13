@@ -440,6 +440,10 @@ impl Writer<'_> {
                     } else {
                         let mut s = self.text_open(&tp.style);
                         s.push_str(&fill);
+                        if tp.transform != Affine::IDENTITY {
+                            // Turned text (a chart's vertical axis title).
+                            let _ = write!(s, r#" transform="{}""#, matrix(tp.transform));
+                        }
                         s.push('>');
                         for l in &tp.lines {
                             s.push_str(&tspan(tp.style.align, l.x, l.width, l.baseline, &l.text));

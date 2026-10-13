@@ -66,7 +66,12 @@ pub fn element_summary(e: &Element) -> Value {
         }
         ElementKind::Chart(c) => {
             o.insert("chart".into(), json!(c.kind.id()));
-            o.insert("data".into(), json!(c.data));
+            o.insert("data".into(), json!(c.points()));
+            o.insert("categories".into(), json!(c.categories));
+            o.insert("series".into(), json!(c.series));
+            if c.stacked {
+                o.insert("stacked".into(), json!(true));
+            }
             if !c.colors.is_empty() {
                 o.insert("colors".into(), json!(c.colors));
             }
@@ -76,6 +81,12 @@ pub fn element_summary(e: &Element) -> Value {
             o.insert("rows".into(), json!(t.rows));
             o.insert("size".into(), json!([t.rows.len(), t.columns()]));
             o.insert("header_row".into(), json!(t.header_row));
+            if !t.merges.is_empty() {
+                o.insert("merges".into(), json!(t.merges));
+            }
+            if !t.cell_styles.is_empty() {
+                o.insert("cell_styles".into(), json!(t.cell_styles));
+            }
         }
     }
     v
