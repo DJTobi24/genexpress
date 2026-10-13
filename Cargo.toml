@@ -60,6 +60,11 @@ unicode-segmentation = "1"
 # SVG import (Apache-2.0 OR MIT); without text so it needs no font database and builds for wasm
 usvg = { version = "0.45", default-features = false }
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+# Vector PDF export (MIT OR Apache-2.0): fonts embedded and subsetted, images, gradients, masks.
+# No `simple-text` (we place glyphs ourselves) and no `rayon` (threads are not available in wasm).
+krilla = { version = "0.8.2", default-features = false, features = ["raster-images"] }
+# Reading PDFs back in tests (MIT).
+lopdf = { version = "0.45", default-features = false }
 
 # ui
 egui = "0.36"

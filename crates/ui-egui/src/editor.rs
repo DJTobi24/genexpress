@@ -179,7 +179,7 @@ fn download_menu(app: &mut App, ui: &mut egui::Ui) {
         ("JPEG", "export.jpeg", "jpg", json!({})),
         ("SVG", "export.svg", "svg", json!({})),
         ("PDF — all pages", "export.pdf", "pdf", json!({})),
-        ("PDF — print (300 dpi, bleed, crop marks)", "export.pdf", "pdf", json!({"print": true})),
+        ("PDF — print (bleed, crop marks)", "export.pdf", "pdf", json!({"print": true})),
         ("GIF (animated)", "export.gif", "gif", json!({})),
         ("Animated PNG", "export.apng", "png", json!({})),
     ];
