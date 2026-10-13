@@ -11,7 +11,7 @@
 | Feature parity with the target (all areas) | ~20–25% | estimated, see [target-app-parity.md](docs/target-app-parity.md) |
 | Commands (UI = CLI = MCP) | 181 | measured (`genha-cli exec engine.commands`) |
 | Templates / size presets / icons / text styles / palettes / filters | 121 / 35 / 114 (+10 basic shapes) / 25 / 40 / 14 | measured (counted from `genha_templates`) |
-| Tests | TESTS | measured (`cargo test --workspace`) |
+| Tests | 396 | measured (`cargo test --workspace`) |
 | Rust lines | ~57k | measured (all `.rs` files, tests included) |
 | Platforms | Linux, macOS, Windows (desktop); web (WASM, `cargo xtask web`); downloads: universal macOS DMG (signed and notarized with the Apple secrets set), Windows zip, Linux tar.gz, web zip (`release.yml`, docs/release.md) | Linux, its package and Chromium measured; macOS and Windows packaging untested until the first tagged release |
 | UI languages | English, German (933 strings) | measured (`crates/i18n/po/de.po`) |
