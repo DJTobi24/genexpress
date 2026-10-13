@@ -57,7 +57,25 @@ so anything a user can do an agent can do. `command.batch` runs several as one u
 Pages are rasterized on the CPU by `vello_cpu`; the desktop app shows the result as a texture and
 draws selection handles, guides and previews on top with egui. Text is laid out by `genha-text`
 into glyph outlines so the canvas, PNG/JPEG/PDF exports and SVG-as-paths all match. Curved text
-places each glyph's own outline (`genha_text::layout_glyphs`) along an arc. Charts and tables are
+places each glyph's own outline (`genha_text::layout_glyphs`) along an arc.
+
+### Text layout
+
+`genha-text` turns a string and a `TextStyle` into lines of positioned glyphs, per paragraph:
+
+1. **Analysis:** bidi levels (UAX #9, `unicode-bidi`), each character's script (`unicode-script`;
+   Common/Inherited take their neighbours'), a face per grapheme cluster (the style's face if it
+   has every character, else the first fallback face that does: per-cluster font fallback), and
+   line-break opportunities (UAX #14, `unicode-linebreak`).
+2. **Shaping:** the paragraph is cut where face, script or level change and at each break
+   opportunity (pieces are words with their trailing spaces); each piece is shaped by HarfRust
+   (`harfrust` 0.12, on the same `read-fonts` as `skrifa`) and cached per face in font units, so a
+   word is shaped once for every size. Ligatures are off for letter-spaced text.
+3. **Lines:** greedy filling with shaped advances; over-long words break between clusters.
+4. **Placement:** each line is reordered for display (UAX #9 L1/L2) and drawn with `skrifa`
+   outlines. `layout_glyphs` also reports per glyph its glyph id, face (`FontBook::face_data` gives
+   the font bytes, for exporters that embed fonts), source byte offset (`cluster`, for carets) and
+   direction; lines carry their source byte range. Charts and tables are
 turned into a `Scene` of filled/stroked paths and laid-out text by `genha_render::{chart_scene,
 table_scene}`, which both the rasterizer and the SVG writer draw, so they agree.
 

@@ -13,6 +13,7 @@ use skrifa::string::StringId;
 use skrifa::{FontRef, MetadataProvider, Tag};
 
 use crate::TextError;
+use crate::shape::ShapeCache;
 
 /// Largest font file accepted, in bytes.
 pub const MAX_FONT_FILE: usize = 50 * 1024 * 1024;
@@ -100,6 +101,12 @@ pub(crate) struct Face {
     pub(crate) underline_offset: f64,
     /// Underline thickness, in ems.
     pub(crate) underline_thickness: f64,
+    /// Font units per em (positive).
+    pub(crate) upem: f64,
+    /// Has OpenType layout tables (GSUB or GPOS).
+    pub(crate) layout: bool,
+    /// Shaping state and cached results.
+    pub(crate) shaping: ShapeCache,
 }
 
 impl Face {
@@ -221,6 +228,19 @@ impl FontBook {
         self.faces.get(i).map(|f| &**f)
     }
 
+    /// The font file holding face `face` (as in [`PlacedGlyph::face`](crate::PlacedGlyph::face))
+    /// and the face's index in it (non-zero only in collections), e.g. to embed the font in an
+    /// export. None for an unknown face or a file that can no longer be read.
+    pub fn face_data(&self, face: usize) -> Option<(Arc<[u8]>, u32)> {
+        let f = self.face(face)?;
+        Some((f.data()?, f.index))
+    }
+
+    /// The family name of face `face`.
+    pub fn face_family(&self, face: usize) -> Option<&str> {
+        self.face(face).map(|f| f.family.as_str())
+    }
+
     /// The family the book sets `family` in (after generic and fallback matching), if any.
     pub fn resolve_family(&self, family: &str, bold: bool, italic: bool) -> Option<String> {
         self.select(family, bold, italic).and_then(|i| self.face(i)).map(|f| f.family.clone())
@@ -278,7 +298,8 @@ impl FontBook {
     }
 
     /// Faces to look in for characters the chosen face lacks, best first: the generic families in
-    /// this style, then every other face.
+    /// this style, then every other face, those with OpenType layout tables (which shape complex
+    /// scripts) before those without.
     pub(crate) fn fallback_order(&self, bold: bool, italic: bool) -> Vec<usize> {
         let weight = if bold { 700.0 } else { 400.0 };
         let mut order: Vec<usize> = vec![];
@@ -289,12 +310,12 @@ impl FontBook {
                 order.push(i);
             }
         }
-        let mut rest: Vec<(f32, usize)> = (0..self.faces.len())
+        let mut rest: Vec<(bool, f32, usize)> = (0..self.faces.len())
             .filter(|i| !order.contains(i))
-            .filter_map(|i| self.face(i).map(|f| (style_distance(f, weight, italic), i)))
+            .filter_map(|i| self.face(i).map(|f| (!f.layout, style_distance(f, weight, italic), i)))
             .collect();
-        rest.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
-        order.extend(rest.into_iter().map(|(_, i)| i));
+        rest.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.total_cmp(&b.1)).then(a.2.cmp(&b.2)));
+        order.extend(rest.into_iter().map(|(_, _, i)| i));
         order
     }
 }
@@ -376,6 +397,9 @@ fn face_info(font: &FontRef<'_>, index: u32, source: &Arc<Source>) -> Option<Fac
         descent,
         underline_offset: underline_offset.clamp(-1.0, 1.0),
         underline_thickness: underline_thickness.clamp(0.0, 0.5),
+        upem,
+        layout: [b"GSUB", b"GPOS"].iter().any(|t| font.table_data(Tag::new(t)).is_some()),
+        shaping: ShapeCache::default(),
     })
 }
 

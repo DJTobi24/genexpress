@@ -23,7 +23,7 @@ What works today:
 
 - **Start**: 35 size presets (social, video, print, marketing, documents) or a custom size; 65 original templates (posts, carousels, stories, covers, flyers, posters, cards, invitations, decks, resumes, logos, ads); open pictures as a design.
 - **Edit**: multi-page designs (pages of different sizes), select/move/resize/rotate with smart snapping (also several objects at once), groups, layer order, lock/hide, align & distribute, copy/paste (also style), undo/redo, crop page to content, version history, Data Recovery after a crash, recent files.
-- **Content**: text with styles, presets and effects (shadow, outline, highlight) and curved text; 25 text styles; charts (bar, line, area, pie, donut, progress) and tables; shapes and 114 original icons in 11 categories; QR codes; 40 palettes; collages; brand kit (colours, fonts, palettes, colours from a photo).
+- **Content**: text with styles, presets and effects (shadow, outline, highlight) and curved text, shaped with kerning and ligatures, right-to-left and complex scripts, and font fallback for mixed scripts; 25 text styles; charts (bar, line, area, pie, donut, progress) and tables; shapes and 114 original icons in 11 categories; QR codes; 40 palettes; collages; brand kit (colours, fonts, palettes, colours from a photo).
 - **Pictures**: place (also SVG as editable shapes), crop, fit, crop to shape, corner radius, border, adjustments, 14 filters, remove / blur / change background (colour-based).
 - **Smart resize**: re-lay out a page for another size, or add a resized copy.
 - **Motion**: entrance, loop and exit animations for any object or text, "animate all" with a stagger, playback on the canvas, present mode (F5).
