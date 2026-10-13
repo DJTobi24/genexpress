@@ -29,7 +29,7 @@ fn session(s: &mut Session, _: &Value) -> Result<Value> {
 }
 
 fn document(s: &mut Session, p: &Value) -> Result<Value> {
-    Ok(inspect::document_summary(s.doc()?, super::bool_or(p, "all_pages", false)))
+    Ok(inspect::document_summary(s.doc()?, super::bool_or(p, "all_pages", false), &s.fonts))
 }
 
 fn document_json(s: &mut Session, _: &Value) -> Result<Value> {

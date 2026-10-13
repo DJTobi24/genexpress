@@ -94,6 +94,7 @@ fn text_layer(page: &Page, fonts: &FontBook, x0: f64, top: f64) -> String {
             return;
         }
         let ElementKind::Text(t) = &e.kind else { return };
+        let t = &*genha_render::fitted_text(fonts, t, e.frame.width, e.frame.height);
         let size = t.style.font_size;
         if !size.is_finite() || size <= 0.0 {
             return;

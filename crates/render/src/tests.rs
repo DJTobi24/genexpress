@@ -315,7 +315,7 @@ fn text_doc(effect: TextEffect) -> Document {
     d.pages[0].elements.push(Element::new(
         id,
         Frame::new(10.0, 10.0, 280.0, 80.0),
-        ElementKind::Text(TextEl { text: "HHHH".into(), style, effect, curve: 0.0, spans: vec![] }),
+        ElementKind::Text(TextEl { text: "HHHH".into(), style, effect, curve: 0.0, spans: vec![], fit: Default::default() }),
     ));
     d
 }
@@ -732,4 +732,51 @@ fn style_runs_draw_in_their_own_colour_size_and_weight() {
     assert!((black.len() as f64 - plain_ink / 2.0).abs() < plain_ink * 0.05, "{} vs {plain_ink}", black.len());
     // Synthetic bold: the red word has more ink than four plain letters scaled up (×4 area).
     assert!(red.len() as f64 > plain_ink / 2.0 * 4.0 * 1.1, "{} vs {plain_ink}", red.len());
+}
+
+/// A page with one text box that shrinks to fit (black on white, 120 px bold type that needs two
+/// lines at its size in a box made for one), its box and its text.
+fn shrunk_page() -> (Document, Frame, TextEl) {
+    let mut d = doc(700.0, 300.0);
+    let style = TextStyle { font_size: 120.0, bold: true, color: Color::BLACK, align: TextAlign::Left, ..TextStyle::default() };
+    let mut t = TextEl::new("Grand opening", style);
+    t.fit = genha_doc::TextFit::Shrink;
+    let frame = Frame::new(40.0, 60.0, 600.0, 160.0);
+    let id = d.alloc_id();
+    d.pages[0].elements.push(Element::new(id, frame, ElementKind::Text(t.clone())));
+    (d, frame, t)
+}
+
+#[test]
+fn shrunk_text_is_drawn_where_its_fitted_layout_is() {
+    let fonts = fonts();
+    if fonts.is_empty() {
+        return;
+    }
+    let (d, frame, t) = shrunk_page();
+    let fit = text_fit(fonts, &t, frame.width, frame.height);
+    assert!(fit.fits && fit.scale < 1.0, "{fit:?}");
+    // As set, it would not fit.
+    assert!(genha_text::layout_el(fonts, &t, frame.width).height > frame.height);
+    // Where the fitted letters are, on the page.
+    let fitted = fitted_text(fonts, &t, frame.width, frame.height);
+    let (layout, _) = layout_text_el(fonts, &fitted, frame.width);
+    assert_eq!(layout.lines.len(), 1);
+    let want = layout.lines[0].path.bounding_box() + kurbo::Vec2::new(frame.x, frame.y);
+    // Where the renderer drew ink.
+    let r = render_page(&d, 0, fonts, &RenderOptions::default()).unwrap();
+    let mut ink: Option<Rect> = None;
+    for y in 0..r.height {
+        for x in 0..r.width {
+            if r.pixel(x, y).is_some_and(|p| p[0] < 128) {
+                let px = Rect::new(f64::from(x), f64::from(y), f64::from(x + 1), f64::from(y + 1));
+                ink = Some(ink.map_or(px, |b| b.union(px)));
+            }
+        }
+    }
+    let ink = ink.unwrap();
+    for (a, b) in [(ink.x0, want.x0), (ink.y0, want.y0), (ink.x1, want.x1), (ink.y1, want.y1)] {
+        assert!((a - b).abs() < 1.5, "drawn {ink:?}, laid out {want:?}");
+    }
+    assert!(ink.x1 <= frame.x + frame.width + 1.0 && ink.y1 <= frame.y + frame.height + 1.0, "{ink:?}");
 }

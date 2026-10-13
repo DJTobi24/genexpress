@@ -67,6 +67,12 @@ fn element(doc: &Document, page: usize, id: NodeId) -> Option<(Affine, f64, f64,
     Some((genha_render::element_transform(el), f.width, f.height, t.clone()))
 }
 
+/// The caret map of `t` in a `w` × `h` box, laid out as the renderer draws it (at the scale that
+/// fits the box when the text shrinks to fit).
+fn map_for(fonts: &genha_text::FontBook, t: &TextEl, w: f64, h: f64) -> CaretMap {
+    CaretMap::for_el(fonts, &genha_render::fitted_text(fonts, t, w, h), w)
+}
+
 fn caret_map(app: &mut App, doc: &Arc<Document>, page: usize, id: NodeId) -> Option<Arc<CaretMap>> {
     if let Some((d, i, m)) = &app.canvas.text.map
         && Arc::ptr_eq(d, doc)
@@ -74,8 +80,8 @@ fn caret_map(app: &mut App, doc: &Arc<Document>, page: usize, id: NodeId) -> Opt
     {
         return Some(Arc::clone(m));
     }
-    let (_, w, _, t) = element(doc, page, id)?;
-    let m = Arc::new(CaretMap::for_el(&app.session.fonts, &t, w));
+    let (_, w, h, t) = element(doc, page, id)?;
+    let m = Arc::new(map_for(&app.session.fonts, &t, w, h));
     app.canvas.text.map = Some((Arc::clone(doc), id, Arc::clone(&m)));
     Some(m)
 }
@@ -136,7 +142,7 @@ pub fn show(app: &mut App, ui: &egui::Ui, resp: &egui::Response, doc: &Arc<Docum
     let mut end = false;
     let mut toggles: Vec<(&'static str, EditBuffer)> = vec![];
     if resp.has_focus() {
-        end = keyboard(app, ui, &map, &el, w, &mut buf, &mut toggles);
+        end = keyboard(app, ui, &map, &el, (w, h), &mut buf, &mut toggles);
     }
     // The edits, in order with the formatting shortcuts (Cmd/Ctrl+B, I, U) pressed between them:
     // each shortcut acts on the text and selection as they were when it was pressed.
@@ -262,7 +268,7 @@ fn keyboard(
     ui: &egui::Ui,
     map: &CaretMap,
     el: &TextEl,
-    width: f64,
+    (width, height): (f64, f64),
     buf: &mut EditBuffer,
     toggles: &mut Vec<(&'static str, EditBuffer)>,
 ) -> bool {
@@ -347,7 +353,7 @@ fn keyboard(
                         // The style runs moved with the text, as the engine will move them.
                         let mut t = el.clone();
                         t.set_text_keeping_styles(&buf.text, Some(buf.caret), None);
-                        relaid = Some((buf.text.clone(), CaretMap::for_el(&fonts, &t, width)));
+                        relaid = Some((buf.text.clone(), map_for(&fonts, &t, width, height)));
                     }
                     relaid.as_ref().map_or(map, |(_, m)| m)
                 };
@@ -521,4 +527,36 @@ fn draw(app: &App, ui: &egui::Ui, map: &CaretMap, buf: &EditBuffer, m: Affine, v
             should_interrupt_composition: false,
         });
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use genha_doc::{TextAlign, TextFit, TextStyle};
+
+    /// The caret and selection in a box whose text shrinks to fit sit on the letters as drawn (the
+    /// fitted layout), with and without fonts.
+    #[test]
+    fn carets_in_a_shrunk_box_follow_the_drawn_text() {
+        for book in [genha_text::FontBook::new(), genha_text::FontBook::system()] {
+            let style = TextStyle { font_size: 120.0, bold: true, align: TextAlign::Left, ..TextStyle::default() };
+            let mut t = TextEl::new("Grand opening", style);
+            t.fit = TextFit::Shrink;
+            let (w, h) = (600.0, 160.0);
+            let fitted = genha_render::fitted_text(&book, &t, w, h);
+            assert!(fitted.style.font_size < 120.0);
+            let map = map_for(&book, &t, w, h);
+            assert_eq!(map, CaretMap::for_el(&book, &fitted, w));
+            let end = genha_text::edit::char_len(&t.text);
+            let at = map.caret(end, false).unwrap();
+            // One line, ending inside the box; as set, the text would wrap onto a second line.
+            assert_eq!(at.line, 0);
+            assert!(at.x <= w + 0.5 && at.top + at.height <= h + 0.5, "{at:?}");
+            assert_eq!(CaretMap::for_el(&book, &t, w).caret(end, false).unwrap().line, 1);
+            // Hitting the middle of the line lands inside the text; selection boxes stay in the box.
+            let (i, _) = map.hit(at.x / 2.0, at.baseline);
+            assert!(i > 0 && i < end);
+            assert!(map.selection_rects(0, end).iter().all(|r| r.x1 <= w + 0.5 && r.y1 <= h + 0.5));
+        }
+    }
 }

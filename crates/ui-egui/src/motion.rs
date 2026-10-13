@@ -82,7 +82,8 @@ pub fn playback_frame(app: &mut App, ctx: &egui::Context, display: &mut Arc<Docu
         }
         return None;
     }
-    let posed = genha_motion::page_at(pg, t);
+    // Shrinking text posed at its fitted size (a typewriter keeps the whole text's size).
+    let posed = genha_motion::page_at(&genha_render::page_with_fitted_text(pg, &app.session.fonts), t);
     let mut doc = (**display).clone();
     if let Some(slot) = doc.pages.get_mut(page) {
         *slot = posed;
@@ -185,7 +186,7 @@ pub fn present(app: &mut App, ui: &mut egui::Ui) {
         if state.key != Some(key) || state.texture.is_none() {
             let mut frame_doc = (*doc).clone();
             if let Some(slot) = frame_doc.pages.get_mut(index) {
-                *slot = genha_motion::page_at(pg, at);
+                *slot = genha_motion::page_at(&genha_render::page_with_fitted_text(pg, &app.session.fonts), at);
             }
             let opts = genha_render::RenderOptions { scale: f64::from(scale), transparent_background: false };
             match app.renderer.render_page(&frame_doc, index, &app.session.fonts, &opts) {

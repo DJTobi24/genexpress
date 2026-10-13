@@ -294,11 +294,18 @@ fn every_command_survives_junk_params() {
         json!({"csv": "\"\n,,\"\"\t", "rows": [[1, {"a": 2}], null], "series": [{"values": [1e308, null, "x"]}], "categories": 5}),
         json!({"series": [{"name": 5, "values": [], "color": "red"}], "categories": [null, {}, 3], "legend": 3, "min": "a", "max": {}, "decimals": 99}),
         json!({"legend": "right", "stacked": true, "min": 1e300, "max": -1e300, "value_format": "currency", "currency": "€€€€€€€€€€€€"}),
+        // Text that shrinks to fit: unknown modes, and boxes and sizes that leave no room.
+        json!({"fit": "SHRINK", "width": 1e-300, "height": -1, "font_size": 1e308}),
+        json!({"fit": ["none"], "degrees": f64::MAX}),
+        json!({"fit": "shrink", "width": 0.0001, "height": 0.0001, "text": "x".repeat(5000)}),
     ];
     let mut s = session();
     s.execute("shape.add", &json!({})).unwrap();
+    s.execute("text.add", &json!({"text": "Shrinks to fit"})).unwrap();
+    s.execute("text.setFit", &json!({"fit": "shrink"})).unwrap();
     s.execute("text.add", &json!({})).unwrap();
     s.execute("text.setCurve", &json!({"degrees": 90})).unwrap();
+    s.execute("text.setFit", &json!({"fit": "shrink"})).unwrap();
     s.execute("chart.add", &json!({"kind": "pie"})).unwrap();
     s.execute("chart.add", &json!({"csv": "x,a,b\n1,2,3\n4,5,6", "stacked": true})).unwrap();
     s.execute("table.add", &json!({})).unwrap();
@@ -983,7 +990,7 @@ fn charts_from_commands() {
     // Pie colours come from the brand; data as a list; the summary shows it.
     let p = id(&s.execute("chart.add", &json!({"kind": "pie", "data": [{"label": "a", "value": 1}, ["b", 2]]})).unwrap());
     assert!(chart_of(&s, p).colors.len() >= 4);
-    let summary = inspect::element_summary(s.doc().unwrap().doc.element(NodeId(p)).unwrap());
+    let summary = inspect::element_summary(s.doc().unwrap().doc.element(NodeId(p)).unwrap(), &s.fonts);
     assert_eq!(summary["chart"], "pie");
     assert_eq!(summary["data"][1]["value"], 2.0);
     // A ring is a square progress chart.
@@ -1037,7 +1044,7 @@ fn tables_from_commands() {
     let big = id(&s.execute("table.add", &json!({"rows": [["x", "y"], ["1", "2"], ["3"]], "header": false})).unwrap());
     let (table, _) = table_of(&s, big);
     assert!(!table.header_row && table.rows[2].len() == 2);
-    assert_eq!(inspect::element_summary(s.doc().unwrap().doc.element(NodeId(big)).unwrap())["size"], json!([3, 2]));
+    assert_eq!(inspect::element_summary(s.doc().unwrap().doc.element(NodeId(big)).unwrap(), &s.fonts)["size"], json!([3, 2]));
 }
 
 #[test]
@@ -1083,7 +1090,7 @@ fn charts_with_several_series() {
     s.execute("chart.setStyle", &json!({"min": 50})).unwrap();
     assert_eq!(chart_of(&s, c).min, None);
     // The summary shows the series; files keep them.
-    let summary = inspect::element_summary(s.doc().unwrap().doc.element(NodeId(c)).unwrap());
+    let summary = inspect::element_summary(s.doc().unwrap().doc.element(NodeId(c)).unwrap(), &s.fonts);
     assert_eq!(summary["series"][0]["name"], "X", "the one-series form keeps the first name");
     let bytes = genha_format::to_bytes(&s.doc().unwrap().doc, true).unwrap();
     let (back, notes) = genha_format::from_bytes(&bytes).unwrap();
@@ -1184,4 +1191,67 @@ fn text_curve_command() {
     assert!(s.execute("text.setCurve", &json!({"degrees": "a lot"})).is_err());
     let shape = id(&s.execute("shape.add", &json!({})).unwrap());
     assert!(s.execute("text.setCurve", &json!({"ids": [shape], "degrees": 90})).is_err());
+}
+
+#[test]
+fn text_set_fit_shrinks_text_to_its_box() {
+    // No fonts: 0.55 em per character. "Grand opening" at 120 px is 858 px wide: in a 600 × 160
+    // box it wraps into two lines (288 px) unless it shrinks.
+    let mut s = session();
+    let tid = id(&s.execute("text.add", &json!({"text": "Grand opening", "width": 600, "style": {"font_size": 120, "align": "left"}})).unwrap());
+    let el = |s: &Session| s.doc().unwrap().doc.element(NodeId(tid)).unwrap().clone();
+    // New text keeps its size.
+    let ElementKind::Text(t) = &el(&s).kind else { panic!() };
+    assert_eq!(t.fit, genha_doc::TextFit::None);
+    assert_eq!(s.execute("text.inspect", &json!({"id": tid})).unwrap()["fit"]["fit"], "none");
+    s.execute("text.setFit", &json!({"ids": [tid], "fit": "shrink"})).unwrap();
+    s.execute("object.setFrame", &json!({"ids": [tid], "height": 160})).unwrap();
+    let e = el(&s);
+    assert_eq!(e.frame.height, 160.0);
+    let ElementKind::Text(t) = &e.kind else { panic!() };
+    assert_eq!(t.fit, genha_doc::TextFit::Shrink);
+    assert_eq!(t.style.font_size, 120.0, "the stored size is kept");
+    let fit = s.execute("text.inspect", &json!({"id": tid})).unwrap()["fit"].clone();
+    assert_eq!(fit["fit"], "shrink");
+    assert_eq!(fit["fits"], true);
+    let scale = fit["scale"].as_f64().unwrap();
+    assert!(scale < 0.7 && scale > 0.69, "{fit}");
+    let summary = inspect::element_summary(&e, &s.fonts);
+    assert_eq!(summary["fit"]["scale"], fit["scale"]);
+    // Editing the text keeps the box (the text shrinks further instead).
+    s.execute("text.setText", &json!({"id": tid, "text": "Grand opening weekend"})).unwrap();
+    assert_eq!(el(&s).frame.height, 160.0);
+    let more = s.execute("text.inspect", &json!({"id": tid})).unwrap()["fit"]["scale"].as_f64().unwrap();
+    assert!(more < scale, "{more} vs {scale}");
+    // Turned off: full size again, and the box grows to hold it.
+    s.execute("text.setFit", &json!({"ids": [tid], "fit": "none"})).unwrap();
+    assert!(el(&s).frame.height > 160.0);
+    assert!(s.execute("text.setFit", &json!({"ids": [tid], "fit": "squash"})).is_err());
+    assert!(s.execute("text.setFit", &json!({"ids": [tid]})).is_err());
+    // Undo brings the shrinking box back.
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert_eq!(el(&s).frame.height, 160.0);
+}
+
+#[test]
+fn typewriter_text_that_shrinks_keeps_the_whole_text_size() {
+    let mut s = session();
+    let tid = id(&s.execute("text.add", &json!({"text": "Grand opening", "width": 600, "style": {"font_size": 120}})).unwrap());
+    s.execute("text.setFit", &json!({"ids": [tid], "fit": "shrink"})).unwrap();
+    s.execute("object.setFrame", &json!({"ids": [tid], "height": 160})).unwrap();
+    s.execute("animation.set", &json!({"ids": [tid], "kind": "typewriter", "duration": 2.0})).unwrap();
+    let scale = s.execute("text.inspect", &json!({"id": tid})).unwrap()["fit"]["scale"].as_f64().unwrap();
+    assert!(scale < 1.0);
+    let d = s.doc().unwrap();
+    let page = genha_render::page_with_fitted_text(&d.doc.pages[d.page], &s.fonts);
+    // A few letters in: set in the size the whole text is shown at, not their own.
+    let posed = genha_motion::page_at(&page, 0.5);
+    let ElementKind::Text(t) = &posed.find(NodeId(tid)).unwrap().kind else { panic!() };
+    assert!(t.text.chars().count() < 13);
+    assert_eq!(t.fit, genha_doc::TextFit::None);
+    assert!((t.style.font_size - 120.0 * scale).abs() < 0.2, "{} vs {}", t.style.font_size, 120.0 * scale);
+    // Exported frames render.
+    let path = std::env::temp_dir().join(format!("genha-fit-frame-{}.png", std::process::id()));
+    s.execute("export.frame", &json!({"path": path.to_string_lossy(), "t": 0.5})).unwrap();
+    let _ = std::fs::remove_file(path);
 }

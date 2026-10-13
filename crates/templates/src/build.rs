@@ -3,7 +3,7 @@
 use genha_color::Color;
 use genha_doc::{
     Animation, AnimationKind, BrandKit, ChartEl, ChartKind, ChartSeries, Document, Element, ElementKind, Fill, GroupEl, LoopKind, NodeId, Page,
-    ShapeEl, ShapeKind, SpanStyle, StrokeStyle, TableEl, TextAlign, TextEffect, TextEl, TextSpan, TextStyle,
+    ShapeEl, ShapeKind, SpanStyle, StrokeStyle, TableEl, TextAlign, TextEffect, TextEl, TextFit, TextSpan, TextStyle,
 };
 use genha_geom::Frame;
 
@@ -231,14 +231,19 @@ impl B {
         self.push(e)
     }
 
-    /// A text element; its height is computed from the number of lines.
+    /// A text element; its height is computed from the number of lines. Headings (bold) and short
+    /// blocks (one or two lines: titles, values, labels, buttons) shrink to fit their box
+    /// ([`TextFit::Shrink`]): in a wider font than the one they were designed with (Inter) they
+    /// are set smaller instead of wrapping into a line the box has no room for. Longer body text
+    /// keeps its size.
     pub fn text_el(&mut self, name: &str, x: f64, y: f64, w: f64, text: &str, style: TextStyle) -> Element {
-        let lines = text.lines().count().max(1) as f64;
-        let h = (lines * style.font_size * style.line_height + style.font_size * 0.15).ceil();
+        let lines = text.lines().count().max(1);
+        let h = (lines as f64 * style.font_size * style.line_height + style.font_size * 0.15).ceil();
+        let fit = if style.bold || lines <= 2 { TextFit::Shrink } else { TextFit::None };
         self.el(
             name,
             Frame::new(x, y, w, h),
-            ElementKind::Text(TextEl { text: text.into(), style, effect: TextEffect::None, curve: 0.0, spans: vec![] }),
+            ElementKind::Text(TextEl { text: text.into(), style, effect: TextEffect::None, curve: 0.0, spans: vec![], fit }),
         )
     }
 
@@ -301,12 +306,14 @@ impl B {
     }
 
     /// Bends the last text element along an arc of `degrees` (see `TextEl::curve`) and makes its
-    /// box `height` tall, enough for the bent lines (they are centred in the box).
+    /// box `height` tall, enough for the bent lines (they are centred in the box). Bent text
+    /// shrinks to fit the box.
     pub fn curve_last(&mut self, degrees: f64, height: f64) {
         if let Some(e) = self.last()
             && let ElementKind::Text(t) = &mut e.kind
         {
             t.curve = degrees;
+            t.fit = TextFit::Shrink;
             e.frame.height = height;
         }
     }

@@ -38,7 +38,7 @@ everything runs on your own computer (desktop on Windows, macOS and Linux, or in
 - **Export:** PNG (also transparent, 2×), JPEG, SVG, **vector PDF** with real, searchable text, **print PDF** (300 dpi, bleed, crop marks, optional CMYK), **MP4 video** (our own pure-Rust H.264 encoder), animated GIF and PNG. Native `.genha` files.
 - **Quick actions** (file in, file out): remove / blur / change background, resize, convert, trim, black & white, pixelate; a QR code or a photo collage in one step.
 - **Languages:** English and German, switched live; text in any script shows correctly.
-- **Automation:** every action is one of 180 commands, reachable from the UI, the command line, a JSON control channel and an **MCP server for AI assistants** — anything a user can do, an agent can do.
+- **Automation:** every action is one of 181 commands, reachable from the UI, the command line, a JSON control channel and an **MCP server for AI assistants** — anything a user can do, an agent can do.
 
 | Home screen | Auf Deutsch |
 |---|---|
@@ -89,9 +89,9 @@ video timeline with audio, and more UI languages.
 | | |
 |---|---|
 | Templates / size presets / icons / palettes | 121 / 35 / 114 / 40 |
-| Commands (UI = CLI = MCP) | 180 |
-| Tests | 361 |
-| Code | ~56k lines of Rust |
+| Commands (UI = CLI = MCP) | 181 |
+| Tests | 380 |
+| Code | ~57k lines of Rust |
 
 - [ROADMAP.md](ROADMAP.md) — stage, numbers, what's next and the progress log.
 - [docs/target-app-parity.md](docs/target-app-parity.md) — feature-by-feature comparison with the target app.

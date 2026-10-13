@@ -60,6 +60,50 @@ proptest! {
         if let Some(b) = bytes.get_mut(pos % len) { *b = val; }
         let _ = from_bytes(&bytes);
     }
+
+    /// The text box's fit mode: written only when set, read back unchanged; a junk value or a
+    /// mangled byte never panics the reader.
+    #[test]
+    fn junk_text_fit_never_panics(junk in "[a-zA-Z0-9\"{}:,. -]{0,16}", pos in 0usize..4096, val in any::<u8>()) {
+        let doc = fitted_doc();
+        let json = String::from_utf8(to_bytes(&doc, false).unwrap()).unwrap();
+        prop_assert!(json.contains("\"fit\":\"shrink\""));
+        let (back, _) = from_bytes(json.as_bytes()).unwrap();
+        prop_assert_eq!(&back.pages[0].elements, &doc.pages[0].elements);
+        let swapped = json.replacen("\"fit\":\"shrink\"", &format!("\"fit\":{junk}"), 1);
+        let _ = from_bytes(swapped.as_bytes());
+        let mut bytes = json.into_bytes();
+        let len = bytes.len();
+        if let Some(b) = bytes.get_mut(pos % len) { *b = val; }
+        let _ = from_bytes(&bytes);
+    }
+}
+
+/// A one-page document with a text box that shrinks to fit.
+fn fitted_doc() -> genha_doc::Document {
+    use genha_doc::{Element, ElementKind, Frame, NodeId, TextEl, TextFit, TextStyle};
+    let mut doc = genha_doc::Document::new("x", 100.0, 100.0);
+    let mut t = TextEl::new("Grand opening", TextStyle::default());
+    t.fit = TextFit::Shrink;
+    doc.pages[0].elements.push(Element::new(NodeId(1000), Frame::new(0.0, 0.0, 50.0, 50.0), ElementKind::Text(t)));
+    doc
+}
+
+#[test]
+fn text_fit_defaults_to_none() {
+    // Files written before the fit mode existed (no `fit`) open with text that keeps its size,
+    // and such text is written without it.
+    let mut doc = fitted_doc();
+    let json = String::from_utf8(to_bytes(&doc, false).unwrap()).unwrap();
+    let json = json.replacen("\"fit\":\"shrink\",", "", 1).replacen(",\"fit\":\"shrink\"", "", 1);
+    assert!(!json.contains("\"fit\""));
+    let (back, _) = from_bytes(json.as_bytes()).unwrap();
+    let genha_doc::ElementKind::Text(t) = &back.pages[0].elements[0].kind else { panic!() };
+    assert_eq!(t.fit, genha_doc::TextFit::None);
+    if let genha_doc::ElementKind::Text(t) = &mut doc.pages[0].elements[0].kind {
+        t.fit = genha_doc::TextFit::None;
+    }
+    assert!(!String::from_utf8(to_bytes(&doc, false).unwrap()).unwrap().contains("\"fit\""));
 }
 
 fn data_doc() -> genha_doc::Document {

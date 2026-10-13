@@ -195,18 +195,18 @@ pub fn measure(book: &FontBook, text: &str, style: &TextStyle) -> (f64, f64) {
 /// covers are set in `style`. Alignment, line height, letter spacing and upper case are the
 /// paragraph's and come from `style` (line height and letter spacing scale with each run's size).
 pub fn layout_rich(book: &FontBook, text: &str, style: &TextStyle, runs: &[(Range<usize>, TextStyle)], box_width: f64) -> TextLayout {
-    layout_impl(book, text, style, runs, box_width, Out::Lines).0
+    layout_impl(book, text, style, runs, box_width, Out::Lines).layout
 }
 
 /// [`layout_glyphs`] for text in several styles (see [`layout_rich`]).
 pub fn layout_glyphs_rich(book: &FontBook, text: &str, style: &TextStyle, runs: &[(Range<usize>, TextStyle)], box_width: f64) -> GlyphLayout {
-    let (l, lines, size) = layout_impl(book, text, style, runs, box_width, Out::Glyphs);
-    GlyphLayout { lines, width: l.width, height: l.height, font_size: size, styles: l.styles }
+    let Laid { layout: l, glyphs, size, .. } = layout_impl(book, text, style, runs, box_width, Out::Glyphs);
+    GlyphLayout { lines: glyphs, width: l.width, height: l.height, font_size: size, styles: l.styles }
 }
 
 /// [`measure`] for text in several styles (see [`layout_rich`]).
 pub fn measure_rich(book: &FontBook, text: &str, style: &TextStyle, runs: &[(Range<usize>, TextStyle)]) -> (f64, f64) {
-    let (l, _, _) = layout_impl(book, text, style, runs, f64::INFINITY, Out::Measure);
+    let l = layout_impl(book, text, style, runs, f64::INFINITY, Out::Measure).layout;
     (l.width, l.height)
 }
 
@@ -238,9 +238,25 @@ pub fn measure_el(book: &FontBook, t: &TextEl) -> (f64, f64) {
 /// drawing it: (widest line, height). Cheaper than [`layout_el`] when only the size matters
 /// (fitting boxes, smart resize).
 pub fn measure_wrapped_el(book: &FontBook, t: &TextEl, box_width: f64) -> (f64, f64) {
+    let m = measure_fit_el(book, t, box_width);
+    (m.width, m.height)
+}
+
+/// What [`measure_fit_el`] finds.
+pub(crate) struct Measured {
+    pub(crate) width: f64,
+    pub(crate) height: f64,
+    /// A word was wider than the box and broken between letters.
+    pub(crate) broke_word: bool,
+    pub(crate) lines: usize,
+}
+
+/// [`measure_wrapped_el`], whether a word had to be broken (it is wider than the box) and how
+/// many lines the text takes.
+pub(crate) fn measure_fit_el(book: &FontBook, t: &TextEl, box_width: f64) -> Measured {
     let runs = if t.spans.is_empty() { vec![] } else { t.style_runs() };
-    let (l, _, _) = layout_impl(book, &t.text, &t.style, &runs, box_width, Out::Measure);
-    (l.width, l.height)
+    let l = layout_impl(book, &t.text, &t.style, &runs, box_width, Out::Measure);
+    Measured { width: l.layout.width, height: l.layout.height, broke_word: l.broke_word, lines: l.layout.lines.len() }
 }
 
 /// What [`layout_impl`] produces besides the lines' sizes.
@@ -536,12 +552,14 @@ fn cluster_end(glyphs: &[Glyph], i: usize) -> usize {
 
 /// Greedy line filling: ranges of `glyphs` per line. Lines end at break opportunities (after
 /// spaces, between ideographs…) or, when a word alone is wider than the box, between clusters.
-/// Spaces may hang past the edge and stay on the line they follow.
-fn break_lines(glyphs: &[Glyph], wrap: Option<f64>) -> Vec<Range<usize>> {
+/// Spaces may hang past the edge and stay on the line they follow. Also says whether a word had
+/// to be broken.
+fn break_lines(glyphs: &[Glyph], wrap: Option<f64>) -> (Vec<Range<usize>>, bool) {
     let n = glyphs.len();
     if n == 0 {
-        return std::iter::once(0..0).collect();
+        return (std::iter::once(0..0).collect(), false);
     }
+    let mut broke = false;
     let mut out = vec![];
     let mut start = 0;
     while start < n {
@@ -575,7 +593,10 @@ fn break_lines(glyphs: &[Glyph], wrap: Option<f64>) -> Vec<Range<usize>> {
         } else {
             match last_break {
                 Some(b) if b > start => b,
-                _ => i,
+                _ => {
+                    broke = true;
+                    i
+                }
             }
         };
         // Spaces after a line hang on it.
@@ -586,7 +607,7 @@ fn break_lines(glyphs: &[Glyph], wrap: Option<f64>) -> Vec<Range<usize>> {
         out.push(start..end);
         start = end;
     }
-    out
+    (out, broke)
 }
 
 /// Width of laid-out glyphs: advances plus spacing between clusters.
@@ -679,16 +700,20 @@ fn style_table(text: &str, base: &TextStyle, runs: &[(Range<usize>, TextStyle)])
     (styles, StyleMap { runs: map })
 }
 
-/// Lays out text, returning the lines (with outlines unless measuring), the separate glyphs when
-/// asked for, and the font size used.
-fn layout_impl(
-    book: &FontBook,
-    text: &str,
-    base: &TextStyle,
-    runs: &[(Range<usize>, TextStyle)],
-    box_width: f64,
-    out: Out,
-) -> (TextLayout, Vec<GlyphLine>, f64) {
+/// What [`layout_impl`] returns.
+struct Laid {
+    /// The lines (with outlines unless measuring).
+    layout: TextLayout,
+    /// The separate glyphs, when asked for.
+    glyphs: Vec<GlyphLine>,
+    /// The font size used.
+    size: f64,
+    /// A word was wider than the box and broken between clusters.
+    broke_word: bool,
+}
+
+/// Lays out text.
+fn layout_impl(book: &FontBook, text: &str, base: &TextStyle, runs: &[(Range<usize>, TextStyle)], box_width: f64, out: Out) -> Laid {
     let wrap = if box_width.is_finite() && box_width > 0.0 { Some(box_width) } else { None };
     let (styles, style_map) = style_table(text, base, runs);
     let multi = styles.len() > 1;
@@ -739,8 +764,10 @@ fn layout_impl(
     let shaped: Vec<Vec<Glyph>> = paras.iter().zip(&analyses).map(|(para, an)| shape_para(para, an, &open, book, &infos)).collect();
     let mut lines: Vec<Line<'_>> = vec![];
     let mut widest: f64 = 0.0;
+    let mut broke_word = false;
     for (pi, (glyphs, para)) in shaped.iter().zip(&paras).enumerate() {
-        let ranges = break_lines(glyphs, wrap);
+        let (ranges, broke) = break_lines(glyphs, wrap);
+        broke_word |= broke;
         let starts: Vec<usize> = ranges.iter().map(|r| glyphs.get(r.start).map_or(0, |g| g.cluster)).collect();
         for (k, r) in ranges.iter().enumerate() {
             let g = glyphs.get(r.clone()).unwrap_or(&[]);
@@ -897,7 +924,7 @@ fn layout_impl(
         text_lines.push(LineLayout { path, x, width: w, top, baseline, height, text: line_text, range: src_range, pieces });
         top += height;
     }
-    (TextLayout { lines: text_lines, width: widest, height: top, styles }, glyph_lines, base_info_p.size)
+    Laid { layout: TextLayout { lines: text_lines, width: widest, height: top, styles }, glyphs: glyph_lines, size: base_info_p.size, broke_word }
 }
 
 /// Draws font outlines (y up, at the glyph origin) into a path (y down, at `x`, `y`).

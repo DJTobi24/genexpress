@@ -99,3 +99,51 @@ pub fn curved_text_path(fonts: &FontBook, t: &TextEl, w: f64, h: f64) -> Option<
 pub fn curved_text_size(fonts: &FontBook, t: &TextEl, w: f64) -> Option<(f64, f64)> {
     bend(fonts, t, w).map(|(_, b)| (b.width(), b.height()))
 }
+
+/// The scale `t`'s sizes are multiplied by to fit a `w` × `h` box ([`genha_doc::TextFit::Shrink`];
+/// see [`genha_text::fit_scale`]): straight text as wrapped lines, bent text by the size of its
+/// arc. Everything that draws, exports or edits text uses this, so all outputs match.
+pub fn text_fit(fonts: &FontBook, t: &TextEl, w: f64, h: f64) -> genha_text::FitScale {
+    if t.curve_degrees().abs() < MIN_CURVE {
+        return genha_text::fit_scale(fonts, t, w, h);
+    }
+    genha_text::fit_scale_by(fonts, t, w, h, &|el| curved_text_size(fonts, el, w))
+}
+
+/// `t` as it is laid out in a `w` × `h` box: its sizes scaled by [`text_fit`] (borrowed when it
+/// fits as set).
+pub fn fitted_text<'a>(fonts: &FontBook, t: &'a TextEl, w: f64, h: f64) -> std::borrow::Cow<'a, TextEl> {
+    t.scaled(text_fit(fonts, t, w, h).scale)
+}
+
+/// `page` with every text that shrinks to fit its box set at the size it is drawn at, no longer
+/// shrinking (borrowed when there is none): what an animation poses, so text a typewriter entrance
+/// types in keeps the size of the whole text instead of starting big.
+pub fn page_with_fitted_text<'a>(page: &'a genha_doc::Page, fonts: &FontBook) -> std::borrow::Cow<'a, genha_doc::Page> {
+    fn shrinks(e: &genha_doc::Element) -> bool {
+        match &e.kind {
+            genha_doc::ElementKind::Text(t) => t.fit == genha_doc::TextFit::Shrink,
+            genha_doc::ElementKind::Group(g) => g.children.iter().any(shrinks),
+            _ => false,
+        }
+    }
+    fn bake(e: &mut genha_doc::Element, fonts: &FontBook) {
+        let f = e.frame;
+        match &mut e.kind {
+            genha_doc::ElementKind::Text(t) if t.fit == genha_doc::TextFit::Shrink => {
+                let k = text_fit(fonts, t, f.width, f.height).scale;
+                let mut fitted = t.scaled(k).into_owned();
+                fitted.fit = genha_doc::TextFit::None;
+                *t = fitted;
+            }
+            genha_doc::ElementKind::Group(g) => g.children.iter_mut().for_each(|c| bake(c, fonts)),
+            _ => {}
+        }
+    }
+    if !page.elements.iter().any(shrinks) {
+        return std::borrow::Cow::Borrowed(page);
+    }
+    let mut out = page.clone();
+    out.elements.iter_mut().for_each(|e| bake(e, fonts));
+    std::borrow::Cow::Owned(out)
+}
