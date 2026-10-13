@@ -431,8 +431,15 @@ fn smart_resize_align_distribute() {
     assert_eq!(d.doc.pages.len(), 2);
     assert_eq!((d.doc.pages[1].width, d.doc.pages[1].height), (1080.0, 1920.0));
     assert_eq!(d.page, 1);
-    s.execute("page.resize", &json!({"width": 500, "height": 500})).unwrap();
+    let r = s.execute("page.resize", &json!({"width": 500, "height": 500})).unwrap();
     assert_eq!(s.doc().unwrap().doc.pages[1].width, 500.0);
+    assert!(r["notes"].is_array());
+    for mode in ["scale", "none", "smart"] {
+        s.execute("page.resize", &json!({"width": 600, "height": 400, "mode": mode})).unwrap();
+        assert_eq!(s.doc().unwrap().doc.pages[1].height, 400.0);
+    }
+    assert!(s.execute("page.resize", &json!({"width": 600, "height": 400, "mode": "stretch"})).is_err());
+    s.execute("page.resize", &json!({"width": 500, "height": 500})).unwrap();
     let a = id(&s.execute("shape.add", &json!({"x": 0, "y": 0, "width": 10, "height": 10})).unwrap());
     s.execute("object.align", &json!({"how": "right"})).unwrap();
     assert_eq!(s.doc().unwrap().doc.element(NodeId(a)).unwrap().frame.x, 490.0);

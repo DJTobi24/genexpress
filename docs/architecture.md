@@ -21,7 +21,7 @@ that nothing below L6 depends on a UI toolkit (egui, eframe, winit, rfd). Table:
 |---|---|---|
 | L0 | `geom`, `color`, `i18n` | frames (position, size, rotation), fitting, snapping, shape outlines (on `kurbo`); sRGB colours as hex, HSL, WCAG contrast, harmonies; the UI's translations (gettext PO catalogues compiled in, `tr`/`tr!`/`tr_n!`, the language per thread) |
 | L1 | `doc` | the document model: designs with pages of any size, elements (shapes, text, pictures, groups), brand kit, embedded assets, page-size presets; pure data + serde |
-| L2 | `text`, `effects`, `layout`, `templates`, `motion` | font discovery and text layout to outlines (`skrifa`); picture decoding, adjustments, filters and quick actions (background removal, resize, convert…); smart resize, align/distribute, collages, snapping guides; templates, shapes/icons, text styles, palettes and QR codes generated in code; animations evaluated at a time (`page_at`) |
+| L2 | `text`, `effects`, `layout`, `templates`, `motion` | font discovery and text layout to outlines (`skrifa`); picture decoding, adjustments, filters and quick actions (background removal, resize, convert…); smart resize (re-layout of text, rows and grids), align/distribute, collages, snapping guides; templates, shapes/icons, text styles, palettes and QR codes generated in code; animations evaluated at a time (`page_at`) |
 | L3 | `render`, `svg`, `pdf`, `video`, `format` | page → pixels (`vello_cpu`) and PNG/JPEG; SVG export; vector PDF export (`krilla`: embedded font subsets, pictures, print boxes); MP4 video (an H.264 encoder and MP4 writer of our own, pure Rust); the native `.genha` format (versioned, compressed JSON) |
 | L4 | `tools` | pointer gestures → commands (select/move/resize/rotate, shape and text tools); smart guides (`tools::smart`: snapping while moving and resizing, equal spacing, same sizes, distance hints) as pure geometry the canvas only draws |
 | L5 | `engine` | sessions, undo history, selection, the command registry, file I/O, the panic guard |
@@ -68,6 +68,44 @@ keeps them consistent: edits move them with the text (typed text takes the style
 `text.toggleBold`/`Italic`/`Underline`/`Strikethrough` commands apply to an explicit `range`, else to the
 selection while editing (with a bare caret they set `TextEditing::typing_style` for the next text typed),
 else to whole boxes; `text.inspect` reports the runs and the style at the selection (with mixed values).
+
+## Smart resize
+
+`genha_layout::resize_page` (`crates/layout/src/resize`, pure and deterministic; text measured
+with `genha_text::measure_wrapped_el`, so an empty font book gives the same approximate layout the
+renderer then draws) has three modes: `none`, `scale` (fit and centre) and `smart`, which works in
+four steps:
+
+1. **Structure** (`model.rs`): every element gets its bounds and, for straight text, its ink (the
+   lines' real extent). Backgrounds (non-text covering the area or reaching all its sides) and
+   empty bands stretch with the page. Holders (shapes and pictures containing elements above them)
+   become *sections* when they span the area (bands, sidebars, panels) or are wide text cards (their
+   content is laid out again inside them), else *rigid units* (buttons, badges, discs). Free shapes
+   next to text, or large and clear of text, are content; the rest are decorations (touching shapes
+   as one piece). The content is cut recursively at clear gaps (X-Y cut) into stacks and rows;
+   stacked rows of like items that line up become columns, and repeated items (also groups of up
+   to three siblings) grids.
+2. **Layout** (`flow.rs`) at a scale `s`: text gets a width from its container (grown or shrunk as
+   the container changed, at most 34 em for body text, never narrower than its longest word or its
+   old lines), its type scaled by `s` but not below the readable minimum (1.6 % of the page's
+   shorter side), its height measured; rigid units scale; sections pad and wrap their content;
+   stacks keep scaled gaps and each child's alignment; rows give text the room pictures and
+   buttons do not need, spread when their gaps are large, and turn into stacks when they cannot fit;
+   grids pick their column count (more on relatively wider pages, fewer when items do not fit).
+3. **Fit** (`smart.rs`): the largest `s` up to the shorter-side ratio at which the content fits
+   (binary search), also trying 2–3 columns for tall designs on wide pages (taken when type is
+   ≥ 12 % larger), relaxing the readable minimum only when nothing fits; the page's whitespace is
+   shared between margins and gaps in proportion to the original's; bands and panels then reach
+   the page edges again; decorations are anchored to their nearest edge or centre (or follow the
+   content they overlap) and are shrunk towards their corner, or moved to a free corner, when they
+   would cover text.
+4. **Settle** (`settle.rs`): every straight text box is made as tall as its lines, words never
+   break for lack of width, text stays on the page, and text boxes that collide are moved apart,
+   then set smaller down to the readable minimum; what still collides is reported in `notes`.
+
+`crates/layout/tests/resize_templates.rs` resizes every page of every template to a story, a
+square post, a landscape slide and A4, with the system fonts and with none, and checks that no text
+overflows its box, leaves the page or overlaps other text.
 
 ## Rendering
 

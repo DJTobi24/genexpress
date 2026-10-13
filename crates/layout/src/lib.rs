@@ -1,6 +1,8 @@
 //! Layout for GenHa (layer L2): pure functions over the document model that arrange things.
 //!
-//! - [`smart_resize`]: resize a page to another size while keeping the design readable;
+//! - [`resize_page`] / [`smart_resize`]: resize a page to another size and re-lay out the design
+//!   (text reflowed and measured, rows and grids re-arranged, backgrounds and bands following the
+//!   page);
 //! - [`align`], [`distribute`], [`tidy_grid`]: arrange a selection;
 //! - [`collage_layouts`] / [`cells_in`]: photo grids for 1 to 9 pictures;
 //! - [`snap_guides`] / [`snap_frame`]: smart guides while dragging.
@@ -16,5 +18,5 @@ mod snap;
 
 pub use arrange::{Align, Axis, align, distribute, selection_bounds, tidy_grid};
 pub use collage::{CollageLayout, MAX_COLLAGE, cells_in, collage_layouts};
-pub use resize::smart_resize;
+pub use resize::{ResizeMode, Resized, resize_page, smart_resize};
 pub use snap::{SnapGuides, snap_frame, snap_guides};

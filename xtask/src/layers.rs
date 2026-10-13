@@ -39,7 +39,7 @@ pub const TABLE: &[(&str, Class)] = &[
 
 /// Allowed dependencies *within* a layer (earlier may be used by later).
 pub const INTRA_LAYER_ORDER: &[&[&str]] =
-    &[&["geom", "color"], &["effects", "templates"], &["layout", "templates"], &["render", "svg"], &["render", "pdf"]];
+    &[&["geom", "color"], &["effects", "templates"], &["layout", "templates"], &["text", "layout"], &["render", "svg"], &["render", "pdf"]];
 
 /// External crates that make up a UI toolkit; only L6 and above may use them.
 pub const UI_CRATES: &[&str] = &["egui", "eframe", "winit", "egui_extras", "egui_kittest", "rfd"];

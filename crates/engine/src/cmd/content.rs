@@ -31,7 +31,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Resize Design…",
             ["Page"],
             None,
-            "{preset? | width, height, index?, copy?: bool — keep the page and add a resized copy after it} — re-lays out the content for the new size",
+            "{preset? | width, height, index?, copy?: bool — keep the page and add a resized copy after it, mode?: smart|scale|none = smart} — smart re-lays out the design for the new size (text reflowed, rows and grids re-arranged; `notes` lists anything that could not be kept readable), scale scales the content to fit and centres it, none changes the page size only",
             has_doc,
             page_resize
         ),
@@ -251,9 +251,13 @@ fn page_resize(s: &mut Session, p: &Value) -> Result<Value> {
     if copy && d.doc.pages.len() >= genha_doc::MAX_PAGES {
         return Err(bad("page.resize", "too many pages"));
     }
+    let mode = match str_param(p, "mode") {
+        None => genha_layout::ResizeMode::Smart,
+        Some(m) => genha_layout::ResizeMode::parse(m).ok_or_else(|| bad("page.resize", format!("unknown mode `{m}` (smart, scale, none)")))?,
+    };
     let preset_name = str_param(p, "preset").and_then(genha_doc::preset::find).map(|x| x.label);
+    let genha_layout::Resized { page: mut resized, notes } = genha_layout::resize_page(&page, w, h, mode, &s.fonts);
     let index = s.edit(if copy { "Duplicate & Resize" } else { "Resize" }, |doc, cx| {
-        let mut resized = genha_layout::smart_resize(&page, w, h);
         if copy {
             doc.reassign_page_ids(&mut resized);
             resized.name = match preset_name {
@@ -269,7 +273,7 @@ fn page_resize(s: &mut Session, p: &Value) -> Result<Value> {
             Ok(i)
         }
     })?;
-    Ok(ok(json!({"index": index, "width": w, "height": h})))
+    Ok(ok(json!({"index": index, "width": w, "height": h, "notes": notes})))
 }
 
 fn frames_of(s: &Session, ids: &[NodeId]) -> Result<Vec<Frame>> {

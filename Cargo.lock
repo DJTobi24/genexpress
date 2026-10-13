@@ -1214,6 +1214,8 @@ dependencies = [
  "genha-color",
  "genha-doc",
  "genha-geom",
+ "genha-templates",
+ "genha-text",
  "serde",
  "serde_json",
 ]

@@ -1,6 +1,6 @@
 [package]
 name = "genha-layout"
-description = "GenHa layout: smart resize, align/distribute, grids, collage layouts and snapping guides"
+description = "GenHa layout: smart resize (re-layout of text, rows and grids), align/distribute, grids, collage layouts and snapping guides"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,10 +10,12 @@ rust-version.workspace = true
 genha-doc = { workspace = true }
 genha-geom = { workspace = true }
 genha-color = { workspace = true }
+genha-text = { workspace = true }
 serde = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+genha-templates = { workspace = true }
 
 [lints]
 workspace = true

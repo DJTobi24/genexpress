@@ -32,7 +32,7 @@ Sources: https://helpx.adobe.com/express/web/organize-your-designs/arrange-layer
 |---|---|---|
 | Multi-page designs, pages of different sizes | ✅ | `page.add/duplicate/delete/move/goto`, per-page size |
 | Resize page (presets or custom) | ✅ | `page.setSize`, presets (`presets.list`) |
-| Smart resize / duplicate & resize to other sizes | ✅ | `page.resize` (smart re-anchoring), `page.resize {copy: true}` |
+| Smart resize / duplicate & resize to other sizes | ✅ | `page.resize {mode: smart}` re-lays out the design (M2.21): text reflowed to the new width with real measurements and readable sizes, stacks/rows/grids detected and re-arranged (rows become stacks on tall pages, grids change column count, tall designs go into columns on wide pages), backgrounds and bands follow the page, cards and buttons scale as units, decorations stay anchored; never leaves text overflowing, off the page or overlapping (checked on every template × story/square/landscape/A4, with and without fonts); `notes` report text set below the readable size. `mode: scale` (fit and centre), `mode: none`; `copy: true` adds a resized copy. Limits: no focal point for cropped pictures; dense two-column documents re-flow mechanically |
 | Crop page to content | ✅ | `page.cropToContent {padding}` |
 | Layers panel, reorder, lock, hide | ✅ | `object.bringForward…`, `object.lock/hide`, Layers panel |
 | Group / ungroup | ✅ | `object.group/ungroup` |
