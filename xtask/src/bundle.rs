@@ -619,12 +619,13 @@ pub fn write_linux_tree(stage: &Path, bins: &[(&str, PathBuf)], version: &str) -
     write(&stage.join("README.txt"), linux_readme(version))
 }
 
-/// The `.desktop` entry (freedesktop.org Desktop Entry Specification 1.5).
+/// The `.desktop` entry (freedesktop.org Desktop Entry Specification 1.4: the newest version the
+/// `desktop-file-validate` of Ubuntu 22.04, where the Linux release is built, knows).
 pub fn desktop_file() -> String {
     format!(
         "[Desktop Entry]
 Type=Application
-Version=1.5
+Version=1.4
 Name={APP_NAME}
 GenericName=Design App
 Comment=Design social posts, flyers, posters, presentations and more
