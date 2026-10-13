@@ -78,5 +78,37 @@ came from data, cap sizes, check floats, and fuzz every parser (`proptest`).
    still open (bump `genha_format::VERSION` only for breaking changes, and keep reading old ones).
 2. Behaviour: a command in `crates/engine/src/cmd/<area>.rs` with a params doc and tests.
 3. Rendering/export: `crates/render`, `crates/svg`, `crates/pdf`.
-4. UI: a panel or button in `crates/ui-egui` that calls the command (`app.run(id, params)`).
+4. UI: a panel or button in `crates/ui-egui` that calls the command (`app.run(id, params)`), its
+   text translated (below).
 5. Docs: the feature's row in [target-app-parity.md](target-app-parity.md), [gaps.md](gaps.md), the ROADMAP.
+
+## Translating GenHa
+
+The UI is written in English and translated where text is shown (`crates/i18n`, layer L0). English
+strings are the keys; a string without a translation shows in English, and nothing can fail.
+
+- **In code:** `tr("Download")` for a plain string; `tr!("Saved {path}", path = p.display())` with
+  named values; `tr_n!("{n} page", "{n} pages", n)` for counted strings (the language picks the plural
+  form). Strings kept in tables or constants and translated later with `tr(label)` are marked
+  `N_("Left")`. Labels from lower crates (command labels and menus, size presets, chart kinds,
+  animations, filters, template categories, shapes, text styles, palettes) are translated where the
+  UI shows them. Text that is part of a design (template content, names the user typed) is not.
+- **Catalogues:** gettext PO files in `crates/i18n/po/<code>.po`, compiled in (`include_str!`); any PO
+  editor works. German style: neutral and concise, no "du"/"Sie" ("Bild hochladen",
+  "Hintergrund entfernen"); keep placeholders and trailing spaces; capitals stay capitals.
+- **Checks:** `cargo test -p genha-i18n` (the catalogue parses, placeholders match, plural forms);
+  `cargo test -p genha-ui-egui every_ui_string` lists every UI string missing from `de.po` and every
+  entry no longer used; `the_german_ui_shows_no_english` draws the screens in German and fails on
+  English left over. Run the app with `ui.setLanguage {lang: "de"}` (or the picker on the home
+  screen) and look at it: German words are longer.
+- **A new language:** add a `Lang` variant (code, native name, plural rule) in `crates/i18n/src/lib.rs`
+  and `po/<code>.po`; the picker and `ui.setLanguage` offer it from then on.
+
+The language is a preference (`ui.setLanguage {lang: "system"|"en"|"de"}`, kept in the store like
+the smart-guides setting); "system" follows the computer's or the browser's language (`sys-locale`).
+
+**Fonts for every script in the UI:** egui's own faces cover Latin, Greek, Cyrillic and emoji. At start
+(on a worker thread) and when fonts are added, `fonts::ui_fallback_faces` picks from the system's
+fonts (`FontBook`) a face for each script they lack (Arabic, Hebrew, Indic scripts, Thai, CJK,
+Hangul…; at most 10 faces, 120 MB) and adds them after egui's own. egui does not shape text, so Arabic
+and Indic scripts in fields and layer names show unjoined letters; the canvas shapes them properly.

@@ -13,6 +13,7 @@ repository = "https://github.com/DJTobi24/genexpress"
 [workspace.dependencies]
 # internal
 genha-geom = { path = "crates/geom" }
+genha-i18n = { path = "crates/i18n" }
 genha-color = { path = "crates/color" }
 genha-doc = { path = "crates/doc" }
 genha-text = { path = "crates/text" }
@@ -38,6 +39,8 @@ serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 base64 = "0.22"
 log = "0.4"
+# The system's (or the browser's) language for the UI (MIT OR Apache-2.0).
+sys-locale = "0.3"
 proptest = "1"
 qrcode = { version = "0.14", default-features = false }
 

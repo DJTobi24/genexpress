@@ -16,6 +16,7 @@
 use serde_json::json;
 
 use crate::{App, Screen};
+use genha_i18n::tr;
 
 /// After `edit.copy` / `edit.cut`: what the system clipboard should hold.
 pub(crate) fn copied(app: &mut App) {
@@ -28,7 +29,7 @@ pub(crate) fn copied(app: &mut App) {
         })
         .collect();
     let n = els.len();
-    app.clip_out = Some(if texts.is_empty() { format!("GenHa: {n} object{}", if n == 1 { "" } else { "s" }) } else { texts.join("\n") });
+    app.clip_out = Some(if texts.is_empty() { genha_i18n::tr_n!("GenHa: {n} object", "GenHa: {n} objects", n) } else { texts.join("\n") });
 }
 
 /// Called once per frame.
@@ -71,9 +72,9 @@ pub(crate) fn place(app: &mut App, bytes: &[u8]) {
     if app.screen == Screen::Editor && app.session.active().is_some() {
         use base64::Engine as _;
         let data = base64::engine::general_purpose::STANDARD.encode(bytes);
-        app.run("image.paste", &json!({"data": data, "name": "Pasted picture"}));
+        app.run("image.paste", &json!({"data": data, "name": tr("Pasted picture")}));
     } else {
-        match genha_engine::cmd::file::open_bytes(&mut app.session, "Pasted picture", bytes) {
+        match genha_engine::cmd::file::open_bytes(&mut app.session, tr("Pasted picture"), bytes) {
             Ok(_) => {
                 app.screen = Screen::Editor;
                 app.view.fit_pending = true;
@@ -88,12 +89,12 @@ pub(crate) fn paste_picture(app: &mut App) {
     #[cfg(not(target_arch = "wasm32"))]
     match system_picture() {
         Some(png) => place(app, &png),
-        None => app.set_status("There is no picture on the clipboard"),
+        None => app.set_status(tr("There is no picture on the clipboard")),
     }
     // The browser reads the clipboard asynchronously; the picture arrives a frame later.
     #[cfg(target_arch = "wasm32")]
     {
-        app.set_status("Reading the clipboard…");
+        app.set_status(tr("Reading the clipboard…"));
         crate::web::read_clipboard_picture();
     }
 }

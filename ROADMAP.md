@@ -2,25 +2,26 @@
 
 **Stage: pre-alpha** · next: alpha (M2–M3: document styles, embedded fonts) · ~30–35% of the target feature set (estimated)
 
-> **Last updated:** 2026-10-13 · **Change:** minor (M3.1 text shaping, M2.16 text edited on the canvas, M4.1 vector PDF, M2.17 web app follow-ups, M2.19 smart guides, M5.1 multi-series charts and richer tables, M3.2 formatting part of a text box, M6.1 MP4 video export, M2.20 template library of 121)
+> **Last updated:** 2026-10-13 · **Change:** minor (M3.1 text shaping, M2.16 text edited on the canvas, M4.1 vector PDF, M2.17 web app follow-ups, M2.19 smart guides, M5.1 multi-series charts and richer tables, M3.2 formatting part of a text box, M6.1 MP4 video export, M2.20 template library of 121, M5.2 German UI)
 
 ## Headline numbers
 
 | Dimension | Value | Measured / estimated |
 |---|---|---|
 | Feature parity with the target (all areas) | ~20–25% | estimated, see [target-app-parity.md](docs/target-app-parity.md) |
-| Commands (UI = CLI = MCP) | 158 | measured (`genha-cli exec engine.commands`) |
+| Commands (UI = CLI = MCP) | COMMANDS | measured (`genha-cli exec engine.commands`) |
 | Templates / size presets / icons / text styles / palettes / filters | 121 / 35 / 114 (+10 basic shapes) / 25 / 40 / 14 | measured (counted from `genha_templates`) |
-| Tests | 303 | measured (`cargo test --workspace`) |
+| Tests | TESTS | measured (`cargo test --workspace`) |
 | Rust lines | ~45k | measured (all `.rs` files, tests included) |
 | Platforms | Linux, macOS, Windows (desktop); web (WASM, `cargo xtask web`) | Linux and Chromium measured; others by CI target |
+| UI languages | English, German (793 strings) | measured (`crates/i18n/po/de.po`) |
 
 ## What's next
 
 1. **M2 — Web & polish:** keyboard reference, preferences; web app: control channel over a WebSocket, WOFF2 fonts. The web build (with fonts, Data Recovery, recent designs and picture paste), crop page, multi-select handles, recent files, SVG import and on-canvas text editing landed.
 2. **M3 — Text:** grid text, document-wide text styles, font files embedded in designs, colour emoji (shaping with HarfRust and formatting part of a text box landed).
 3. **M4 — Pictures & print:** colour-managed CMYK (ICC output intent), HEIC, vectorize, better background removal. Vector PDF with embedded fonts, print PDF with bleed/crop marks and SVG import landed.
-4. **M5 — Documents:** several brands, accessibility (AccessKit), German UI (charts with several series, tables with merged cells, present mode and version history landed).
+4. **M5 — Documents:** several brands, accessibility (AccessKit), more UI languages (charts with several series, tables with merged cells, present mode, version history and the German UI landed).
 5. **M6 — Motion & video:** timeline with scenes, audio (animations, playback, present mode, GIF, animated PNG and MP4 video landed).
 
 Full milestone table: [docs/roadmap.md](docs/roadmap.md). Ranked work list: [docs/gaps.md](docs/gaps.md).
@@ -30,6 +31,7 @@ Full milestone table: [docs/roadmap.md](docs/roadmap.md). Ranked work list: [doc
 | Date | Milestone | Summary |
 |---|---|---|
 | 2026-10-13 | M2.20 | Template library grown from 65 to 121 original templates (Social 42, Print 22, Cards & invitations 23, Documents 16, Marketing 10, Logos 8): animated posts, stories and videos with entrance animations and page durations (GIF/MP4 ready), reel covers, LinkedIn/X/Facebook posts, thumbnails, pins, event posters and flyers, bar and brunch menus, a recipe card, a property flyer with QR code, save the date, party and graduation cards, business and loyalty cards, letterhead, invoice, cover letter, resume, newsletter, timetable, worksheet, a sales deck and a lesson deck with notes, an infographic, a landing page, pricing and listing posts, podcast art and curved-text logos. They use style runs, multi-series charts, tables with merged and styled cells, curved text and QR codes. New template tests: text fits its box with system fonts and with none (laid out with `genha_text`), text contrast against what is behind it (WCAG-style, which also fixed colours in 26 older templates), every template renders and exports to PNG, SVG and PDF |
+| 2026-10-13 | M5.2 | German UI: `crates/i18n` (L0) with gettext PO catalogues compiled in, `tr`/`tr!`/`tr_n!` (plural forms), English fallback; 793 German strings covering every panel, menu, dialog, the command palette (labels and menus, searchable in both languages), status and common error messages, size presets, template categories, shapes, text styles and palettes; `ui.setLanguage {lang: system\|en\|de}` kept between runs, picker on the home screen, switches live; the top bar falls onto two rows when its labels do not fit. UI fonts for every script: system faces for Arabic, Hebrew, Indic scripts, Thai, CJK, Hangul… added to egui on a worker thread (117 ms, 6 faces on the test machine; the first frame does not wait). Tests check the catalogue is complete and unused-free and draw the German screens looking for English |
 | 2026-10-13 | M2.19 | Smart guides while resizing (moving edges snap to page and object lines, same width/height and equal gaps; corners with Shift, Alt from the centre, several objects), distance hints to neighbours and page edges, equal-spacing markers, Alt-hover distances, Ctrl/Cmd skips snapping, `view.snapping` kept between runs; a click on an object or handle never nudges it (3 px drag threshold, handles follow the pointer's travel) |
 | 2026-10-13 | M5.1 | Charts with several series (grouped and stacked bars, horizontal bars, lines, stacked areas), per-series colours, axis titles, gridlines, legend position, number/percent/currency formats with decimals, fixed min/max; series × categories grid and CSV/TSV paste. Tables with merged cells, per-cell fill/text colour/bold/alignment/size, column widths (pixels, fit to text) and row heights, outer/inner lines; `table.mergeCells`, `splitCell`, `setCellStyle`, `setColumnWidth`, `setRowHeight`; one scene for PNG, SVG and vector PDF |
 | 2026-10-13 | M3.2 | Formatting part of a text box: style runs (`TextEl::spans`: font, size, bold, italic, underline, strikethrough, colour by character range) that move with edits and are repaired on load; layout shapes each run in its own face and size with breaking, bidi and alignment across runs; per-run drawing on the canvas, in SVG (nested `<tspan>`s) and vector PDF (with synthetic bold/italic); `text.setStyle {range}` / the editing selection, `text.toggleBold/Italic/Underline/Strikethrough` (Ctrl/Cmd+B/I/U), `text.inspect`; mixed values in the panel |

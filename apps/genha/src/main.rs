@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 
+use genha_ui_egui::i18n::tr;
 use genha_ui_egui::{App, AppOptions, control::ControlServer};
 
 const USAGE: &str = "usage: genha [--control PORT] [--dark] [FILE.genha | PICTURE …]
@@ -24,7 +25,7 @@ impl eframe::App for Shell {
         self.app.ui(ui);
         // Window title follows the design.
         let title = match self.app.session.active() {
-            Some(d) => format!("{}{} — GenHa", d.display_name(), if d.dirty { " •" } else { "" }),
+            Some(d) => format!("{}{} — GenHa", genha_ui_egui::shown_name(&d.display_name()), if d.dirty { " •" } else { "" }),
             None => "GenHa".to_string(),
         };
         if title != self.title {
@@ -38,16 +39,16 @@ impl eframe::App for Shell {
             self.confirm_close = true;
         }
         if self.confirm_close {
-            egui::Window::new("Unsaved changes").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO).show(
+            egui::Window::new(tr("Unsaved changes")).collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO).show(
                 &ctx,
                 |ui| {
-                    ui.label("Some designs have changes that are not saved.");
+                    ui.label(tr("Some designs have changes that are not saved."));
                     ui.horizontal(|ui| {
-                        if ui.button("Quit without saving").clicked() {
+                        if ui.button(tr("Quit without saving")).clicked() {
                             self.allow_close = true;
                             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                         }
-                        if ui.button("Cancel").clicked() {
+                        if ui.button(tr("Cancel")).clicked() {
                             self.confirm_close = false;
                         }
                     });

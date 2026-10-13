@@ -5,6 +5,7 @@ use serde_json::json;
 use crate::theme::Tokens;
 use crate::{App, io, thumbs};
 use genha_doc::preset;
+use genha_i18n::{N_, tr, tr_n};
 
 pub struct HomeState {
     pub query: String,
@@ -20,18 +21,18 @@ impl Default for HomeState {
     }
 }
 
-/// File-in, file-out picture tools.
+/// File-in, file-out picture tools: id, label, hint (English; shown translated).
 pub const QUICK_ACTIONS: &[(&str, &str, &str)] = &[
-    ("remove-background", "Remove background", "Cut out the subject of a photo with a plain backdrop"),
-    ("resize", "Resize picture", "Scale a picture to 50%"),
-    ("convert-png", "Convert to PNG", "Any picture to PNG"),
-    ("convert-jpeg", "Convert to JPEG", "Any picture to JPEG"),
-    ("convert-webp", "Convert to WebP", "Any picture to WebP"),
-    ("blur-background", "Blur background", "Keep the subject sharp, blur what is behind"),
-    ("change-background", "White background", "Replace a plain backdrop with white"),
-    ("pixelate", "Pixelate", "Big blocky pixels"),
-    ("auto-crop", "Trim borders", "Remove empty or uniform edges"),
-    ("grayscale", "Black & white", "Turn a photo black and white"),
+    ("remove-background", N_("Remove background"), N_("Cut out the subject of a photo with a plain backdrop")),
+    ("resize", N_("Resize picture"), N_("Scale a picture to 50%")),
+    ("convert-png", N_("Convert to PNG"), N_("Any picture to PNG")),
+    ("convert-jpeg", N_("Convert to JPEG"), N_("Any picture to JPEG")),
+    ("convert-webp", N_("Convert to WebP"), N_("Any picture to WebP")),
+    ("blur-background", N_("Blur background"), N_("Keep the subject sharp, blur what is behind")),
+    ("change-background", N_("White background"), N_("Replace a plain backdrop with white")),
+    ("pixelate", N_("Pixelate"), N_("Big blocky pixels")),
+    ("auto-crop", N_("Trim borders"), N_("Remove empty or uniform edges")),
+    ("grayscale", N_("Black & white"), N_("Turn a photo black and white")),
 ];
 
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
@@ -66,12 +67,13 @@ fn header(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("GenHa").size(30.0).strong().color(t.accent));
         ui.add_space(8.0);
-        ui.label(egui::RichText::new("Design anything — open source, made in Rust.").size(15.0).color(t.text_dim));
+        ui.label(egui::RichText::new(tr("Design anything — open source, made in Rust.")).size(15.0).color(t.text_dim));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.button(if app.dark { "Light mode" } else { "Dark mode" }).clicked() {
+            if ui.button(if app.dark { tr("Light mode") } else { tr("Dark mode") }).clicked() {
                 app.dark = !app.dark;
             }
-            if ui.button("Open…").clicked()
+            language_picker(app, ui);
+            if ui.button(tr("Open…")).clicked()
                 && let Some(p) = io::pick_open(&[io::DESIGNS, io::PICTURES])
             {
                 app.run("file.open", &json!({"path": p.display().to_string()}));
@@ -81,15 +83,15 @@ fn header(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 }
 
 fn start(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    ui.label(egui::RichText::new("What do you want to create?").size(20.0).strong());
+    ui.label(egui::RichText::new(tr("What do you want to create?")).size(20.0).strong());
     ui.add_space(6.0);
     ui.horizontal_wrapped(|ui| {
-        ui.add(egui::TextEdit::singleline(&mut app.home.query).hint_text("Search sizes and templates").desired_width(280.0));
-        if ui.selectable_label(app.home.category.is_none(), "All").clicked() {
+        ui.add(egui::TextEdit::singleline(&mut app.home.query).hint_text(tr("Search sizes and templates")).desired_width(280.0));
+        if ui.selectable_label(app.home.category.is_none(), tr("All")).clicked() {
             app.home.category = None;
         }
         for c in preset::categories() {
-            if ui.selectable_label(app.home.category == Some(c), c).clicked() {
+            if ui.selectable_label(app.home.category == Some(c), tr(c)).clicked() {
                 app.home.category = Some(c);
             }
         }
@@ -102,7 +104,13 @@ fn start(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         preset::PRESETS
             .iter()
             .filter(|p| cat.is_none_or(|c| c == p.category))
-            .filter(|p| q.is_empty() || p.label.to_lowercase().contains(&q) || p.category.to_lowercase().contains(&q))
+            .filter(|p| {
+                q.is_empty()
+                    || p.label.to_lowercase().contains(&q)
+                    || p.category.to_lowercase().contains(&q)
+                    || tr(p.label).to_lowercase().contains(&q)
+                    || tr(p.category).to_lowercase().contains(&q)
+            })
             .map(Some),
     );
     // Without a filter, the most used sizes; "More sizes" shows them all.
@@ -131,11 +139,11 @@ fn start(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         }
         Some(p) => {
             if preset_card(ui, t, p).clicked() {
-                create = Some(json!({"preset": p.id}));
+                create = Some(json!({"preset": p.id, "title": tr(p.label)}));
             }
         }
     });
-    if ui.link(if app.home.all_sizes { "Fewer sizes" } else { "More sizes…" }).clicked() {
+    if ui.link(if app.home.all_sizes { tr("Fewer sizes") } else { tr("More sizes…") }).clicked() {
         app.home.all_sizes = !app.home.all_sizes;
     }
     if let Some(p) = create {
@@ -166,11 +174,11 @@ fn custom_card(app: &mut App, ui: &mut egui::Ui, t: &Tokens) -> Option<serde_jso
         ui.set_width(130.0);
         ui.set_height(118.0);
         ui.vertical(|ui| {
-            ui.label(egui::RichText::new("Custom size").strong());
-            ui.add(egui::DragValue::new(&mut app.home.custom_w).range(1.0..=16384.0).prefix("W ").suffix(" px").speed(1.0));
-            ui.add(egui::DragValue::new(&mut app.home.custom_h).range(1.0..=16384.0).prefix("H ").suffix(" px").speed(1.0));
-            if ui.add(egui::Button::new(egui::RichText::new("Create").color(t.accent_text)).fill(t.accent)).clicked() {
-                out = Some(json!({"width": app.home.custom_w, "height": app.home.custom_h, "title": "Custom design"}));
+            ui.label(egui::RichText::new(tr("Custom size")).strong());
+            ui.add(egui::DragValue::new(&mut app.home.custom_w).range(1.0..=16384.0).prefix(tr("W ")).suffix(" px").speed(1.0));
+            ui.add(egui::DragValue::new(&mut app.home.custom_h).range(1.0..=16384.0).prefix(tr("H ")).suffix(" px").speed(1.0));
+            if ui.add(egui::Button::new(egui::RichText::new(tr("Create")).color(t.accent_text)).fill(t.accent)).clicked() {
+                out = Some(json!({"width": app.home.custom_w, "height": app.home.custom_h, "title": tr("Custom design")}));
             }
         });
     });
@@ -192,7 +200,7 @@ fn preset_card(ui: &mut egui::Ui, t: &Tokens, p: &preset::PagePreset) -> egui::R
                 let r = egui::Rect::from_center_size(rect.center(), sz);
                 ui.painter().rect_filled(r, 4, t.accent_soft);
                 ui.painter().rect_stroke(r, 4, egui::Stroke::new(1.5, t.accent), egui::StrokeKind::Inside);
-                ui.label(egui::RichText::new(p.label).size(12.5));
+                ui.label(egui::RichText::new(tr(p.label)).size(12.5));
                 ui.label(egui::RichText::new(format!("{:.0} × {:.0}", p.width, p.height)).size(11.0).color(t.text_dim));
             });
         })
@@ -202,7 +210,7 @@ fn preset_card(ui: &mut egui::Ui, t: &Tokens, p: &preset::PagePreset) -> egui::R
 }
 
 fn templates(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    ui.label(egui::RichText::new("Start from a template").size(20.0).strong());
+    ui.label(egui::RichText::new(tr("Start from a template")).size(20.0).strong());
     ui.add_space(6.0);
     let q = app.home.query.to_lowercase();
     let list: Vec<_> = genha_templates::catalog()
@@ -213,11 +221,12 @@ fn templates(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 && (q.is_empty()
                     || tp.name.to_lowercase().contains(&q)
                     || tp.category.to_lowercase().contains(&q)
+                    || tr(tp.category).to_lowercase().contains(&q)
                     || tp.tags.iter().any(|g| g.contains(&q)))
         })
         .collect();
     if list.is_empty() {
-        ui.colored_label(t.text_dim, "No templates match.");
+        ui.colored_label(t.text_dim, tr("No templates match."));
         return;
     }
     let ctx = ui.ctx().clone();
@@ -228,7 +237,7 @@ fn templates(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             let doc = genha_templates::instantiate(tp.id, None)?;
             genha_render::render_thumbnail(&doc, 0, &fonts, 360).ok()
         });
-        if template_card(ui, t, tp.name, tp.category, tp.width as f32, tp.height as f32, tex.as_ref()).clicked() {
+        if template_card(ui, t, tp.name, tr(tp.category), tp.width as f32, tp.height as f32, tex.as_ref()).clicked() {
             chosen = Some(tp.id);
         }
     });
@@ -276,12 +285,12 @@ pub(crate) fn template_card(
 }
 
 fn quick_actions(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    ui.label(egui::RichText::new("Quick actions").size(20.0).strong());
-    ui.label(egui::RichText::new("One click, file in, file out — nothing leaves your computer.").color(t.text_dim));
+    ui.label(egui::RichText::new(tr("Quick actions")).size(20.0).strong());
+    ui.label(egui::RichText::new(tr("One click, file in, file out — nothing leaves your computer.")).color(t.text_dim));
     ui.add_space(6.0);
     ui.horizontal_wrapped(|ui| {
         for (id, label, hint) in QUICK_ACTIONS {
-            let r = ui.add(egui::Button::new(egui::RichText::new(*label).size(14.0)).min_size(egui::vec2(170.0, 44.0))).on_hover_text(*hint);
+            let r = ui.add(egui::Button::new(egui::RichText::new(tr(label)).size(14.0)).min_size(egui::vec2(170.0, 44.0))).on_hover_text(tr(hint));
             if r.clicked() {
                 run_quick_action(app, id);
             }
@@ -317,17 +326,18 @@ fn run_quick_action(app: &mut App, action: &str) {
         o.insert("output".into(), json!(output.display().to_string()));
     }
     if app.run("quick.image", &p).is_some() {
-        app.set_status(format!("Saved {}", output.display()));
+        app.set_status(tr!("Saved {path}", path = output.display()));
     }
 }
 
 fn open_designs(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    ui.label(egui::RichText::new("Open designs").size(20.0).strong());
+    ui.label(egui::RichText::new(tr("Open designs")).size(20.0).strong());
     ui.add_space(6.0);
-    let names: Vec<(usize, String, usize)> = app.session.docs.iter().enumerate().map(|(i, d)| (i, d.display_name(), d.doc.pages.len())).collect();
+    let names: Vec<(usize, String, usize)> =
+        app.session.docs.iter().enumerate().map(|(i, d)| (i, crate::shown_name(&d.display_name()), d.doc.pages.len())).collect();
     ui.horizontal_wrapped(|ui| {
         for (i, name, pages) in names {
-            let label = format!("{name}\n{pages} page{}", if pages == 1 { "" } else { "s" });
+            let label = format!("{name}\n{}", tr_n!("{n} page", "{n} pages", pages));
             if ui.add(egui::Button::new(label).min_size(egui::vec2(170.0, 48.0)).fill(t.panel)).clicked() {
                 app.run("document.switch", &json!({"index": i}));
                 app.screen = crate::Screen::Editor;
@@ -342,20 +352,20 @@ fn recovered(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     }
     let mut action: Option<(&str, String)> = None;
     egui::Frame::new().fill(t.accent_soft).corner_radius(12).inner_margin(12).show(ui, |ui| {
-        ui.label(egui::RichText::new("Recovered designs").size(17.0).strong());
+        ui.label(egui::RichText::new(tr("Recovered designs")).size(17.0).strong());
         let why = if cfg!(target_arch = "wasm32") {
-            "These designs had unsaved changes when GenHa was last closed or reloaded."
+            tr("These designs had unsaved changes when GenHa was last closed or reloaded.")
         } else {
-            "GenHa closed unexpectedly last time. These designs had unsaved changes."
+            tr("GenHa closed unexpectedly last time. These designs had unsaved changes.")
         };
         ui.label(egui::RichText::new(why).color(t.text_dim));
         for (key, title) in &app.recovered {
             ui.horizontal(|ui| {
                 ui.label(egui::RichText::new(title).strong());
-                if ui.button("Open").clicked() {
+                if ui.button(tr("Open")).clicked() {
                     action = Some(("recovery.open", key.clone()));
                 }
-                if ui.button("Discard").clicked() {
+                if ui.button(tr("Discard")).clicked() {
                     action = Some(("recovery.discard", key.clone()));
                 }
             });
@@ -378,7 +388,7 @@ fn recent(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     if entries.is_empty() {
         return;
     }
-    ui.label(egui::RichText::new("Recent designs").size(20.0).strong());
+    ui.label(egui::RichText::new(tr("Recent designs")).size(20.0).strong());
     ui.add_space(6.0);
     let ctx = ui.ctx().clone();
     let rev = app.recent_rev;
@@ -392,14 +402,14 @@ fn recent(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             Some(genha_render::Raster { width: img.width(), height: img.height(), rgba: img.into_raw() })
         });
         let (w, h) = tex.as_ref().map_or((4.0, 3.0), |t| (t.size()[0] as f32, t.size()[1] as f32));
-        let pages = format!("{} page{}", e.pages.max(1), if e.pages > 1 { "s" } else { "" });
+        let pages = tr_n!("{n} page", "{n} pages", e.pages.max(1));
         let r = template_card(ui, t, &e.title, &pages, w, h, tex.as_ref());
         let r = match &e.path {
             Some(p) => r.on_hover_text(p),
             None => r.on_hover_text(&e.name),
         };
         r.context_menu(|ui| {
-            if ui.button("Remove from recent designs").clicked() {
+            if ui.button(tr("Remove from recent designs")).clicked() {
                 remove = Some(e.id.clone());
                 ui.close();
             }
@@ -417,14 +427,43 @@ fn recent(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     }
 }
 
+/// The UI's language: the system's, or one chosen (`ui.setLanguage`); it switches at once.
+fn language_picker(app: &mut App, ui: &mut egui::Ui) {
+    let current = app.session.language;
+    let system = genha_i18n::Lang::system();
+    let label = |s: genha_i18n::Setting| match s {
+        genha_i18n::Setting::System => tr!("System language ({name})", name = system.native_name()),
+        genha_i18n::Setting::Fixed(l) => l.native_name().to_string(),
+    };
+    let mut chosen = None;
+    egui::ComboBox::from_id_salt("ui_language")
+        .selected_text(label(current))
+        .show_ui(ui, |ui| {
+            let choices = std::iter::once(genha_i18n::Setting::System).chain(genha_i18n::Lang::ALL.map(genha_i18n::Setting::Fixed));
+            for s in choices {
+                if ui.selectable_label(s == current, label(s)).clicked() {
+                    chosen = Some(s);
+                }
+            }
+        })
+        .response
+        .on_hover_text(tr("Language of the user interface"));
+    if let Some(s) = chosen {
+        app.run("ui.setLanguage", &json!({"lang": s.id()}));
+    }
+}
+
 fn fonts(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    ui.label(egui::RichText::new("Fonts").size(20.0).strong());
+    ui.label(egui::RichText::new(tr("Fonts")).size(20.0).strong());
     let n = app.font_families().len().saturating_sub(4);
-    let s = if n == 1 { "y" } else { "ies" };
     let hint = if cfg!(target_arch = "wasm32") {
-        format!("{n} font famil{s}. Add font files (kept in this browser), or use the fonts installed on this computer.")
+        tr_n!(
+            "{n} font family. Add font files (kept in this browser), or use the fonts installed on this computer.",
+            "{n} font families. Add font files (kept in this browser), or use the fonts installed on this computer.",
+            n
+        )
     } else {
-        format!("{n} font famil{s}: the installed fonts and the ones you added.")
+        tr_n!("{n} font family: the installed fonts and the ones you added.", "{n} font families: the installed fonts and the ones you added.", n)
     };
     ui.label(egui::RichText::new(hint).color(t.text_dim));
     ui.add_space(6.0);
@@ -443,9 +482,9 @@ fn fonts(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     }
     let mut remove = None;
     ui.horizontal_wrapped(|ui| {
-        ui.label(egui::RichText::new("Added:").color(t.text_dim));
+        ui.label(egui::RichText::new(tr("Added:")).color(t.text_dim));
         for (key, name) in &added {
-            if ui.small_button(format!("{name}  ×")).on_hover_text("Don't load this font next time").clicked() {
+            if ui.small_button(format!("{name}  ×")).on_hover_text(tr("Don't load this font next time")).clicked() {
                 remove = Some(key.clone());
             }
         }

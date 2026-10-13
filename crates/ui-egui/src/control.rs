@@ -84,7 +84,7 @@ pub fn process(app: &mut App, ctx: &egui::Context) {
     }
 }
 
-fn handle(app: &mut App, ctx: &egui::Context, method: &str, params: &Value) -> Result<Value, String> {
+pub(crate) fn handle(app: &mut App, ctx: &egui::Context, method: &str, params: &Value) -> Result<Value, String> {
     match method {
         "engine.execute" => {
             let cmd = params.get("command").and_then(Value::as_str).ok_or("missing `command`")?;

@@ -1,6 +1,6 @@
 # Target-app parity
 
-> **Last updated:** 2026-10-13 · **Change:** minor (text shaping, text edited on the canvas, vector PDF, multi-series charts and richer tables, formatting part of a text box, MP4 video export) · **Target:** Adobe Express (web, desktop and mobile), feature set as publicly documented in October 2026
+> **Last updated:** 2026-10-13 · **Change:** minor (text shaping, text edited on the canvas, vector PDF, multi-series charts and richer tables, formatting part of a text box, MP4 video export, German UI) · **Target:** Adobe Express (web, desktop and mobile), feature set as publicly documented in October 2026
 
 The feature inventory of the target app, compiled from **public sources only** (help pages, product
 and pricing pages, press releases, developer docs; URLs per area below), in our own words, feature
@@ -22,7 +22,7 @@ Legend: ✅ works (basic form) · 🟡 partial · ⬜ not yet (milestone in [roa
 | 8. Social | 0% | size presets only; no scheduler (planned as an optional, self-hostable add-on) |
 | 9. Export & share | ~55% (estimated) | PNG (transparent), JPEG, SVG, vector and print PDF, MP4 video, animated GIF and PNG; no share links, print ordering |
 | 10. Platform | ~30% (estimated) | MCP server, control channel, CLI, every action a command; no add-on SDK yet |
-| 11. Accessibility & localisation | ~5% (estimated) | keyboard shortcuts; no screen-reader support or translations yet |
+| 11. Accessibility & localisation | ~25% (estimated) | keyboard shortcuts; the whole UI in English or German (follows the system, or chosen; switches live); UI fonts for every script the system has fonts for; no screen-reader support or other languages yet |
 
 ## 1. Editor and canvas
 
@@ -175,12 +175,14 @@ Source: https://www.adobe.com/accessibility/compliance/adobe-express-android-202
 |---|---|---|
 | Keyboard shortcuts | ✅ | per command |
 | Screen reader support | ⬜ | M5 (egui AccessKit) |
-| UI translations | ⬜ | M5 (German first) |
+| UI translations | 🟡 | M5.2: English and German (`crates/i18n`, gettext PO catalogues compiled in): every panel, menu, dialog, the command palette (labels and menus), status and common error messages, size presets, template categories, shapes, text styles and palettes; `ui.setLanguage {lang: system\|en\|de}` kept between runs, picker on the home screen, switches without restart; "system" follows the OS or browser language. Not yet: other languages, invalid-parameter errors (agent-facing, English), template names |
+| Text in every script in the UI | 🟡 | M5.2: system fonts covering Arabic, Hebrew, Indic scripts, Thai, CJK, Hangul and more are added as egui fallbacks (worker thread at start, again when fonts are added); egui does not shape, so Arabic and Indic text in UI fields is unjoined (the canvas shapes it); the browser has only fonts the user adds |
 
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | German UI, language setting, UI fonts for every script (M5.2) |
 | 2026-10-13 | minor | Formatting part of a text box (style runs, M3.2) |
 | 2026-10-13 | minor | Text edited in place on the canvas (M2.16) |
 | 2026-10-13 | minor | Vector PDF (krilla): real text with embedded fonts, vectors, native-resolution pictures; CMYK option |

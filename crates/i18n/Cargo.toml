@@ -1,0 +1,17 @@
+[package]
+name = "genha-i18n"
+description = "GenHa translations: the user interface's text in other languages (gettext PO catalogues compiled in)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+sys-locale = { workspace = true }
+
+# The browser's language (navigator.languages) on the web.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+sys-locale = { workspace = true, features = ["js"] }
+
+[lints]
+workspace = true
