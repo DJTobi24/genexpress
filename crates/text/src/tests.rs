@@ -449,3 +449,154 @@ fn junk_text_lays_out() {
         }
     }
 }
+
+// --- Style runs -------------------------------------------------------------------------------
+
+/// `base` with another size.
+fn sized(base: &TextStyle, size: f64) -> TextStyle {
+    TextStyle { font_size: size, ..base.clone() }
+}
+
+#[test]
+fn runs_in_one_style_lay_out_as_plain_text() {
+    for book in [&FontBook::new(), system()] {
+        let s = style(30.0);
+        let text = "Hello there\nworld";
+        let plain = layout(book, text, &s, 120.0);
+        let same = layout_rich(book, text, &s, &[(0..5, s.clone()), (5..text.len(), s.clone())], 120.0);
+        assert_eq!(plain, same);
+        assert_eq!(plain.styles.len(), 1);
+        assert!(plain.lines.iter().all(|l| l.pieces.is_empty()));
+        let g = layout_glyphs_rich(book, text, &s, &[(0..5, s.clone())], 120.0);
+        assert_eq!(g, layout_glyphs(book, text, &s, 120.0));
+    }
+}
+
+#[test]
+fn mixed_sizes_share_a_baseline_and_the_tallest_sets_the_line() {
+    let book = FontBook::new();
+    let s = style(10.0);
+    let big = sized(&s, 20.0);
+    // "ab" at 10 px (5.5 px a letter), "cd" at 20 px (11 px a letter).
+    let l = layout_rich(&book, "abcd", &s, &[(2..4, big.clone())], 0.0);
+    assert_eq!(l.styles.len(), 2);
+    let line = &l.lines[0];
+    assert!((line.width - 33.0).abs() < 1e-9, "{}", line.width);
+    // Line boxes (approximate metrics: ascent 0.8, descent 0.2): 10 px → 9 above, 3 below;
+    // 20 px → 18 above, 6 below. The line takes 18 + 6.
+    assert!((line.height - 24.0).abs() < 1e-9 && (line.baseline - 18.0).abs() < 1e-9, "{line:?}");
+    assert!((l.height - 24.0).abs() < 1e-9);
+    let g = layout_glyphs_rich(&book, "abcd", &s, &[(2..4, big.clone())], 0.0);
+    let sizes: Vec<f64> = g.lines[0].glyphs.iter().map(|p| p.size).collect();
+    assert_eq!(sizes, [10.0, 10.0, 20.0, 20.0]);
+    let st: Vec<usize> = g.lines[0].glyphs.iter().map(|p| p.style).collect();
+    assert_eq!(st, [0, 0, 1, 1]);
+    assert!((g.lines[0].glyphs[2].x - 11.0).abs() < 1e-9);
+    // Each paragraph line follows its own sizes; an empty line takes its newline's style.
+    let l = layout_rich(&book, "ab\n\ncd", &s, &[(2..7, big.clone())], 0.0);
+    let heights: Vec<f64> = l.lines.iter().map(|l| l.height).collect();
+    assert_eq!(heights, [12.0, 24.0, 24.0]);
+    assert!((l.lines[2].top - 36.0).abs() < 1e-9 && (l.height - 60.0).abs() < 1e-9);
+    assert_eq!(measure_rich(&book, "ab\n\ncd", &s, &[(2..7, big)]), (22.0, 60.0));
+}
+
+#[test]
+fn lines_wrap_across_runs() {
+    let book = FontBook::new();
+    let s = style(10.0);
+    let big = sized(&s, 20.0);
+    // "aaa " is 22 px, "bbb" at 20 px 33: together past 50, so "bbb" moves down, and "ccc"
+    // (16.5 px) no longer fits after "bbb " (38.5 px).
+    let l = layout_rich(&book, "aaa bbb ccc", &s, &[(4..7, big)], 50.0);
+    let texts: Vec<&str> = l.lines.iter().map(|l| l.text.trim_end()).collect();
+    assert_eq!(texts, ["aaa", "bbb", "ccc"]);
+    let heights: Vec<f64> = l.lines.iter().map(|l| l.height).collect();
+    assert_eq!(heights, [12.0, 24.0, 12.0]);
+}
+
+#[test]
+fn decorations_follow_their_runs() {
+    for book in [&FontBook::new(), system()] {
+        let s = style(20.0);
+        let u = TextStyle { underline: true, ..s.clone() };
+        let x = TextStyle { strikethrough: true, color: genha_doc::Color::rgb(255, 0, 0), ..s.clone() };
+        let g = layout_glyphs_rich(book, "plain under strike", &s, &[(6..11, u), (12..18, x)], 0.0);
+        let line = &g.lines[0];
+        assert_eq!(line.decorations.len(), 2, "{:?}", line.decorations);
+        let run_x = |range: std::ops::Range<usize>| {
+            let gs: Vec<&PlacedGlyph> = line.glyphs.iter().filter(|p| range.contains(&p.cluster)).collect();
+            (gs.iter().map(|p| p.x).fold(f64::INFINITY, f64::min), gs.iter().map(|p| p.x + p.advance).fold(f64::NEG_INFINITY, f64::max))
+        };
+        let (u0, u1) = run_x(6..11);
+        let d = &line.decorations[0];
+        assert_eq!(d.style, 1);
+        assert!((d.rect.x0 - u0).abs() < 1e-6 && (d.rect.x1 - u1).abs() < 1e-6, "{d:?} vs {u0}..{u1}");
+        assert!(d.rect.y0 > line.baseline - 1.0, "underline below the baseline");
+        let (s0, _) = run_x(12..18);
+        let st = &line.decorations[1];
+        assert!(st.style == 2 && (st.rect.x0 - s0).abs() < 1e-6);
+        assert!(st.rect.y1 < line.baseline, "strikethrough above the baseline");
+        // The line's pieces hold each style's outlines and bars.
+        let l = layout_rich(book, "plain under strike", &s, &[(6..11, TextStyle { underline: true, ..s.clone() })], 0.0);
+        assert_eq!(l.lines[0].styled_paths().len(), 2);
+    }
+}
+
+#[test]
+fn runs_pick_their_own_faces() {
+    let book = system();
+    let Some(fam) = family_with(book, "AVTo", &["DejaVu Sans", "Liberation Sans", "Inter"]) else {
+        eprintln!("no font with kerning; skipping");
+        return;
+    };
+    let s = styled(&fam, 100.0);
+    let bold = TextStyle { bold: true, ..s.clone() };
+    let g = layout_glyphs_rich(book, "AVAV", &s, &[(2..4, bold.clone())], 0.0);
+    let line = &g.lines[0];
+    assert_ne!(line.glyphs[0].face, line.glyphs[2].face, "the bold run is set in the bold face");
+    assert_eq!(g.styles[1], bold);
+    // A run that only changes colour is shaped with its neighbours: kerning holds across it.
+    let red = TextStyle { color: genha_doc::Color::rgb(255, 0, 0), ..s.clone() };
+    let plain = measure(book, "AV", &s);
+    let coloured = measure_rich(book, "AV", &s, &[(1..2, red)]);
+    assert!((plain.0 - coloured.0).abs() < 1e-9, "{plain:?} vs {coloured:?}");
+    // A bigger run makes its line taller and wider.
+    let big = sized(&s, 200.0);
+    let (w1, h1) = measure(book, "AVAV", &s);
+    let (w2, h2) = measure_rich(book, "AVAV", &s, &[(2..4, big)]);
+    assert!(w2 > w1 && h2 > h1 * 1.5, "{w1}x{h1} vs {w2}x{h2}");
+}
+
+#[test]
+fn text_elements_lay_out_with_their_spans() {
+    let book = system();
+    let mut t = genha_doc::TextEl::new("Big sale today", style(40.0));
+    t.set_style_range(4..8, &genha_doc::SpanStyle { font_size: Some(80.0), bold: Some(true), ..Default::default() });
+    let a = layout_el(book, &t, 0.0);
+    let b = layout_rich(book, &t.text, &t.style, &t.style_runs(), 0.0);
+    assert_eq!(a, b);
+    assert_eq!(a.styles.len(), 2);
+    assert_eq!(measure_el(book, &t), (a.width, a.height));
+    let g = layout_glyphs_el(book, &t, 0.0);
+    assert!(g.lines[0].glyphs.iter().any(|p| p.size == 80.0));
+    let m = crate::caret::CaretMap::for_el(book, &t, 0.0);
+    assert_eq!(m.len, 14);
+}
+
+#[test]
+#[allow(clippy::reversed_empty_ranges)]
+fn junk_runs_lay_out() {
+    for book in [&FontBook::new(), system()] {
+        let s = style(20.0);
+        let nan = TextStyle { font_size: f64::NAN, font_family: "\u{0}".into(), ..s.clone() };
+        let huge = TextStyle { font_size: 1e300, line_height: f64::INFINITY, ..s.clone() };
+        let text = "héllo wörld\nאב 中文";
+        let runs = vec![(5..2, nan.clone()), (0..999, huge.clone()), (2..3, nan.clone()), (1..2, s.clone()), (usize::MAX - 1..usize::MAX, nan)];
+        for w in [0.0, 30.0, f64::NAN, -5.0] {
+            let l = layout_rich(book, text, &s, &runs, w);
+            assert!(l.height.is_finite() && l.width.is_finite());
+            let g = layout_glyphs_rich(book, text, &s, &runs, w);
+            assert!(g.lines.iter().all(|l| l.glyphs.iter().all(|p| p.size.is_finite())));
+        }
+    }
+}

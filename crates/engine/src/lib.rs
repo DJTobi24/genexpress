@@ -16,6 +16,7 @@ use std::sync::Arc;
 
 use serde_json::Value;
 
+pub use cmd::richtext::selection_style as text_selection_style;
 pub use cmd::textedit::TextEditing;
 pub use cmd::{CommandInfo, CommandSpec, command_specs, find_command};
 pub use genha_doc as doc;

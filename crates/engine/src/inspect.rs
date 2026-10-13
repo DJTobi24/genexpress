@@ -51,6 +51,10 @@ pub fn element_summary(e: &Element) -> Value {
             if t.curve != 0.0 {
                 o.insert("curve".into(), json!(t.curve));
             }
+            if !t.spans.is_empty() {
+                // Formatted parts: {start, end (characters), and the values that differ}.
+                o.insert("spans".into(), json!(t.spans));
+            }
         }
         ElementKind::Image(i) => {
             o.insert("asset".into(), json!(i.asset.0));

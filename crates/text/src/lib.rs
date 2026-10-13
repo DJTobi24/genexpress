@@ -9,7 +9,11 @@
 //! positioning and complex scripts (Arabic joining, Indic reordering…). Paragraphs are split into
 //! bidi runs (UAX #9) and each line is reordered for display; lines break at UAX #14 opportunities.
 //! Grapheme clusters the chosen face cannot draw are set in another face that can (per-cluster font
-//! fallback). With an empty book text still lays out, using an approximate advance of 0.55 em per
+//! fallback). A text can be set in several styles ([`layout_rich`], [`layout_el`]): each style run
+//! is shaped in its own font, size and weight, while line breaking, bidi and alignment work across
+//! runs and each line is as tall as its tallest run; placed glyphs and line pieces carry their
+//! run's style (an index in [`TextLayout::styles`]) so colours, underlines and synthetic styles can
+//! be drawn per run. With an empty book text still lays out, using an approximate advance of 0.55 em per
 //! character, so the UI can size text boxes before any font is available (the paths are then
 //! empty).
 #![forbid(unsafe_code)]
@@ -21,7 +25,10 @@ mod layout;
 mod shape;
 
 pub use book::{FontBook, MAX_FACES, MAX_FONT_FILE, MAX_FONT_FILES, MONO_FALLBACKS, SANS_FALLBACKS, SERIF_FALLBACKS};
-pub use layout::{MAX_FONT_SIZE, MAX_TEXT_CHARS, layout, layout_glyphs, measure};
+pub use layout::{
+    MAX_FONT_SIZE, MAX_STYLE_RUNS, MAX_TEXT_CHARS, layout, layout_el, layout_glyphs, layout_glyphs_el, layout_glyphs_rich, layout_rich, measure,
+    measure_el, measure_rich,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum TextError {
@@ -54,6 +61,16 @@ pub struct LineLayout {
     /// Byte range of the line in the text passed to [`layout`] (trailing spaces included, the
     /// newline left out).
     pub range: std::ops::Range<usize>,
+    /// With several styles ([`TextLayout::styles`] longer than one): `path` cut by style, as
+    /// (style index, outlines and decorations in that style). Empty otherwise.
+    pub pieces: Vec<(usize, kurbo::BezPath)>,
+}
+
+impl LineLayout {
+    /// The line's outlines by style: (index in [`TextLayout::styles`], path).
+    pub fn styled_paths(&self) -> Vec<(usize, &kurbo::BezPath)> {
+        if self.pieces.is_empty() { vec![(0, &self.path)] } else { self.pieces.iter().map(|(s, p)| (*s, p)).collect() }
+    }
 }
 
 /// Laid-out text: its lines and the size they take.
@@ -64,6 +81,9 @@ pub struct TextLayout {
     pub width: f64,
     /// Height of all lines.
     pub height: f64,
+    /// The styles the text is set in; the first is the text's own (see
+    /// [`LineLayout::pieces`]).
+    pub styles: Vec<genha_doc::TextStyle>,
 }
 
 /// One glyph placed by [`layout_glyphs`]. Coordinates as in [`LineLayout`].
@@ -94,6 +114,18 @@ pub struct PlacedGlyph {
     pub y_offset: f64,
     /// The glyph belongs to right-to-left text (its cluster starts at its right edge).
     pub rtl: bool,
+    /// The glyph's style, an index in [`GlyphLayout::styles`].
+    pub style: usize,
+    /// The font size it is set in, pixels.
+    pub size: f64,
+}
+
+/// An underline or strikethrough bar under or through glyphs of one style.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Decoration {
+    /// Index in [`GlyphLayout::styles`].
+    pub style: usize,
+    pub rect: kurbo::Rect,
 }
 
 /// A line of separately placed glyphs.
@@ -112,6 +144,8 @@ pub struct GlyphLine {
     pub range: std::ops::Range<usize>,
     /// The line's paragraph reads right to left.
     pub rtl: bool,
+    /// Underlines and strikethroughs, in the glyphs' styles.
+    pub decorations: Vec<Decoration>,
 }
 
 /// Text laid out glyph by glyph (see [`layout_glyphs`]).
@@ -120,8 +154,11 @@ pub struct GlyphLayout {
     pub lines: Vec<GlyphLine>,
     pub width: f64,
     pub height: f64,
-    /// The font size the glyphs were set in (the style's, made safe), pixels.
+    /// The font size the glyphs were set in (the style's, made safe), pixels; with several styles
+    /// each glyph has its own ([`PlacedGlyph::size`]).
     pub font_size: f64,
+    /// The styles the text is set in (as [`TextLayout::styles`]).
+    pub styles: Vec<genha_doc::TextStyle>,
 }
 
 #[cfg(test)]

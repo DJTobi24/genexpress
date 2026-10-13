@@ -19,7 +19,7 @@ use base64::Engine as _;
 use genha_color::Color;
 use genha_doc::{Document, Element, ElementKind, Fill, ImageEl, Shadow, ShapeEl, ShapeKind, StrokeStyle, TextAlign, TextEffect, TextEl, TextStyle};
 use genha_geom::{Size, fit, rounded_rect};
-use genha_render::{Prim, Raster, Scene, chart_scene, curved_text_path, encode_png, linear_points, radial_radius, shape_path, table_scene};
+use genha_render::{Prim, Raster, Scene, chart_scene, curved_text_groups, encode_png, linear_points, radial_radius, shape_path, table_scene};
 use genha_text::FontBook;
 use kurbo::{Affine, BezPath, PathEl, Rect, Shape};
 
@@ -334,53 +334,30 @@ impl Writer<'_> {
     }
 
     fn text(&mut self, t: &TextEl, w: f64, h: f64, local: Affine) {
-        let (layout, syn) = genha_render::layout_text(self.fonts, &t.text, &t.style, w);
-        let st = &t.style;
+        let (layout, straight) = genha_render::layout_text_el(self.fonts, t, w);
+        let curved = curved_text_groups(self.fonts, t, w, h);
+        let groups = curved.as_ref().unwrap_or(&straight);
         let mut glyphs = BezPath::new();
-        for line in &layout.lines {
-            glyphs.extend(line.path.iter());
+        for g in groups {
+            glyphs.extend(g.path.iter());
         }
-        let curved = curved_text_path(self.fonts, t, w, h);
-        if let Some(p) = &curved {
-            glyphs = p.clone();
-        }
-        // The drawing of the letters, [`FILL`] / [`STROKE`] standing for paint attributes.
         let as_paths = self.opts.text_as_paths || curved.is_some();
-        // Synthetic bold (outlines only; `<text>` asks the viewer for the bold weight): the letters
-        // are also stroked in their own paint.
-        let bold = if as_paths && syn.embolden > 0.0 {
-            format!(r#" stroke-width="{}" stroke-linejoin="round""#, num(syn.embolden.min(genha_render::MAX_STROKE_WIDTH)))
-        } else {
-            String::new()
-        };
-        let content = if as_paths {
-            format!(r#"<path d="{}"{FILL}{STROKE}/>"#, path_data(&glyphs))
-        } else {
-            let mut s = self.text_open(st);
-            s.push_str(FILL);
-            s.push_str(STROKE);
-            s.push('>');
-            for line in &layout.lines {
-                s.push_str(&tspan(st.align, line.x, line.width, line.baseline, &line.text));
-            }
-            s.push_str("</text>");
-            s
-        };
+        let bold = groups.iter().map(|g| g.embolden).fold(0.0, f64::max);
         let bounds = glyphs.bounding_box().union(Rect::new(0.0, 0.0, w.max(0.0), layout.height));
         let m = matrix(local);
         match &t.effect {
             TextEffect::None => {}
             TextEffect::Shadow { color, offset_x, offset_y, blur } => {
                 let sh = Shadow { color: *color, offset_x: *offset_x, offset_y: *offset_y, blur: *blur };
-                let body = if bold.is_empty() { content.replace(STROKE, "") } else { content.replace(STROKE, &format!("{STROKE}{bold}")) };
+                let body = self.letters(t, &layout, groups, as_paths, Letters::Shadow);
                 self.shadow(&sh, local, bounds, &body);
             }
             TextEffect::Outline { color, width } => {
                 let width = sane(*width, 0.0, 10_000.0);
                 if width > 0.0 && color.a > 0 {
                     let p = Paint::color(*color);
-                    let stroke = format!(r#"{} stroke-width="{}" stroke-linejoin="round""#, p.attrs("stroke"), num(width * 2.0 + syn.embolden));
-                    let body = content.replace(FILL, &p.attrs("fill")).replace(STROKE, &stroke);
+                    let stroke = format!(r#"{} stroke-width="{}" stroke-linejoin="round""#, p.attrs("stroke"), num(width * 2.0 + bold));
+                    let body = self.letters(t, &layout, groups, as_paths, Letters::Outline).replace(FILL, &p.attrs("fill")).replace(STROKE, &stroke);
                     let _ = writeln!(self.body, r#"<g transform="{m}">{body}</g>"#);
                 }
             }
@@ -398,9 +375,89 @@ impl Writer<'_> {
                 self.body.push_str("</g>\n");
             }
         }
-        let bold_stroke = if bold.is_empty() { String::new() } else { format!("{}{bold}", Paint::color(st.color).attrs("stroke")) };
-        let body = content.replace(FILL, &Paint::color(st.color).attrs("fill")).replace(STROKE, &bold_stroke);
+        let body = self.letters(t, &layout, groups, as_paths, Letters::Own);
         let _ = writeln!(self.body, r#"<g transform="{m}">{body}</g>"#);
+    }
+
+    /// The letters of `t`: outlines (`groups`, one `<path>` per style) or `<text>` with a
+    /// `<tspan>` per line and, inside it, one per style run. Painted in each run's colour
+    /// ([`Letters::Own`]) or with [`FILL`] / [`STROKE`] standing for one paint.
+    fn letters(&self, t: &TextEl, layout: &genha_text::TextLayout, groups: &[genha_render::StyledPath], as_paths: bool, how: Letters) -> String {
+        let mut s = String::new();
+        if as_paths {
+            for g in groups {
+                // Synthetic bold: the letters are also stroked in their own paint.
+                let bold = if g.embolden > 0.0 {
+                    format!(r#" stroke-width="{}" stroke-linejoin="round""#, num(g.embolden.min(genha_render::MAX_STROKE_WIDTH)))
+                } else {
+                    String::new()
+                };
+                let (fill, stroke) = match how {
+                    Letters::Own => {
+                        let p = Paint::color(g.style.color);
+                        (p.attrs("fill"), if bold.is_empty() { String::new() } else { format!("{}{bold}", p.attrs("stroke")) })
+                    }
+                    Letters::Shadow => (FILL.to_string(), if bold.is_empty() { String::new() } else { format!("{STROKE}{bold}") }),
+                    Letters::Outline => (FILL.to_string(), STROKE.to_string()),
+                };
+                let _ = write!(s, r#"<path d="{}"{fill}{stroke}/>"#, path_data(&g.path));
+            }
+            return s;
+        }
+        let st = &t.style;
+        let rich = !t.spans.is_empty();
+        s.push_str(r#"<text xml:space="preserve""#);
+        s.push_str(&self.font_attrs(st, None, !rich));
+        match how {
+            Letters::Own => s.push_str(&Paint::color(st.color).attrs("fill")),
+            Letters::Shadow => s.push_str(FILL),
+            Letters::Outline => {
+                s.push_str(FILL);
+                s.push_str(STROKE);
+            }
+        }
+        s.push('>');
+        let runs = if rich { t.style_runs() } else { vec![] };
+        for line in &layout.lines {
+            if !rich {
+                s.push_str(&tspan(st.align, line.x, line.width, line.baseline, &line.text));
+                continue;
+            }
+            // The line's text cut by style runs, without its trailing spaces.
+            let mut pieces: Vec<(String, &TextStyle)> = vec![];
+            for (r, rs) in &runs {
+                let (a, b) = (r.start.max(line.range.start), r.end.min(line.range.end));
+                if a >= b {
+                    continue;
+                }
+                let text: String = t.text.get(a..b).unwrap_or("").chars().filter(|c| *c != '\n').map(|c| if c == '\t' { ' ' } else { c }).collect();
+                let text = if st.uppercase { text.to_uppercase() } else { text };
+                pieces.push((text, rs));
+            }
+            while let Some(last) = pieces.last_mut() {
+                let trimmed = last.0.trim_end().len();
+                last.0.truncate(trimmed);
+                if !last.0.is_empty() {
+                    break;
+                }
+                pieces.pop();
+            }
+            s.push_str(&tspan_open(st.align, line.x, line.width, line.baseline));
+            for (text, rs) in pieces {
+                let mut attrs = self.font_attrs(rs, Some(st), true);
+                if how == Letters::Own && rs.color != st.color {
+                    attrs.push_str(&Paint::color(rs.color).attrs("fill"));
+                }
+                if attrs.is_empty() {
+                    s.push_str(&esc(&text));
+                } else {
+                    let _ = write!(s, "<tspan{attrs}>{}</tspan>", esc(&text));
+                }
+            }
+            s.push_str("</tspan>");
+        }
+        s.push_str("</text>");
+        s
     }
 
     /// A chart's or table's primitives in the element's box.
@@ -458,6 +515,50 @@ impl Writer<'_> {
 
     /// `<text …` with the font attributes of `st` (unclosed: paint attributes and `>` follow).
     fn text_open(&self, st: &TextStyle) -> String {
+        format!(r#"<text xml:space="preserve"{}"#, self.font_attrs(st, None, true))
+    }
+
+    /// The font attributes of `st` (each with a leading space): all of them, or with `base` only
+    /// those that differ from it (a style run inside a `<text>` in `base`); text decorations only
+    /// with `decoration` (they cannot be turned off in a nested run).
+    fn font_attrs(&self, st: &TextStyle, base: Option<&TextStyle>, decoration: bool) -> String {
+        let face_differs = base.is_none_or(|b| b.font_family != st.font_family || b.bold != st.bold || b.italic != st.italic);
+        let size = sane(st.font_size, 0.0, genha_text::MAX_FONT_SIZE);
+        let mut s = String::new();
+        if face_differs {
+            s.push_str(&format!(r#" font-family="{}""#, esc(&self.family_list(st))));
+        }
+        if base.is_none_or(|b| b.font_size != st.font_size) {
+            let _ = write!(s, r#" font-size="{}""#, num(size));
+        }
+        if face_differs {
+            let weight = if st.font_family.trim().eq_ignore_ascii_case("display") {
+                if st.bold { "900" } else { "800" }
+            } else if st.bold {
+                "bold"
+            } else {
+                "normal"
+            };
+            let _ = write!(s, r#" font-weight="{weight}" font-style="{}""#, if st.italic { "italic" } else { "normal" });
+        }
+        if decoration {
+            match (st.underline, st.strikethrough) {
+                (true, true) => s.push_str(r#" text-decoration="underline line-through""#),
+                (true, false) => s.push_str(r#" text-decoration="underline""#),
+                (false, true) => s.push_str(r#" text-decoration="line-through""#),
+                (false, false) => {}
+            }
+        }
+        let spacing = sane(st.letter_spacing, -1000.0, 10_000.0) / 1000.0 * size;
+        if spacing != 0.0 && base.is_none_or(|b| b.font_size != st.font_size) {
+            let _ = write!(s, r#" letter-spacing="{}""#, num(spacing));
+        }
+        s
+    }
+
+    /// The `font-family` list for `st`: the family asked for, the one the book sets it in, and a
+    /// generic family.
+    fn family_list(&self, st: &TextStyle) -> String {
         let mut family = vec![];
         if let Some(resolved) = self.fonts.resolve_family(&st.font_family, st.bold, st.italic) {
             family.push(format!("'{}'", resolved.replace('\'', "")));
@@ -474,28 +575,7 @@ impl Writer<'_> {
             }
         }
         family.push(generic.into());
-        let weight = if st.font_family.trim().eq_ignore_ascii_case("display") {
-            if st.bold { "900" } else { "800" }
-        } else if st.bold {
-            "bold"
-        } else {
-            "normal"
-        };
-        let size = sane(st.font_size, 0.0, genha_text::MAX_FONT_SIZE);
-        let mut s = format!(
-            r#"<text xml:space="preserve" font-family="{}" font-size="{}" font-weight="{weight}" font-style="{}""#,
-            esc(&family.join(", ")),
-            num(size),
-            if st.italic { "italic" } else { "normal" }
-        );
-        if st.underline {
-            s.push_str(r#" text-decoration="underline""#);
-        }
-        let spacing = sane(st.letter_spacing, -1000.0, 10_000.0) / 1000.0 * size;
-        if spacing != 0.0 {
-            let _ = write!(s, r#" letter-spacing="{}""#, num(spacing));
-        }
-        s
+        family.join(", ")
     }
 
     fn image(&mut self, im: &ImageEl, w: f64, h: f64, local: Affine) {
@@ -539,14 +619,30 @@ impl Writer<'_> {
     }
 }
 
+/// How [`Writer::letters`] paints text.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Letters {
+    /// Each style run in its own colour (and synthetic bold).
+    Own,
+    /// One paint, [`FILL`], and [`STROKE`] for synthetic bold (a shadow).
+    Shadow,
+    /// One paint, [`FILL`] and [`STROKE`] on every letter (an outline).
+    Outline,
+}
+
 /// A `<tspan>` for one laid-out line, anchored at the end its alignment keeps in place.
 fn tspan(align: TextAlign, x: f64, width: f64, baseline: f64, text: &str) -> String {
+    format!("{}{}</tspan>", tspan_open(align, x, width, baseline), esc(text.trim_end()))
+}
+
+/// The opening `<tspan …>` of [`tspan`].
+fn tspan_open(align: TextAlign, x: f64, width: f64, baseline: f64) -> String {
     let (x, anchor) = match align {
         TextAlign::Left => (x, "start"),
         TextAlign::Center => (x + width / 2.0, "middle"),
         TextAlign::Right => (x + width, "end"),
     };
-    format!(r#"<tspan x="{}" y="{}" text-anchor="{anchor}">{}</tspan>"#, num(x), num(baseline), esc(text.trim_end()))
+    format!(r#"<tspan x="{}" y="{}" text-anchor="{anchor}">"#, num(x), num(baseline))
 }
 
 /// ` stroke-width="…"` and dashes for `s`.

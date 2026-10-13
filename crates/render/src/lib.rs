@@ -29,13 +29,13 @@ use vello_common::filter_effects::{EdgeMode, Filter, FilterPrimitive};
 use vello_cpu::peniko;
 use vello_cpu::{Pixmap, RenderContext, Resources};
 
-pub use curve::{curved_text_path, curved_text_size};
+pub use curve::{curved_text_groups, curved_text_path, curved_text_size};
 pub use datavis::{
     CHART_PALETTE, Prim, Scene, TableGeometry, TextLine, TextPrim, chart_colors, chart_scene, format_decimals, format_number, series_color,
     table_fit_columns, table_geometry, table_scene, value_text,
 };
 pub use paint::{MAX_PATH_DATA, MAX_STROKE_WIDTH, linear_points, radial_radius, shape_path};
-pub use synth::{SYNTHETIC_BOLD_EM, SYNTHETIC_SLANT, Synthetic, layout_text, slant_about, synthetic};
+pub use synth::{SYNTHETIC_BOLD_EM, SYNTHETIC_SLANT, StyledPath, Synthetic, layout_text, layout_text_el, slant_about, synthetic};
 
 /// Largest raster side, in pixels.
 pub const MAX_SIDE: u32 = 16_384;
@@ -405,18 +405,14 @@ impl Draw<'_> {
     }
 
     fn text(&mut self, ctx: &mut RenderContext, t: &TextEl, frame: &Frame, local: Affine) {
-        let (layout, syn) = layout_text(self.fonts, &t.text, &t.style, frame.width);
-        let curved = curved_text_path(self.fonts, t, frame.width, frame.height);
-        let glyphs = match &curved {
-            Some(p) => p.clone(),
-            None => {
-                let mut glyphs = BezPath::new();
-                for line in &layout.lines {
-                    glyphs.extend(line.path.iter());
-                }
-                glyphs
-            }
-        };
+        let (layout, straight) = layout_text_el(self.fonts, t, frame.width);
+        let curved = curved_text_groups(self.fonts, t, frame.width, frame.height);
+        let groups = curved.as_ref().unwrap_or(&straight);
+        let mut glyphs = BezPath::new();
+        for g in groups {
+            glyphs.extend(g.path.iter());
+        }
+        let bold = groups.iter().map(|g| g.embolden).fold(0.0, f64::max);
         let device = self.device(local);
         match &t.effect {
             TextEffect::None => {}
@@ -424,8 +420,10 @@ impl Draw<'_> {
                 let sh = Shadow { color: *color, offset_x: *offset_x, offset_y: *offset_y, blur: *blur };
                 self.shadow(ctx, local, &sh, &mut |c, xf| {
                     c.set_transform(xf);
-                    c.fill_path(&glyphs);
-                    embolden(c, &glyphs, syn.embolden);
+                    for g in groups {
+                        c.fill_path(&g.path);
+                        embolden(c, &g.path, g.embolden);
+                    }
                 });
             }
             TextEffect::Outline { color, width } => {
@@ -435,7 +433,7 @@ impl Draw<'_> {
                     ctx.reset_paint_transform();
                     ctx.set_paint(paint::pcolor(*color));
                     // Twice as wide, half of it covered by the letters drawn on top.
-                    ctx.set_stroke(Stroke::new(width * 2.0 + syn.embolden).with_join(kurbo::Join::Round));
+                    ctx.set_stroke(Stroke::new(width * 2.0 + bold).with_join(kurbo::Join::Round));
                     ctx.stroke_path(&glyphs);
                 }
             }
@@ -454,9 +452,14 @@ impl Draw<'_> {
         }
         ctx.set_transform(device);
         ctx.reset_paint_transform();
-        ctx.set_paint(paint::pcolor(t.style.color));
-        ctx.fill_path(&glyphs);
-        embolden(ctx, &glyphs, syn.embolden);
+        for g in groups {
+            if g.style.color.a == 0 {
+                continue;
+            }
+            ctx.set_paint(paint::pcolor(g.style.color));
+            ctx.fill_path(&g.path);
+            embolden(ctx, &g.path, g.embolden);
+        }
     }
 
     fn image(&mut self, ctx: &mut RenderContext, im: &ImageEl, frame: &Frame, local: Affine) {

@@ -11,10 +11,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use genha_color::Color;
-use genha_doc::{AssetId, Document, Element, ElementKind, Fill, GradientStop, ImageEl, Page, Shadow, ShapeEl, StrokeStyle, TextEffect, TextEl};
+use genha_doc::{
+    AssetId, Document, Element, ElementKind, Fill, GradientStop, ImageEl, Page, Shadow, ShapeEl, SpanStyle, StrokeStyle, TextEffect, TextEl,
+};
 use genha_geom::{Frame, Size, fit, rounded_rect};
 use genha_render::{
-    MAX_STROKE_WIDTH, RenderOptions, Scene, chart_scene, curved_text_path, element_transform, linear_points, radial_radius, shape_path, table_scene,
+    MAX_STROKE_WIDTH, RenderOptions, Scene, chart_scene, curved_text_groups, element_transform, linear_points, radial_radius, shape_path, table_scene,
 };
 use genha_text::{FontBook, GlyphLayout, GlyphLine, PlacedGlyph};
 use krilla::color::{cmyk, rgb};
@@ -626,20 +628,15 @@ impl Writer<'_> {
 
     fn text(&mut self, s: &mut Surface, el: &Element, t: &TextEl, frame: &Frame, local: Affine, outer: Affine) {
         let (w, h) = (frame.width, frame.height);
-        let layout = genha_text::layout(self.fonts, &t.text, &t.style, w);
-        let curved = curved_text_path(self.fonts, t, w, h);
+        let layout = genha_text::layout_el(self.fonts, t, w);
+        let curved = curved_text_groups(self.fonts, t, w, h);
         // The letters' outlines (with underlines), as the renderer fills them: for effects, and
         // for the letters themselves when fonts are not embedded.
-        let outlines = match &curved {
-            Some(p) => p.clone(),
-            None => {
-                let mut p = BezPath::new();
-                for line in &layout.lines {
-                    p.extend(line.path.iter());
-                }
-                p
-            }
-        };
+        let mut outlines = BezPath::new();
+        match &curved {
+            Some(groups) => groups.iter().for_each(|g| outlines.extend(g.path.iter())),
+            None => layout.lines.iter().for_each(|line| outlines.extend(line.path.iter())),
+        }
         match &t.effect {
             TextEffect::None => {}
             TextEffect::Shadow { color, offset_x, offset_y, blur } => {
@@ -647,11 +644,9 @@ impl Writer<'_> {
                 let bounds = outlines.bounding_box().union(Rect::new(0.0, 0.0, w.max(0.0), layout.height));
                 let mut sil = el.clone();
                 sil.opacity = 1.0;
-                sil.kind = ElementKind::Text(TextEl {
-                    effect: TextEffect::None,
-                    style: genha_doc::TextStyle { color: color.with_alpha(255), ..t.style.clone() },
-                    ..t.clone()
-                });
+                let mut silhouette = TextEl { effect: TextEffect::None, ..t.clone() };
+                silhouette.set_style_all(&SpanStyle { color: Some(color.with_alpha(255)), ..SpanStyle::default() });
+                sil.kind = ElementKind::Text(silhouette);
                 // The copy is outlines, so the text is found once when searching.
                 self.shadow(s, &sh, local, outer, bounds, sil, |w, s, c| Self::fill_path(s, &outlines, w.solid(c)));
             }
@@ -678,41 +673,88 @@ impl Writer<'_> {
                 }
             }
         }
-        if t.style.color.a == 0 {
+        if layout.styles.iter().all(|st| st.color.a == 0) {
             return;
         }
-        let fill = self.solid(t.style.color);
         if self.mode.outline_text {
-            self.transformed(s, local, |_, s| Self::fill_path(s, &outlines, fill));
+            // Each style's outlines in its colour.
+            let mut by_style: Vec<(Color, BezPath)> = vec![];
+            match &curved {
+                Some(groups) => by_style.extend(groups.iter().map(|g| (g.style.color, g.path.clone()))),
+                None => {
+                    for line in &layout.lines {
+                        for (si, p) in line.styled_paths() {
+                            let Some(st) = layout.styles.get(si) else { continue };
+                            by_style.push((st.color, p.clone()));
+                        }
+                    }
+                }
+            }
+            self.transformed(s, local, |wr, s| {
+                for (c, p) in by_style.iter().filter(|(c, _)| c.a > 0) {
+                    Self::fill_path(s, p, wr.solid(*c));
+                }
+            });
             return;
         }
         let upper = t.style.uppercase;
-        if curved.is_some() {
+        if let Some(groups) = &curved {
             match curved_glyphs(self.fonts, t, w, h) {
                 // Each glyph real text, turned to follow the arc.
-                Some((gl, xfs)) => self.transformed(s, local, |wr, s| {
-                    for (line, line_xfs) in gl.lines.iter().zip(&xfs) {
-                        let texts = cluster_texts(line, &t.text, upper);
-                        for (k, (g, xf)) in line.glyphs.iter().zip(line_xfs).enumerate() {
-                            let text = texts.get(k..=k).unwrap_or(&[]);
-                            wr.transformed(s, *xf, |wr, s| wr.glyph_run(s, std::slice::from_ref(g), text, line.baseline, gl.font_size, &fill));
+                Some((gl, xfs)) => {
+                    let paints = self.run_paints(&gl.styles);
+                    self.transformed(s, local, |wr, s| {
+                        for (line, line_xfs) in gl.lines.iter().zip(&xfs) {
+                            let texts = cluster_texts(line, &t.text, upper);
+                            for (k, (g, xf)) in line.glyphs.iter().zip(line_xfs).enumerate() {
+                                let text = texts.get(k..=k).unwrap_or(&[]);
+                                wr.transformed(s, *xf, |wr, s| wr.glyph_run(s, std::slice::from_ref(g), text, line.baseline, &paints));
+                            }
                         }
+                    });
+                }
+                None => self.transformed(s, local, |wr, s| {
+                    for g in groups.iter().filter(|g| g.style.color.a > 0) {
+                        Self::fill_path(s, &g.path, wr.solid(g.style.color));
                     }
                 }),
-                None => self.transformed(s, local, |_, s| Self::fill_path(s, &outlines, fill)),
             }
             return;
         }
-        let gl = genha_text::layout_glyphs(self.fonts, &t.text, &t.style, w);
+        let gl = genha_text::layout_glyphs_el(self.fonts, t, w);
+        let paints = self.run_paints(&gl.styles);
         self.transformed(s, local, |wr, s| {
             for line in &gl.lines {
                 let texts = cluster_texts(line, &t.text, upper);
-                wr.glyph_run(s, &line.glyphs, &texts, line.baseline, gl.font_size, &fill);
-                if t.style.underline {
-                    wr.underline(s, &line.glyphs, line.x, line.width, line.baseline, gl.font_size, &fill);
-                }
+                wr.glyph_run(s, &line.glyphs, &texts, line.baseline, &paints);
+                wr.decorations(s, line, &paints);
             }
         });
+    }
+
+    /// How each style of a laid-out text is painted: its colour, and the synthetic bold and
+    /// italic its face lacks.
+    fn run_paints(&self, styles: &[genha_doc::TextStyle]) -> Vec<RunPaint> {
+        styles
+            .iter()
+            .map(|st| {
+                let syn = genha_render::synthetic(self.fonts, st);
+                RunPaint {
+                    fill: (st.color.a > 0).then(|| self.solid(st.color)),
+                    bold: if syn.embolden > 0.0 { self.stroke(st.color, syn.embolden, &[]) } else { None },
+                    slant: syn.slant,
+                }
+            })
+            .collect()
+    }
+
+    /// The underlines and strikethroughs of a line, each in its style's colour.
+    fn decorations(&mut self, s: &mut Surface, line: &GlyphLine, paints: &[RunPaint]) {
+        for d in &line.decorations {
+            if let Some(fill) = paints.get(d.style).and_then(|p| p.fill.clone()) {
+                Self::fill_path(s, &d.rect.to_path(0.1), fill);
+            }
+        }
     }
 
     /// The krilla font for face `face` of the font book, loaded once.
@@ -728,25 +770,28 @@ impl Writer<'_> {
             .clone()
     }
 
-    /// Real text for `glyphs` (part of one line, in display order, positions from the layout) at
-    /// `size`, in runs of one face each; `texts` holds the text each glyph stands for (see
-    /// [`cluster_texts`]). Glyphs of a font krilla cannot read are filled as outlines.
-    #[allow(clippy::too_many_arguments)]
-    fn glyph_run(&mut self, s: &mut Surface, glyphs: &[PlacedGlyph], texts: &[String], baseline: f64, size: f64, fill: &krilla::paint::Fill) {
-        let Some(fsize) = f32_of(size).filter(|v| *v > 0.0) else { return };
+    /// Real text for `glyphs` (part of one line, in display order, positions from the layout),
+    /// in runs of one face and style each, painted as `paints` says for the glyph's style; `texts`
+    /// holds the text each glyph stands for (see [`cluster_texts`]). Glyphs of a font krilla cannot
+    /// read are filled as outlines.
+    fn glyph_run(&mut self, s: &mut Surface, glyphs: &[PlacedGlyph], texts: &[String], baseline: f64, paints: &[RunPaint]) {
         let mut i = 0;
         while let Some(first) = glyphs.get(i) {
-            let end = glyphs.iter().skip(i).position(|g| g.face != first.face).map_or(glyphs.len(), |n| i + n);
+            let end = glyphs.iter().skip(i).position(|g| g.face != first.face || g.style != first.style).map_or(glyphs.len(), |n| i + n);
             let run = glyphs.get(i..end).unwrap_or(&[]);
             let run_texts = texts.get(i..end).unwrap_or(&[]);
             i = end.max(i + 1);
+            let Some(paint) = paints.get(first.style) else { continue };
+            let Some(fill) = paint.fill.clone() else { continue };
+            let size = first.size;
+            let Some(fsize) = f32_of(size).filter(|v| *v > 0.0) else { continue };
             let Some(face) = first.face else { continue };
             let Some(font) = self.font(face) else {
                 let mut p = BezPath::new();
                 for g in run {
                     p.extend(g.path.iter());
                 }
-                Self::fill_path(s, &p, fill.clone());
+                Self::fill_path(s, &genha_render::slant_about(p, baseline, paint.slant), fill);
                 continue;
             };
             // The drawn glyphs, each with the text of its cluster (glyphs of one cluster share
@@ -792,25 +837,22 @@ impl Writer<'_> {
                 })
                 .collect();
             let (Some(x), Some(y)) = (f32_of(x0), f32_of(baseline)) else { continue };
-            s.set_stroke(None);
-            s.set_fill(Some(fill.clone()));
-            s.draw_glyphs(krilla::geom::Point::from_xy(x, y), &kglyphs, font, &text, fsize, false);
+            let bold = paint.bold.clone();
+            let draw = |s: &mut Surface| {
+                // Synthetic bold: the letters are also stroked in their colour.
+                s.set_stroke(bold);
+                s.set_fill(Some(fill));
+                s.draw_glyphs(krilla::geom::Point::from_xy(x, y), &kglyphs, font, &text, fsize, false);
+                s.set_stroke(None);
+            };
+            if paint.slant == 0.0 {
+                draw(s);
+            } else {
+                // Synthetic italic: the run sheared about its baseline (as the renderer does).
+                let shear = Affine::new([1.0, 0.0, -paint.slant, 1.0, paint.slant * baseline, 0.0]);
+                self.transformed(s, shear, |_, s| draw(s));
+            }
         }
-    }
-
-    /// The underline under a line of real text, placed from the font's metrics as the layout
-    /// places it.
-    #[allow(clippy::too_many_arguments)]
-    fn underline(&mut self, s: &mut Surface, glyphs: &[PlacedGlyph], x: f64, width: f64, baseline: f64, size: f64, fill: &krilla::paint::Fill) {
-        if width <= 0.0 || !size.is_finite() {
-            return;
-        }
-        let fonts = self.fonts;
-        let (off, th) =
-            glyphs.iter().find_map(|g| g.face).and_then(|f| fonts.face_data(f)).and_then(|(d, i)| underline_metrics(&d, i)).unwrap_or((0.1, 0.05));
-        let y = baseline + off * size;
-        let th = (th * size).max(0.5);
-        Self::fill_path(s, &Rect::new(x, y - th / 2.0, x + width, y + th / 2.0).to_path(0.1), fill.clone());
     }
 
     // ---------- charts and tables ----------
@@ -849,12 +891,11 @@ impl Writer<'_> {
                         let gl = genha_text::layout_glyphs(self.fonts, &line.text, &style, f64::INFINITY);
                         let Some(gline) = gl.lines.first() else { continue };
                         let shift = tp.transform * Affine::translate((line.x - gline.x, line.baseline - gline.baseline));
+                        let paints = [RunPaint { fill: Some(fill.clone()), bold: None, slant: 0.0 }];
                         self.transformed(s, shift, |wr, s| {
                             let texts = cluster_texts(gline, &line.text, style.uppercase);
-                            wr.glyph_run(s, &gline.glyphs, &texts, gline.baseline, gl.font_size, &fill);
-                            if style.underline {
-                                wr.underline(s, &gline.glyphs, gline.x, gline.width, gline.baseline, gl.font_size, &fill);
-                            }
+                            wr.glyph_run(s, &gline.glyphs, &texts, gline.baseline, &paints);
+                            wr.decorations(s, gline, &paints);
                         });
                     }
                 }
@@ -991,19 +1032,14 @@ fn color_plane(c: Color, n: usize) -> Vec<u8> {
     [c.r, c.g, c.b].repeat(n)
 }
 
-/// Underline position below the baseline and thickness, in ems, from the font's tables.
-fn underline_metrics(data: &[u8], index: u32) -> Option<(f64, f64)> {
-    use skrifa::MetadataProvider;
-    let font = skrifa::FontRef::from_index(data, index).ok()?;
-    let m = font.metrics(skrifa::instance::Size::unscaled(), skrifa::instance::LocationRef::default());
-    let upem = f64::from(m.units_per_em);
-    let d = m.underline?;
-    if upem <= 0.0 || d.thickness <= 0.0 {
-        return None;
-    }
-    let off = -f64::from(d.offset) / upem;
-    let th = f64::from(d.thickness) / upem;
-    (off.is_finite() && th.is_finite()).then(|| (off.clamp(-1.0, 1.0), th.clamp(0.0, 0.5)))
+/// How one style of a text is painted in real text.
+struct RunPaint {
+    /// None: transparent, nothing drawn.
+    fill: Option<krilla::paint::Fill>,
+    /// Synthetic bold: a stroke in the text's colour over the letters.
+    bold: Option<Stroke>,
+    /// Synthetic italic: shear about the baseline (0: none).
+    slant: f64,
 }
 
 /// Curved text glyph by glyph: the layout and, per line and glyph, the transform from the
@@ -1014,7 +1050,7 @@ fn curved_glyphs(fonts: &FontBook, t: &TextEl, w: f64, h: f64) -> Option<(GlyphL
     if deg.abs() < MIN_CURVE {
         return None;
     }
-    let gl = genha_text::layout_glyphs(fonts, &t.text, &t.style, w);
+    let gl = genha_text::layout_glyphs_el(fonts, t, w);
     let widest = gl.width;
     let first = gl.lines.first()?;
     if !(widest.is_finite() && widest > 0.0) {

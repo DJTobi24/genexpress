@@ -11,12 +11,12 @@ use serde_json::{Value, json};
 
 use super::{bad, cmd, has_doc, ok, str_param};
 use crate::{CommandSpec, EngineError, Result, Session};
-use genha_doc::{Element, ElementKind, NodeId, TextEl};
+use genha_doc::{Element, ElementKind, NodeId, SpanStyle, TextEl};
 use genha_geom::{Frame, Point};
 use genha_text::edit::{self, MAX_EDIT_BYTES};
 
 /// The text box being edited in place and its selection.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TextEditing {
     pub id: NodeId,
     /// Selection in characters: where it started, and where the caret is.
@@ -26,6 +26,9 @@ pub struct TextEditing {
     pub merge_key: String,
     /// The document being edited (`DocState::recovery_id`).
     pub doc: u64,
+    /// Style changes made with nothing selected (Bold with the caret in a word): the next text
+    /// typed takes them. Cleared when the caret moves.
+    pub typing_style: Option<SpanStyle>,
 }
 
 pub(crate) fn specs() -> Vec<CommandSpec> {
@@ -53,7 +56,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
 }
 
 /// A `[a, b]` pair of character indices.
-fn pair(p: &Value, key: &str, cmd: &str) -> Result<Option<(usize, usize)>> {
+pub(crate) fn pair(p: &Value, key: &str, cmd: &str) -> Result<Option<(usize, usize)>> {
     match p.get(key) {
         None | Some(Value::Null) => Ok(None),
         Some(Value::Array(a)) if a.len() == 2 => {
@@ -68,7 +71,7 @@ fn pair(p: &Value, key: &str, cmd: &str) -> Result<Option<(usize, usize)>> {
 }
 
 /// The text box a command acts on: `id`, else the one being edited, else the selected text box.
-fn target(s: &Session, p: &Value, cmd: &str) -> Result<NodeId> {
+pub(crate) fn target(s: &Session, p: &Value, cmd: &str) -> Result<NodeId> {
     let d = s.doc()?;
     let id = match p.get("id") {
         Some(Value::Null) | None => match &s.text_editing {
@@ -101,6 +104,14 @@ fn text_of(s: &Session, id: NodeId) -> Result<String> {
     }
 }
 
+/// The text element `id` (None when it is gone or not text).
+pub(crate) fn text_el(s: &Session, id: NodeId) -> Option<TextEl> {
+    match s.doc().ok()?.doc.find(id) {
+        Some((_, Element { kind: ElementKind::Text(t), .. })) => Some(t.clone()),
+        _ => None,
+    }
+}
+
 fn editing_json(e: Option<&TextEditing>) -> Value {
     match e {
         Some(e) => json!({"id": e.id, "selection": [e.anchor, e.caret]}),
@@ -130,7 +141,7 @@ fn begin_edit(s: &mut Session, p: &Value) -> Result<Value> {
     s.set_selection(vec![id])?;
     s.tools.cancel();
     s.preview = None;
-    s.text_editing = Some(TextEditing { id, anchor: anchor.min(n), caret: caret.min(n), merge_key, doc });
+    s.text_editing = Some(TextEditing { id, anchor: anchor.min(n), caret: caret.min(n), merge_key, doc, typing_style: None });
     Ok(ok(json!({"id": id, "text": text, "editing": editing_json(s.text_editing.as_ref())})))
 }
 
@@ -141,6 +152,9 @@ fn edit_text(s: &mut Session, p: &Value) -> Result<Value> {
     let editing = s.text_editing.clone().filter(|e| e.id == id);
     let n_old = edit::char_len(&old);
     let (sel_a, sel_c) = editing.as_ref().map_or((n_old, n_old), |e| (e.anchor.min(n_old), e.caret.min(n_old)));
+    // The characters replaced and their replacement, when known (else the change is found by
+    // comparing the old and new text).
+    let mut replaced: Option<(std::ops::Range<usize>, String)> = None;
     // The new text and where the caret lands.
     let (new, caret) = match (str_param(p, "text"), str_param(p, "insert")) {
         (Some(_), Some(_)) => return Err(bad(cmd, "pass `text` or `insert`, not both")),
@@ -148,9 +162,11 @@ fn edit_text(s: &mut Session, p: &Value) -> Result<Value> {
         (None, Some(ins)) => {
             let (a, b) = pair(p, "range", cmd)?.unwrap_or((sel_a, sel_c));
             let mut buf = edit::EditBuffer::new(old.clone(), a, b);
+            let range = buf.range();
             if !buf.insert(ins) && !ins.is_empty() {
                 return Err(bad(cmd, format!("text longer than {MAX_EDIT_BYTES} bytes")));
             }
+            replaced = Some((range, edit::clean_input(ins)));
             let c = buf.caret;
             (buf.text, Some(c))
         }
@@ -173,6 +189,11 @@ fn edit_text(s: &mut Session, p: &Value) -> Result<Value> {
         }
     };
     let changed = new != old;
+    // Text typed after a style change with nothing selected takes that style.
+    let typing = editing.as_ref().and_then(|e| e.typing_style.clone()).map(|t| {
+        let at = replaced.as_ref().map_or(sel_c.min(sel_a), |(r, _)| r.start);
+        text_el(s, id).map_or(t.clone(), |el| el.caret_style(at).merged(&t))
+    });
     if changed {
         // While editing, every change joins the session's undo step.
         if let Some(e) = &editing
@@ -181,16 +202,29 @@ fn edit_text(s: &mut Session, p: &Value) -> Result<Value> {
             s.merge_key = Some(e.merge_key.clone());
         }
         let fonts = Arc::clone(&s.fonts);
+        let hint = pair(p, "selection", cmd)?.map(|(_, c)| c).or(caret);
         s.edit("Edit Text", |doc, _| {
             let el = doc.element_mut(id)?;
             let ElementKind::Text(t) = &mut el.kind else { return Err(EngineError::NoNode(id)) };
-            t.text = new.clone();
+            // The style runs move with the text.
+            match &replaced {
+                Some((range, ins)) => t.replace_range(range.clone(), ins, typing.clone()),
+                None => t.set_text_keeping_styles(&new, hint, typing.clone()),
+            }
+            if t.text != new {
+                t.text = new.clone();
+                t.normalize_spans();
+            }
             let t = t.clone();
             el.frame = fitted_frame(&fonts, &t, el.frame);
             Ok(())
         })?;
     }
     if let Some(e) = s.text_editing.as_mut().filter(|e| e.id == id) {
+        // Typing used the pending style; moving the caret drops it.
+        if changed || (e.anchor, e.caret) != selection {
+            e.typing_style = None;
+        }
         e.anchor = selection.0;
         e.caret = selection.1;
     }
@@ -199,7 +233,7 @@ fn edit_text(s: &mut Session, p: &Value) -> Result<Value> {
 
 /// `frame` with its height fitted to `t`: straight text keeps its top edge (its top-left corner
 /// on the page when turned), curved text its centre.
-fn fitted_frame(fonts: &genha_text::FontBook, t: &TextEl, frame: Frame) -> Frame {
+pub(crate) fn fitted_frame(fonts: &genha_text::FontBook, t: &TextEl, frame: Frame) -> Frame {
     let f = frame.sanitized();
     if t.curve_degrees() != 0.0 {
         return match genha_render::curved_text_size(fonts, t, f.width) {
@@ -210,10 +244,10 @@ fn fitted_frame(fonts: &genha_text::FontBook, t: &TextEl, frame: Frame) -> Frame
             _ => f,
         };
     }
-    let h = if fonts.is_empty() {
+    let h = if fonts.is_empty() && t.spans.is_empty() {
         super::create::estimate_text_size(&t.text, &t.style, f.width).1
     } else {
-        genha_text::layout(fonts, &t.text, &t.style, f.width).height.max(t.style.font_size)
+        genha_text::layout_el(fonts, t, f.width).height.max(t.style.font_size)
     };
     if !h.is_finite() || h <= 0.0 || (h - f.height).abs() < 1e-9 {
         return f;

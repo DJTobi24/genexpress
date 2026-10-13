@@ -1244,7 +1244,6 @@ dependencies = [
  "krilla",
  "kurbo 0.13.1",
  "lopdf",
- "skrifa 0.44.0",
  "thiserror 2.0.21",
 ]
 

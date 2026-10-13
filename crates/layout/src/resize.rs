@@ -275,7 +275,7 @@ fn apply(el: &mut Element, map: &Map, s: f64) {
             }
         }
         ElementKind::Text(t) => {
-            t.style.font_size = (t.style.font_size * s).max(1.0);
+            t.scale_sizes(s);
             match &mut t.effect {
                 TextEffect::None => {}
                 TextEffect::Shadow { offset_x, offset_y, blur, .. } => {
@@ -349,7 +349,13 @@ mod tests {
         p.elements.push(Element::new(
             NodeId(3),
             Frame::new(200.0, 450.0, 600.0, 100.0),
-            ElementKind::Text(TextEl { text: "Title".into(), style, effect: TextEffect::Outline { color: Color::WHITE, width: 4.0 }, curve: 0.0 }),
+            ElementKind::Text(TextEl {
+                text: "Title".into(),
+                style,
+                effect: TextEffect::Outline { color: Color::WHITE, width: 4.0 },
+                curve: 0.0,
+                spans: vec![],
+            }),
         ));
         p.elements.push(shape(4, Frame::new(860.0, 860.0, 100.0, 100.0))); // bottom-right logo
         p.elements.push(shape(5, Frame::new(40.0, 40.0, 100.0, 50.0))); // top-left badge
@@ -432,7 +438,7 @@ mod tests {
         p.elements.push(Element::new(
             NodeId(5),
             Frame::new(100.0, 400.0, 800.0, 50.0),
-            ElementKind::Text(TextEl { text: "Short".into(), style, effect: TextEffect::None, curve: 0.0 }),
+            ElementKind::Text(TextEl { text: "Short".into(), style, effect: TextEffect::None, curve: 0.0, spans: vec![] }),
         ));
         let r = smart_resize(&p, 1000.0, 2000.0);
         // The inset border follows the page with its margins.
@@ -453,7 +459,7 @@ mod tests {
         p.elements.push(Element::new(
             NodeId(3),
             Frame::new(400.0, 910.0, 260.0, 40.0),
-            ElementKind::Text(TextEl { text: "Go".into(), style, effect: TextEffect::None, curve: 0.0 }),
+            ElementKind::Text(TextEl { text: "Go".into(), style, effect: TextEffect::None, curve: 0.0, spans: vec![] }),
         ));
         let r = smart_resize(&p, 2000.0, 1000.0);
         let (pill, label) = (r.elements[0].frame, r.elements[1].frame);
@@ -478,6 +484,7 @@ mod block_tests {
                 style: TextStyle { font_size: size, align: TextAlign::Left, color: Color::BLACK, ..TextStyle::default() },
                 effect: TextEffect::None,
                 curve: 0.0,
+                spans: vec![],
             }),
         )
     }

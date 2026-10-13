@@ -5,7 +5,8 @@ use serde_json::{Value, json};
 use super::{bad, cmd, color_param, f64_or, has_selection, merge, ok, parse, str_param, targets};
 use crate::{CommandSpec, EngineError, Result, Session};
 use genha_doc::{
-    Adjustments, ChartEl, CropRect, Element, ElementKind, Fill, Fit, NodeId, Shadow, ShapeKind, StrokeStyle, TableEl, TextEffect, TextStyle,
+    Adjustments, ChartEl, CropRect, Element, ElementKind, Fill, Fit, NodeId, Shadow, ShapeKind, SpanStyle, StrokeStyle, TableEl, TextEffect,
+    TextStyle,
 };
 
 /// What Copy Style takes from an object.
@@ -57,7 +58,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Text Style",
             [],
             None,
-            "{ids?, …partial TextStyle: font_family, font_size, bold, italic, underline, uppercase, color, align: left|center|right, line_height, letter_spacing}",
+            "{ids?, range?: [start, end] characters of one box, …partial TextStyle: font_family, font_size, bold, italic, underline, strikethrough, uppercase, color, align: left|center|right, line_height, letter_spacing} — font, size, weight, slant, decorations and colour go to `range`, else to the text selected while editing (with nothing selected, to the next text typed), else to whole boxes; the rest always to whole boxes",
             has_selection,
             set_text_style
         ),
@@ -124,7 +125,7 @@ fn fill(s: &mut Session, p: &Value) -> Result<Value> {
         }
         ElementKind::Text(t) => match fill.primary_color() {
             Some(c) => {
-                t.style.color = c;
+                t.set_style_all(&SpanStyle { color: Some(c), ..SpanStyle::default() });
                 true
             }
             None => false,
@@ -257,7 +258,8 @@ fn set_text(s: &mut Session, p: &Value) -> Result<Value> {
     }
     each_kind(s, p, "text.setText", "Edit Text", |e| match &mut e.kind {
         ElementKind::Text(t) => {
-            t.text = text.clone();
+            // Formatted parts move with the unchanged text around the change.
+            t.set_text_keeping_styles(&text, None, None);
             true
         }
         _ => false,
@@ -265,26 +267,7 @@ fn set_text(s: &mut Session, p: &Value) -> Result<Value> {
 }
 
 fn set_text_style(s: &mut Session, p: &Value) -> Result<Value> {
-    let mut patch = p.clone();
-    if let Some(o) = patch.as_object_mut() {
-        o.remove("ids");
-        o.remove("id");
-    }
-    // Validate the patch once against a default style so errors name the command.
-    let probe: TextStyle = merge(&TextStyle::default(), &patch, "text.setStyle")?;
-    if !probe.font_size.is_finite() || !(1.0..=2000.0).contains(&probe.font_size) {
-        return Err(bad("text.setStyle", "font_size must be 1–2000"));
-    }
-    each_kind(s, p, "text.setStyle", "Text Style", |e| match &mut e.kind {
-        ElementKind::Text(t) => match merge(&t.style, &patch, "text.setStyle") {
-            Ok(st) => {
-                t.style = st;
-                true
-            }
-            Err(_) => false,
-        },
-        _ => false,
-    })
+    super::richtext::set_style(s, p)
 }
 
 fn set_text_effect(s: &mut Session, p: &Value) -> Result<Value> {
@@ -413,10 +396,12 @@ fn paste_style(s: &mut Session, p: &Value) -> Result<Value> {
             }
             ElementKind::Text(t) => {
                 if let Some((style, effect)) = &st.text {
+                    // The copied look replaces the box's, formatted parts included.
                     t.style = style.clone();
                     t.effect = effect.clone();
+                    t.spans.clear();
                 } else if let Some(c) = st.fill.as_ref().and_then(Fill::primary_color) {
-                    t.style.color = c;
+                    t.set_style_all(&SpanStyle { color: Some(c), ..SpanStyle::default() });
                 }
                 true
             }
