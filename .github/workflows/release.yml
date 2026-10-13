@@ -1,0 +1,394 @@
+# Release: installable downloads for macOS (signed, notarized, stapled DMG), Windows (zip), Linux
+# (tar.gz) and the web (zip), attached to a GitHub Release. See docs/release.md.
+#
+# - Push a tag `v<version>` (the version in Cargo.toml) to publish a release for it.
+# - Run it by hand (Actions › release › Run workflow) for a draft release of the current version.
+#
+# Secrets (Settings › Secrets and variables › Actions); all optional. Without the Apple ones the
+# DMG is ad-hoc signed and not notarized, and the job summary says so.
+#   APPLE_CERTIFICATE_P12_BASE64  Developer ID Application certificate + private key (.p12), base64
+#   APPLE_CERTIFICATE_PASSWORD    the .p12 export password
+#   APPLE_SIGNING_IDENTITY        e.g. "Developer ID Application: Your Name (TEAMID1234)"
+#   notarization, either an App Store Connect API key (preferred):
+#   APPLE_API_KEY_ID, APPLE_API_ISSUER_ID, APPLE_API_KEY_P8_BASE64 (the AuthKey_*.p8 file, base64)
+#   or an Apple ID with an app-specific password:
+#   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  meta:
+    name: version and tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+      draft: ${{ steps.v.outputs.draft }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: v
+        name: Read the version from Cargo.toml
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="$(sed -n '/^\[workspace\.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)"
+          if [ -z "$version" ]; then
+            echo "::error::no version in [workspace.package] of Cargo.toml"
+            exit 1
+          fi
+          if [ "$EVENT" = "push" ] && [ "$REF_TYPE" = "tag" ]; then
+            tag="$REF_NAME"
+            draft="false"
+            if [ "$tag" != "v$version" ]; then
+              echo "::error::tag $tag does not match the version in Cargo.toml ($version): bump [workspace.package] version, commit, and tag v$version"
+              exit 1
+            fi
+          else
+            tag="v$version"
+            draft="true"
+          fi
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "draft=$draft"
+          } >> "$GITHUB_OUTPUT"
+          echo "GenHa $version, release $tag (draft: $draft)"
+
+  macos:
+    name: macOS (universal DMG)
+    needs: meta
+    runs-on: macos-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release
+      - name: Import the Developer ID certificate and notarization credentials
+        id: apple
+        shell: bash
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APPLE_CERTIFICATE_P12_BASE64:-}" ] || [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
+            echo "::warning::No Apple signing secrets: the DMG will be ad-hoc signed and NOT notarized (see docs/release.md)"
+            {
+              echo "sign=false"
+              echo "notarize=false"
+              echo "keychain="
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # A temporary keychain for this job only, deleted at the end.
+          keychain="$RUNNER_TEMP/genha-signing.keychain-db"
+          keychain_password="$(openssl rand -base64 32)"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          echo "keychain=$keychain" >> "$GITHUB_OUTPUT"
+
+          p12="$RUNNER_TEMP/certificate.p12"
+          printf '%s' "$APPLE_CERTIFICATE_P12_BASE64" | base64 --decode > "$p12"
+          security import "$p12" -k "$keychain" -P "${APPLE_CERTIFICATE_PASSWORD:-}" -f pkcs12 -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$p12"
+          # Apple's Developer ID intermediate certificate, in case the .p12 lacks it.
+          if curl -fsSL --retry 3 -o "$RUNNER_TEMP/DeveloperIDG2CA.cer" "https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer"; then
+            security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$keychain" || true
+          fi
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" > /dev/null
+          # Put the keychain on the search list (codesign and notarytool look there).
+          existing=()
+          while IFS= read -r line; do
+            line="${line#"${line%%[![:space:]]*}"}"
+            line="${line#\"}"
+            line="${line%\"}"
+            if [ -n "$line" ]; then existing+=("$line"); fi
+          done < <(security list-keychains -d user)
+          security list-keychains -d user -s "$keychain" ${existing[@]+"${existing[@]}"}
+
+          security find-identity -v -p codesigning "$keychain"
+          if ! security find-identity -v -p codesigning "$keychain" | grep -qF "$APPLE_SIGNING_IDENTITY"; then
+            echo "::error::The certificate in APPLE_CERTIFICATE_P12_BASE64 has no signing identity named \"$APPLE_SIGNING_IDENTITY\" (see the list above and docs/release.md)"
+            exit 1
+          fi
+          echo "sign=true" >> "$GITHUB_OUTPUT"
+
+          # Notarization credentials, stored as a notarytool profile in the temporary keychain.
+          if [ -n "${APPLE_API_KEY_ID:-}" ] && [ -n "${APPLE_API_ISSUER_ID:-}" ] && [ -n "${APPLE_API_KEY_P8_BASE64:-}" ]; then
+            key="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+            case "$APPLE_API_KEY_P8_BASE64" in
+              "-----BEGIN"*) printf '%s\n' "$APPLE_API_KEY_P8_BASE64" > "$key" ;;
+              *) printf '%s' "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$key" ;;
+            esac
+            xcrun notarytool store-credentials genha-notary --key "$key" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID" --keychain "$keychain"
+            rm -f "$key"
+            echo "notarize=true" >> "$GITHUB_OUTPUT"
+            echo "notary_auth=App Store Connect API key" >> "$GITHUB_OUTPUT"
+          elif [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ] && [ -n "${APPLE_APP_PASSWORD:-}" ]; then
+            xcrun notarytool store-credentials genha-notary --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --keychain "$keychain"
+            echo "notarize=true" >> "$GITHUB_OUTPUT"
+            echo "notary_auth=Apple ID and app-specific password" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No notarization secrets: the DMG will be signed but NOT notarized (see docs/release.md)"
+            echo "notarize=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build GenHa.app (universal), sign, notarize, staple, make the DMG
+        shell: bash
+        env:
+          SIGN: ${{ steps.apple.outputs.sign }}
+          NOTARIZE: ${{ steps.apple.outputs.notarize }}
+          KEYCHAIN: ${{ steps.apple.outputs.keychain }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          args=(bundle macos)
+          if [ "$SIGN" = "true" ]; then
+            args+=(--sign "$APPLE_SIGNING_IDENTITY" --keychain "$KEYCHAIN")
+          fi
+          if [ "$NOTARIZE" = "true" ]; then
+            args+=(--notary-profile genha-notary)
+          fi
+          cargo xtask "${args[@]}"
+
+      - name: Verify
+        shell: bash
+        env:
+          NOTARIZE: ${{ steps.apple.outputs.notarize }}
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          app="dist/macos/GenHa.app"
+          dmg="dist/GenHa-$VERSION-macos.dmg"
+          test -f "$dmg"
+          lipo -info "$app/Contents/MacOS/genha"
+          plutil -lint "$app/Contents/Info.plist"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign --display --verbose=2 "$app" 2>&1 | grep -E "^(Identifier|Authority|TeamIdentifier|Runtime|Timestamp|Signature)" || true
+          if [ "$NOTARIZE" = "true" ]; then
+            xcrun stapler validate "$app"
+            xcrun stapler validate "$dmg"
+            spctl -a -vv -t exec "$app"
+            spctl -a -vv -t open --context context:primary-signature "$dmg"
+            spctl -a -vv -t install "$dmg" || echo "note: spctl -t install did not accept the disk image (the check above did)"
+          fi
+          shasum -a 256 "$dmg"
+
+      - name: Summary
+        if: always()
+        shell: bash
+        env:
+          SIGN: ${{ steps.apple.outputs.sign }}
+          NOTARIZE: ${{ steps.apple.outputs.notarize }}
+          NOTARY_AUTH: ${{ steps.apple.outputs.notary_auth }}
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### macOS: GenHa-$VERSION-macos.dmg (universal: Apple silicon and Intel)"
+            if [ "$SIGN" = "true" ]; then
+              echo "- Signed with a Developer ID (hardened runtime, secure timestamp)"
+            else
+              echo "- **UNSIGNED** (ad-hoc signature): Gatekeeper blocks it on other Macs; right-click › Open, or add the signing secrets (docs/release.md)"
+            fi
+            if [ "$NOTARIZE" = "true" ]; then
+              echo "- Notarized by Apple ($NOTARY_AUTH) and stapled (app and DMG)"
+            else
+              echo "- **NOT notarized**"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the signing keychain
+        if: always() && steps.apple.outputs.keychain != ''
+        shell: bash
+        env:
+          KEYCHAIN: ${{ steps.apple.outputs.keychain }}
+        run: security delete-keychain "$KEYCHAIN" || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: genha-macos
+          path: dist/GenHa-*-macos.dmg
+          if-no-files-found: error
+
+  windows:
+    name: Windows (zip)
+    needs: meta
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release
+      - name: Build genha.exe and genha-cli.exe (icon embedded) and zip them
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo xtask bundle windows
+      - name: Summary
+        shell: bash
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### Windows: GenHa-$VERSION-windows-x86_64.zip"
+            echo "- genha.exe and genha-cli.exe with the GenHa icon"
+            echo "- **Not code-signed**: SmartScreen shows \"Windows protected your PC\" on first start (More info › Run anyway)"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: genha-windows
+          path: dist/GenHa-*-windows-*.zip
+          if-no-files-found: error
+
+  linux:
+    name: Linux (tar.gz)
+    needs: meta
+    # The oldest supported runner: the binaries need the glibc of the system they were built on
+    # (2.35) or newer.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release
+      - name: System libraries for the desktop app, and the .desktop file checker
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libgtk-3-dev desktop-file-utils
+      - name: Build genha and genha-cli and pack them with the .desktop file, icons and MIME type
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo xtask bundle linux
+      - name: Check the package
+        shell: bash
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          tarball="dist/GenHa-$VERSION-linux-x86_64.tar.gz"
+          tar -tzf "$tarball"
+          desktop-file-validate dist/linux/GenHa-"$VERSION"-linux-x86_64/share/applications/*.desktop
+          "dist/linux/GenHa-$VERSION-linux-x86_64/bin/genha-cli" --help > /dev/null
+          {
+            echo "### Linux: GenHa-$VERSION-linux-x86_64.tar.gz"
+            echo "- genha, genha-cli, .desktop file, icons, MIME type for .genha (glibc 2.35 or newer)"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: genha-linux
+          path: dist/GenHa-*-linux-*.tar.gz
+          if-no-files-found: error
+
+  web:
+    name: Web (zip)
+    needs: meta
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release
+      - name: Build the web app and zip it
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo xtask bundle web
+      - uses: actions/upload-artifact@v7
+        with:
+          name: genha-web
+          path: dist/GenHa-*-web.zip
+          if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    needs: [meta, macos, windows, linux, web]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: genha-*
+          path: artifacts
+          merge-multiple: true
+      - name: Create or update the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.meta.outputs.tag }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          DRAFT: ${{ needs.meta.outputs.draft }}
+        run: |
+          set -euo pipefail
+          cd artifacts
+          sha256sum -- * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cd ..
+          files=()
+          for f in artifacts/*; do files+=("$f"); done
+          cat > notes.md <<EOF
+          ## Downloads
+
+          - **macOS 11 or later** (Apple silicon and Intel): \`GenHa-$VERSION-macos.dmg\`. Open it and drag GenHa to Applications.
+          - **Windows 10 or later** (x86-64): \`GenHa-$VERSION-windows-x86_64.zip\`. Unpack it and start \`genha.exe\`. Not code-signed yet: SmartScreen may ask you to confirm (More info › Run anyway).
+          - **Linux** (x86-64, glibc 2.35 or newer): \`GenHa-$VERSION-linux-x86_64.tar.gz\`. See README.txt inside.
+          - **Web**: \`GenHa-$VERSION-web.zip\`, a static site (serve the folder over HTTP).
+
+          \`SHA256SUMS.txt\` lists the checksums.
+          EOF
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $TAG exists: replacing its files"
+            gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            args=(release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "GenHa $VERSION" --notes "$(cat notes.md)" --generate-notes --target "$GITHUB_SHA")
+            if [ "$DRAFT" = "true" ]; then
+              args+=(--draft)
+            fi
+            gh "${args[@]}" "${files[@]}"
+          fi
+          {
+            echo "### Release $TAG"
+            if [ "$DRAFT" = "true" ]; then echo "- Draft (manual run): publish it on the Releases page"; fi
+            for f in "${files[@]}"; do echo "- $(basename "$f")"; done
+          } >> "$GITHUB_STEP_SUMMARY"

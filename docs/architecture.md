@@ -19,7 +19,7 @@ that nothing below L6 depends on a UI toolkit (egui, eframe, winit, rfd). Table:
 
 | Layer | Crates | Role |
 |---|---|---|
-| L0 | `geom`, `color`, `i18n` | frames (position, size, rotation), fitting, snapping, shape outlines (on `kurbo`); sRGB colours as hex, HSL, WCAG contrast, harmonies; the UI's translations (gettext PO catalogues compiled in, `tr`/`tr!`/`tr_n!`, the language per thread) |
+| L0 | `geom`, `color`, `i18n`, `brand` | frames (position, size, rotation), fitting, snapping, shape outlines (on `kurbo`); sRGB colours as hex, HSL, WCAG contrast, harmonies; the UI's translations (gettext PO catalogues compiled in, `tr`/`tr!`/`tr_n!`, the language per thread); the app name and id and the app icon drawn in code (PNG, `.ico`, `.icns`) |
 | L1 | `doc` | the document model: designs with pages of any size, elements (shapes, text, pictures, groups), brand kit, embedded assets, page-size presets; pure data + serde |
 | L2 | `text`, `effects`, `layout`, `templates`, `motion` | font discovery and text layout to outlines (`skrifa`); picture decoding, adjustments, filters and quick actions (background removal, resize, convert…); smart resize (re-layout of text, rows and grids), align/distribute, collages, snapping guides; templates, shapes/icons, text styles, palettes and QR codes generated in code; animations evaluated at a time (`page_at`) |
 | L3 | `render`, `svg`, `pdf`, `video`, `format` | page → pixels (`vello_cpu`) and PNG/JPEG; SVG export; vector PDF export (`krilla`: embedded font subsets, pictures, print boxes); MP4 video (an H.264 encoder and MP4 writer of our own, pure Rust); the native `.genha` format (versioned, compressed JSON) |
