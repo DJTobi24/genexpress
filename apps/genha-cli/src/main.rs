@@ -10,8 +10,9 @@ const USAGE: &str = "usage: genha-cli <command> …
 
   new (--preset ID | --template ID | --width W --height H) -o OUT.genha
   info FILE                          the design as JSON (pages, objects, brand)
-  export FILE -o OUT.png|jpg|svg|pdf [--page N] [--scale S] [--all-pages] [--transparent]
-  run SCRIPT.json [--open FILE] [--save OUT.genha] [--export OUT.png|jpg|svg|pdf]
+  export FILE -o OUT.png|jpg|svg|pdf|gif|mp4 [--page N] [--scale S] [--all-pages] [--transparent]
+                                     [--fps F] [--quality low|medium|high] (gif, mp4: animated)
+  run SCRIPT.json [--open FILE] [--save OUT.genha] [--export OUT.png|jpg|svg|pdf|gif|mp4]
                                      SCRIPT: [{\"command\": \"shape.add\", \"params\": {…}}, …]
   quick ACTION IN -o OUT [--scale S] [--width W] [--height H] [--preset P] [--tolerance T]
                                      ACTION: remove-background, resize, convert, auto-crop, filter, rotate, flip
@@ -68,10 +69,16 @@ fn export(s: &mut Session, out: &str, args: &[String]) -> Result<Value, String> 
         "jpg" | "jpeg" => "export.jpeg",
         "svg" => "export.svg",
         "pdf" => "export.pdf",
-        other => return Err(format!("unknown export type `.{other}` (png, jpg, svg, pdf)")),
+        "gif" => "export.gif",
+        "mp4" => "export.mp4",
+        other => return Err(format!("unknown export type `.{other}` (png, jpg, svg, pdf, gif, mp4)")),
     };
-    let mut p = json!({"path": out, "all_pages": flag(args, "--all-pages"), "transparent": flag(args, "--transparent")});
+    let mut p = json!({"path": out, "transparent": flag(args, "--transparent")});
     if let Some(o) = p.as_object_mut() {
+        // Without --all-pages each command keeps its own default (a video: every page).
+        if flag(args, "--all-pages") {
+            o.insert("all_pages".into(), json!(true));
+        }
         if let Some(n) = num(args, "--page")? {
             o.insert("page".into(), json!(n.max(0.0) as u64));
         }
@@ -80,6 +87,12 @@ fn export(s: &mut Session, out: &str, args: &[String]) -> Result<Value, String> 
         }
         if let Some(dpi) = num(args, "--dpi")? {
             o.insert("dpi".into(), json!(dpi));
+        }
+        if let Some(fps) = num(args, "--fps")? {
+            o.insert("fps".into(), json!(fps));
+        }
+        if let Some(q) = opt(args, "--quality") {
+            o.insert("quality".into(), json!(q));
         }
     }
     exec(s, cmd, p)

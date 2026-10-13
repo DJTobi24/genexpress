@@ -20,6 +20,7 @@ genha-render = { workspace = true }
 genha-svg = { workspace = true }
 genha-pdf = { workspace = true }
 genha-motion = { workspace = true }
+genha-video = { workspace = true }
 image = { workspace = true }
 png = { workspace = true }
 serde = { workspace = true }

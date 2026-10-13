@@ -10,7 +10,7 @@
 | M3 Text | curved/grid text, document styles, embedded fonts, shaping & kerning, per-word formatting, spellcheck hooks | 🟡 curved text, shaping (HarfRust: kerning, ligatures, bidi, complex scripts, font fallback) and formatting part of a text box (M3.2: style runs) done |
 | M4 Pictures & print | vector PDF, print PDF (bleed, marks), SVG import, HEIC, vectorize, better background removal | 🟡 vector PDF ✅ (krilla, embedded fonts), print PDF ✅ (bleed, marks, plain CMYK), SVG import ✅; colour-managed CMYK, HEIC, vectorize, background removal next |
 | M5 Documents | charts, tables, present mode, version history, several brands, accessibility, translations | 🟡 charts (several series, stacked, axis titles, number formats), tables (merged cells, cell styles, sizes, lines), version history and present mode done (M5.1) |
-| M6 Motion & video | animation playback, GIF/MP4 export, timeline, scenes, audio | 🟡 animations (in/loop/out), playback, present mode, GIF and animated PNG done; MP4, timeline, scenes, audio next |
+| M6 Motion & video | animation playback, GIF/MP4 export, timeline, scenes, audio | 🟡 animations (in/loop/out), playback, present mode, GIF, animated PNG and MP4 (M6.1, own H.264 encoder) done; timeline, scenes, audio next |
 | M7 Collaboration | optional self-hostable sync server: share links, comments, co-editing, template locking | ⬜ |
 | M8 AI | pluggable local/remote models: background removal, generative fill/expand, text-to-image, captions, translate | ⬜ |
 | M9 Platform | sandboxed WebAssembly add-ons, embed build, PPTX/PDF import, web-page export | ⬜ |

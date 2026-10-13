@@ -22,7 +22,7 @@ Errors: `{"id": 1, "ok": false, "error": "…"}`.
 | `ui.present` | `{page?, stop?}` | present mode (full window, animations playing) at `page`; `stop` leaves it |
 
 To look at an animation headlessly, use the `export.frame` command (`{path, t}`: one moment as PNG),
-`animation.timeline`, or `export.gif` / `export.apng`.
+`animation.timeline`, or `export.gif` / `export.apng` / `export.mp4`.
 
 Text is edited in place with commands too: `text.beginEdit {id?, selection?}` enters editing (the app shows the caret on the
 canvas), `text.edit {text? | insert?, range?, selection?}` types or replaces text and moves the selection (one undo step per

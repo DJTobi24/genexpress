@@ -63,6 +63,10 @@ Hosting notes: [`packaging/web/README.md`](../packaging/web/README.md).
 `cargo xtask cleanroom` and `cargo xtask wasm` (clippy for wasm32 on the engine and below, the UI and
 the web app; needs `rustup target add wasm32-unknown-unknown`).
 
+Video tests decode what the H.264 encoder wrote with `ffmpeg` when it is installed (CI installs it) and
+require every sample to match the encoder's own reconstruction; without `ffmpeg` they are skipped.
+`cargo test -p genha-video speed -- --ignored --nocapture` prints the encoder's speed.
+
 ## Robustness: GenHa never crashes
 
 See [`AGENTS.md`](../AGENTS.md) › Never crash. In short: return `Result`, never index with numbers that

@@ -1,6 +1,6 @@
 # Target-app parity
 
-> **Last updated:** 2026-10-13 · **Change:** minor (text shaping, text edited on the canvas, vector PDF, multi-series charts and richer tables, formatting part of a text box) · **Target:** Adobe Express (web, desktop and mobile), feature set as publicly documented in October 2026
+> **Last updated:** 2026-10-13 · **Change:** minor (text shaping, text edited on the canvas, vector PDF, multi-series charts and richer tables, formatting part of a text box, MP4 video export) · **Target:** Adobe Express (web, desktop and mobile), feature set as publicly documented in October 2026
 
 The feature inventory of the target app, compiled from **public sources only** (help pages, product
 and pricing pages, press releases, developer docs; URLs per area below), in our own words, feature
@@ -16,11 +16,11 @@ Legend: ✅ works (basic form) · 🟡 partial · ⬜ not yet (milestone in [roa
 | 2. Templates & content | ~25% (estimated) | 65 original templates in 6 categories, 114 icons, 40 palettes, all generated in code; no stock library (by design: open content later) |
 | 3. Text | ~55% (estimated) | text boxes edited in place on the canvas, styles, formatting part of a box (font, size, bold, italic, underline, strikethrough, colour per word), presets, shadow/outline/highlight effects, curved text, system fonts, real shaping (kerning, ligatures, right-to-left and complex scripts, font fallback); no bulleted lists, grid text, colour emoji, spellcheck, translate |
 | 4. Pictures & AI | ~25% (estimated) | place, crop, fit, crop-to-shape, adjustments, filter presets, classic background removal, convert/resize quick actions; no generative AI yet |
-| 5. Video | ~10% (estimated) | element animations (12 entrances, 4 loops, exits) with canvas playback and present mode; GIF and animated PNG export; no timeline, scenes, audio or MP4 yet |
+| 5. Video | ~15% (estimated) | element animations (12 entrances, 4 loops, exits) with canvas playback and present mode; MP4 (H.264), GIF and animated PNG export; no timeline, scenes or audio yet |
 | 6. Documents & PDF | ~35% (estimated) | multi-page vector PDF export (real text with embedded fonts), presentations as pages, QR codes, charts (bar, line, area, pie, donut, progress; several series, stacked, axis titles) and tables (merged cells, cell styles); no PDF editing/import, web pages |
 | 7. Brand kits | ~35% (estimated) | colours, heading/body fonts, logos slot, apply to page; no locking/template controls |
 | 8. Social | 0% | size presets only; no scheduler (planned as an optional, self-hostable add-on) |
-| 9. Export & share | ~50% (estimated) | PNG (transparent), JPEG, SVG, vector and print PDF, animated GIF and PNG; no MP4, share links, print ordering |
+| 9. Export & share | ~55% (estimated) | PNG (transparent), JPEG, SVG, vector and print PDF, MP4 video, animated GIF and PNG; no share links, print ordering |
 | 10. Platform | ~30% (estimated) | MCP server, control channel, CLI, every action a command; no add-on SDK yet |
 | 11. Accessibility & localisation | ~5% (estimated) | keyboard shortcuts; no screen-reader support or translations yet |
 
@@ -102,7 +102,7 @@ Sources: https://helpx.adobe.com/express/create-and-edit-videos/create-videos/ad
 | Animations (in/out/loop) | ✅ | `animation.set` / `animation.applyToPage` (staggered): 12 entrances (fade, rise, slides in four directions, pop, zoom, bounce, spin, flip, typewriter), 4 loops (pulse, float, sway, blink), exits; per-object duration and delay, page length auto or fixed; Play on the canvas. Groups animate as one. Limits: no motion paths or per-word text animation; typewriter text centred in a narrow box can re-wrap while typing |
 | Audio, voice-over | ⬜ | M6 |
 | Captions | ⬜ | M8 |
-| MP4 / GIF export | 🟡 | `export.gif` and `export.apng` (one page or all, 5–30 fps, ≤ 600 frames, ≤ 2 MP per frame, still frames merged); `export.frame` for one moment; MP4 M6 |
+| MP4 / GIF export | ✅ | `export.mp4` (Download › MP4 video): H.264 in MP4, every page for its duration (or chosen pages), 1–60 fps (30 default), quality low/medium/high, frames up to 1920 × 1080 pixels' worth (1080 × 1920 stories exact), ≤ 3600 frames; plays in browsers, QuickTime, Windows and phones (Constrained Baseline). `export.gif` and `export.apng` (one page or all, 5–30 fps, ≤ 600 frames, ≤ 2 MP per frame, still frames merged); `export.frame` for one moment. Limits: no audio track, no 4K, no resolution presets |
 
 ## 6. Documents and PDF
 
@@ -148,7 +148,7 @@ Sources: https://www.adobe.com/express/feature · https://helpx.adobe.com/expres
 | PNG (transparent), JPEG | ✅ | `export.png/jpeg`, scale option |
 | SVG | ✅ | `export.svg` |
 | PDF (standard), print PDF with bleed/CMYK | 🟡 | vector PDF; print (`print: true`: 3 mm bleed, crop marks, Trim/BleedBox); `cmyk: true` writes DeviceCMYK colours and pictures (plain conversion, no ICC profile or output intent, no PDF/X) |
-| MP4 / GIF | 🟡 | animated GIF and PNG (`export.gif`, `export.apng`); MP4 M6 |
+| MP4 / GIF | ✅ | MP4 video (`export.mp4`, H.264, desktop and web), animated GIF and PNG (`export.gif`, `export.apng`); no audio, no 4K |
 | Share links, publish to web | ⬜ | M7 / M9 |
 | Print ordering | ➖ | not planned (third-party service) |
 

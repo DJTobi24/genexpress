@@ -162,3 +162,147 @@ fn frame_export_shows_a_moment() {
     assert_eq!(img.get_pixel(50, 130).0, [255, 0x33, 0x66, 255], "in place at the end");
     assert!(s.execute("export.frame", &json!({"path": path})).is_err());
 }
+
+#[test]
+fn mp4_export_is_a_video_of_every_page() {
+    let mut s = session();
+    add_rect(&mut s, 10.0);
+    s.execute("text.add", &json!({"text": "Hello"})).unwrap();
+    s.execute("animation.applyToPage", &json!({"kind": "slide-up"})).unwrap();
+    s.execute("page.setDuration", &json!({"seconds": 2})).unwrap();
+    // A second page of another size, still: it is letterboxed.
+    s.execute("page.add", &json!({"width": 300, "height": 300})).unwrap();
+    s.execute("page.setBackground", &json!({"color": "#ffffff"})).unwrap();
+    s.execute("page.setDuration", &json!({"seconds": 1})).unwrap();
+    let path = tmp("a.mp4");
+    let r = s.execute("export.mp4", &json!({"path": path, "fps": 10, "scale": 0.5, "background": "#102030"})).unwrap();
+    assert_eq!((r["width"].as_u64(), r["height"].as_u64()), (Some(200), Some(150)));
+    assert_eq!(r["frames"], 30, "3 seconds at 10 frames per second");
+    assert!(r["rendered"].as_u64().unwrap() < 30, "still frames are not rendered again");
+    let bytes = std::fs::read(&path).unwrap();
+    assert_eq!(r["files"][0]["bytes"].as_u64(), Some(bytes.len() as u64));
+    let info = genha_video::inspect(&bytes).unwrap();
+    assert_eq!(info.boxes, ["ftyp", "moov", "mdat"]);
+    assert_eq!((info.width, info.height, info.frames), (200, 150, 30));
+    assert_eq!(info.codec, "avc1");
+    assert!((info.duration - 3.0).abs() < 1e-6 && (info.fps - 10.0).abs() < 1e-6);
+    assert!(info.keyframes >= 2, "a key frame where each page starts");
+    // One page only, odd sizes made even, quality and frame rate options.
+    let r = s.execute("export.mp4", &json!({"path": tmp("b.mp4"), "page": 0, "scale": 0.4925, "quality": "low", "fps": 24.4})).unwrap();
+    assert_eq!((r["width"].as_u64(), r["height"].as_u64(), r["fps"].as_u64()), (Some(198), Some(148), Some(24)));
+    assert_eq!(r["frames"], 48);
+    assert_eq!(r["quality"], "low");
+}
+
+#[test]
+fn mp4_export_refuses_bad_params_and_caps_size_and_length() {
+    let mut s = Session::new();
+    s.execute("file.new", &json!({"width": 4000, "height": 3000})).unwrap();
+    s.execute("page.setDuration", &json!({"seconds": 0.2})).unwrap();
+    s.execute("shape.add", &json!({})).unwrap();
+    s.execute("animation.set", &json!({"kind": "fade", "loop": "sway"})).unwrap();
+    let path = tmp("big.mp4");
+    for bad in [
+        json!({"fps": "fast"}),
+        json!({"quality": "ultra"}),
+        json!({"quality": 3}),
+        json!({"pages": [7]}),
+        json!({"page": 9}),
+        json!({"background": "nope"}),
+    ] {
+        let mut p = bad.clone();
+        p["path"] = json!(path);
+        assert!(matches!(s.execute("export.mp4", &p), Err(EngineError::BadParams { .. })), "{bad}");
+    }
+    assert!(s.execute("export.mp4", &json!({})).is_err());
+    // Huge pages are scaled down to fit the encoder; frame rates are clamped.
+    let r = s.execute("export.mp4", &json!({"path": path, "scale": 1e9, "fps": 1e9, "quality": "low"})).unwrap();
+    let (w, h) = (r["width"].as_u64().unwrap(), r["height"].as_u64().unwrap());
+    assert!(w * h <= super::MAX_VIDEO_PIXELS as u64 && w % 2 == 0 && h % 2 == 0, "{w} × {h}");
+    assert_eq!((r["fps"].as_u64(), r["frames"].as_u64()), (Some(60), Some(12)));
+    // Shorter than a frame: still one frame.
+    let r = s.execute("export.mp4", &json!({"path": path, "fps": -4, "scale": 0.01})).unwrap();
+    assert_eq!((r["fps"].as_u64(), r["width"].as_u64(), r["frames"].as_u64()), (Some(1), Some(400), Some(1)));
+    // Long animations stop at the frame cap.
+    s.execute("file.new", &json!({"width": 40, "height": 30})).unwrap();
+    s.execute("page.setDuration", &json!({"seconds": 3600})).unwrap();
+    s.execute("shape.add", &json!({})).unwrap();
+    s.execute("animation.set", &json!({"kind": "fade", "loop": "sway"})).unwrap();
+    s.execute("page.duplicate", &json!({})).unwrap();
+    let r = s.execute("export.mp4", &json!({"path": path, "fps": 60})).unwrap();
+    assert!(r["frames"].as_u64().unwrap() <= super::MAX_VIDEO_FRAMES as u64 && r["truncated"] == true, "{r}");
+    assert_eq!(genha_video::inspect(&std::fs::read(&path).unwrap()).unwrap().frames as u64, r["frames"].as_u64().unwrap());
+}
+
+mod fuzz {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn junk() -> impl Strategy<Value = serde_json::Value> {
+        prop_oneof![
+            Just(json!(null)),
+            any::<bool>().prop_map(|b| json!(b)),
+            any::<i64>().prop_map(|n| json!(n)),
+            any::<f64>().prop_filter("JSON numbers are finite", |f| f.is_finite()).prop_map(|f| json!(f)),
+            "[a-z#0-9]{0,8}".prop_map(|s| json!(s)),
+            proptest::collection::vec(any::<i16>(), 0..4).prop_map(|v| json!(v)),
+        ]
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(48))]
+
+        /// Any parameters: a video or a clear error, never a panic.
+        #[test]
+        fn mp4_export_survives_junk_params(fps in junk(), scale in junk(), quality in junk(), pages in junk(), page in junk(), background in junk(), all in junk()) {
+            let mut s = Session::new();
+            s.execute("file.new", &json!({"width": 48, "height": 32})).unwrap();
+            s.execute("shape.add", &json!({"width": 20, "height": 10})).unwrap();
+            s.execute("animation.set", &json!({"kind": "zoom", "duration": 0.3})).unwrap();
+            s.execute("page.setDuration", &json!({"seconds": 0.5})).unwrap();
+            s.execute("page.add", &json!({"width": 20, "height": 60})).unwrap();
+            let p = json!({"path": tmp("fuzz.mp4"), "fps": fps, "scale": scale, "quality": quality, "pages": pages, "page": page, "background": background, "all_pages": all});
+            match s.execute("export.mp4", &p) {
+                Ok(r) => {
+                    let info = genha_video::inspect(&std::fs::read(tmp("fuzz.mp4")).unwrap()).unwrap();
+                    prop_assert_eq!(u64::from(info.frames), r["frames"].as_u64().unwrap());
+                }
+                Err(e) => prop_assert!(!matches!(e, EngineError::Internal { .. }), "{e}"),
+            }
+        }
+    }
+}
+
+/// Where FFmpeg is installed: it decodes the video, and frames match `export.frame` renders of the
+/// same moments.
+#[test]
+fn mp4_frames_look_like_the_page() {
+    let has_ffmpeg = std::process::Command::new("ffmpeg").arg("-version").output().is_ok_and(|o| o.status.success());
+    if !has_ffmpeg {
+        eprintln!("ffmpeg not found: skipped");
+        return;
+    }
+    let mut s = session();
+    s.execute("page.setBackground", &json!({"color": "#fff4e0"})).unwrap();
+    add_rect(&mut s, 10.0);
+    s.execute("shape.add", &json!({"shape": "ellipse", "x": 200, "y": 40, "width": 150, "height": 150, "fill": "#2266ff"})).unwrap();
+    s.execute("animation.applyToPage", &json!({"kind": "pop", "duration": 1.0})).unwrap();
+    let path = tmp("look.mp4");
+    s.execute("export.mp4", &json!({"path": path, "fps": 20, "quality": "high"})).unwrap();
+    for (frame, t) in [(6usize, 0.3), (30, 1.5)] {
+        let png = tmp(&format!("look-{frame}.png"));
+        let out = std::process::Command::new("ffmpeg")
+            .args(["-v", "error", "-y", "-i", &path, "-vf", &format!("select=eq(n\\,{frame})"), "-frames:v", "1", &png])
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        let video = image::open(&png).unwrap().to_rgb8();
+        let want = tmp(&format!("want-{frame}.png"));
+        s.execute("export.frame", &json!({"path": want, "t": t})).unwrap();
+        let want = image::open(&want).unwrap().to_rgb8();
+        assert_eq!(video.dimensions(), want.dimensions());
+        let mse = video.as_raw().iter().zip(want.as_raw()).map(|(a, b)| f64::from(a.abs_diff(*b)).powi(2)).sum::<f64>() / video.as_raw().len() as f64;
+        let psnr = 10.0 * (255.0f64.powi(2) / mse.max(1e-9)).log10();
+        assert!(psnr > 35.0, "frame {frame}: {psnr:.1} dB");
+    }
+}
