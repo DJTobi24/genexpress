@@ -1,16 +1,15 @@
-//! Recent designs: the designs opened or saved lately, newest first, with a thumbnail of their
-//! first page, kept in the session's [`Store`](crate::store::Store) (`recent/…`).
+//! Recent designs: the designs in My designs ([`super::designs`]) opened or changed last, newest
+//! first. `recent.remove` only takes a design off this list (it stays in My designs).
 //!
-//! On the desktop an entry points at the design's file. In the browser designs have no path, so
-//! the entry keeps a copy of the design (as it was when opened or downloaded) next to its
-//! thumbnail. Opening, saving (and downloading) a design records it ([`remember`]); the home
-//! screen lists `recent.list` and opens entries with `recent.open`.
+//! Before My designs, recent designs were kept on their own (`recent/list.json` with copies and
+//! thumbnails under `recent/…`, and before that `recent.json`, a list of paths); [`legacy_entries`]
+//! reads them so [`super::designs::migrate`] can move them in.
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{Value, json};
 
+use super::designs::{DesignEntry, library};
 use super::{always, bad, cmd, ok, str_req};
-use crate::store::key_part;
 use crate::{CommandSpec, EngineError, Result, Session};
 
 const LIST: &str = "recent/list.json";
@@ -18,79 +17,52 @@ const LIST: &str = "recent/list.json";
 const LEGACY_LIST: &str = "recent.json";
 /// Designs listed.
 pub const MAX_RECENT: usize = 12;
-/// Longest side of a thumbnail, in pixels.
-pub const THUMBNAIL_SIDE: u32 = 320;
 /// Largest list file read.
 const MAX_LIST_BYTES: usize = 1 << 20;
 
 pub(crate) fn specs() -> Vec<CommandSpec> {
     vec![
-        cmd!(query "recent.list", "Recent Designs", [], None, "{} — newest first: [{id, title, name, path?, pages, thumbnail?: store key}]", always, list),
+        cmd!(
+            query "recent.list",
+            "Recent Designs",
+            [],
+            None,
+            "{} — newest first: [{id, title, name, path?, pages, edited, folder?, thumbnail?: store key}] (ids are My designs' ids, see design.*)",
+            always,
+            list
+        ),
         cmd!("recent.open", "Open Recent Design", [], None, "{id: from recent.list}", always, open),
-        cmd!(query "recent.remove", "Remove from Recent Designs", [], None, "{id: from recent.list}", always, remove),
+        cmd!(query "recent.remove", "Remove from Recent Designs", [], None, "{id: from recent.list} — it stays in My designs", always, remove),
     ]
 }
 
-/// One recent design.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct RecentEntry {
-    pub id: String,
-    pub title: String,
-    /// The file name (or download name) it was opened or saved as.
-    #[serde(default)]
-    pub name: String,
-    /// Its file, on the desktop.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub path: Option<String>,
-    #[serde(default)]
-    pub pages: usize,
-}
-
-impl RecentEntry {
-    /// Store key of the design copy (entries without a path).
-    pub fn copy_key(&self) -> String {
-        format!("recent/{}.{}", self.id, genha_format::EXTENSION)
-    }
-    /// Store key of the thumbnail (PNG).
-    pub fn thumbnail_key(&self) -> String {
-        format!("recent/{}.png", self.id)
-    }
-}
-
 /// The recent designs, newest first (empty without a store).
-pub fn entries(s: &Session) -> Vec<RecentEntry> {
-    let Some(store) = s.store.as_ref() else { return vec![] };
-    if let Some(bytes) = store.read(LIST) {
-        if bytes.len() > MAX_LIST_BYTES {
-            return vec![];
-        }
-        let mut list: Vec<RecentEntry> = serde_json::from_slice(&bytes).unwrap_or_default();
-        list.retain(|e| crate::store::valid_key(&e.copy_key()));
-        list.truncate(MAX_RECENT);
-        return list;
-    }
-    // Before the store: a list of file paths.
-    let Some(bytes) = store.read(LEGACY_LIST).filter(|b| b.len() <= MAX_LIST_BYTES) else { return vec![] };
-    let paths: Vec<String> = serde_json::from_slice(&bytes).unwrap_or_default();
-    paths
-        .into_iter()
-        .take(MAX_RECENT)
-        .map(|p| {
-            let path = std::path::Path::new(&p);
-            let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            let title = path.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            RecentEntry { id: path_id(&p), title, name, path: Some(p), pages: 0 }
-        })
-        .collect()
+pub fn entries(s: &Session) -> Vec<DesignEntry> {
+    let mut list: Vec<DesignEntry> = library(s).designs.into_iter().filter(|e| e.recent).collect();
+    list.sort_by_key(|e| std::cmp::Reverse(e.touched()));
+    list.truncate(MAX_RECENT);
+    list
 }
 
-/// The thumbnail (PNG) of entry `id`, if one was kept.
+/// The thumbnail (PNG) of design `id`, if one was kept.
 pub fn thumbnail(s: &Session, id: &str) -> Option<Vec<u8>> {
-    let e = entries(s).into_iter().find(|e| e.id == id)?;
-    s.store.as_ref()?.read(&e.thumbnail_key())
+    super::designs::thumbnail(s, id)
 }
 
-/// A stable id for a file path (FNV-1a).
+/// One entry of the older recent-designs list.
+#[derive(Deserialize)]
+struct OldEntry {
+    id: String,
+    title: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    path: Option<String>,
+    #[serde(default)]
+    pages: usize,
+}
+
+/// A stable id for a file path (FNV-1a), as the older list made them.
 fn path_id(path: &str) -> String {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     for b in path.bytes() {
@@ -100,68 +72,79 @@ fn path_id(path: &str) -> String {
     format!("f{h:016x}")
 }
 
-fn store_list(s: &mut Session, list: &[RecentEntry]) -> std::result::Result<(), String> {
-    let bytes = serde_json::to_vec(list).map_err(|e| e.to_string())?;
-    let store = s.store.as_mut().ok_or("no store")?;
-    store.write(LIST, &bytes)?;
-    // The old list has been carried over.
-    store.remove(LEGACY_LIST);
-    Ok(())
+pub(crate) fn legacy_copy_key(id: &str) -> String {
+    format!("recent/{id}.{}", genha_format::EXTENSION)
 }
 
-/// Records document `index` as the most recent design (with a thumbnail, and in the browser a
-/// copy of it). Failing to is logged, never an error: recent designs are a convenience.
-pub(crate) fn remember(s: &mut Session, index: usize) {
-    if let Err(e) = try_remember(s, index) {
-        log::warn!("recent designs: {e}");
-    }
+pub(crate) fn legacy_thumbnail_key(id: &str) -> String {
+    format!("recent/{id}.png")
 }
 
-fn try_remember(s: &mut Session, index: usize) -> std::result::Result<(), String> {
-    if s.store.is_none() {
-        return Ok(());
-    }
-    let Some(d) = s.docs.get(index) else { return Ok(()) };
-    let mut list = entries(s);
-    let path = d.path.as_ref().map(|p| p.display().to_string());
-    let name = d.display_name();
-    let id = match (&path, &d.recent_id) {
-        (Some(p), _) => path_id(p),
-        (None, Some(id)) => id.clone(),
-        // The same download opened again is the same entry.
-        (None, None) => list
-            .iter()
-            .find(|e| e.path.is_none() && e.name == name)
-            .map(|e| e.id.clone())
-            .unwrap_or_else(|| format!("d{}-{}", key_part(&s.instance), d.recovery_id)),
+/// Whether an older recent-designs list is kept.
+pub(crate) fn has_legacy(s: &Session) -> bool {
+    s.store.as_ref().is_some_and(|st| st.read(LIST).is_some() || st.read(LEGACY_LIST).is_some())
+}
+
+/// The older recent designs as My designs entries (newest first, with times that keep that order).
+pub(crate) fn legacy_entries(s: &Session) -> Vec<DesignEntry> {
+    let Some(store) = s.store.as_ref() else { return vec![] };
+    let old: Vec<OldEntry> = if let Some(bytes) = store.read(LIST).filter(|b| b.len() <= MAX_LIST_BYTES) {
+        serde_json::from_slice(&bytes).unwrap_or_default()
+    } else if let Some(bytes) = store.read(LEGACY_LIST).filter(|b| b.len() <= MAX_LIST_BYTES) {
+        let paths: Vec<String> = serde_json::from_slice(&bytes).unwrap_or_default();
+        paths
+            .into_iter()
+            .map(|p| {
+                let path = std::path::Path::new(&p);
+                let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                let title = path.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                OldEntry { id: path_id(&p), title, name, path: Some(p), pages: 0 }
+            })
+            .collect()
+    } else {
+        return vec![];
     };
-    let entry = RecentEntry { id: key_part(&id), title: d.doc.title.clone(), name, path: path.clone(), pages: d.doc.pages.len() };
-    let copy = if path.is_none() { Some(genha_format::to_bytes(&d.doc, true).map_err(|e| e.to_string())?) } else { None };
-    let thumb = genha_render::render_thumbnail(&d.doc, 0, &s.fonts, THUMBNAIL_SIDE).ok().and_then(|r| genha_render::encode_png(&r).ok());
-    if let Some(d) = s.docs.get_mut(index) {
-        d.recent_id = Some(entry.id.clone());
+    let kept = store.list("recent");
+    let now = super::versions::now_secs();
+    old.into_iter()
+        .take(super::designs::MAX_DESIGNS)
+        .enumerate()
+        .map(|(i, e)| {
+            let thumb = legacy_thumbnail_key(&e.id);
+            let written = kept.iter().find(|(k, _)| *k == thumb).map(|(_, t)| *t).filter(|t| *t > 0);
+            let t = written.unwrap_or_else(|| now.saturating_sub(i as u64 * 60));
+            DesignEntry {
+                id: e.id,
+                title: e.title,
+                name: e.name,
+                path: e.path,
+                pages: e.pages,
+                width: 0.0,
+                height: 0.0,
+                created: t,
+                edited: t,
+                opened: t,
+                folder: None,
+                recent: true,
+                version: 1,
+            }
+        })
+        .collect()
+}
+
+/// Removes the older list and its files (after they were moved into My designs).
+pub(crate) fn remove_legacy(s: &mut Session, moved: &[DesignEntry]) {
+    let Some(store) = s.store.as_mut() else { return };
+    for e in moved {
+        store.remove(&legacy_copy_key(&e.id));
+        store.remove(&legacy_thumbnail_key(&e.id));
     }
-    list.retain(|e| e.id != entry.id);
-    list.insert(0, entry.clone());
-    let dropped: Vec<RecentEntry> = if list.len() > MAX_RECENT { list.split_off(MAX_RECENT) } else { vec![] };
-    let store = s.store.as_mut().ok_or("no store")?;
-    match copy {
-        Some(bytes) => store.write(&entry.copy_key(), &bytes)?,
-        None => store.remove(&entry.copy_key()),
-    }
-    match thumb {
-        Some(png) => store.write(&entry.thumbnail_key(), &png)?,
-        None => store.remove(&entry.thumbnail_key()),
-    }
-    for e in &dropped {
-        store.remove(&e.copy_key());
-        store.remove(&e.thumbnail_key());
-    }
-    store_list(s, &list)
+    store.remove(LIST);
+    store.remove(LEGACY_LIST);
 }
 
 fn list(s: &mut Session, _: &Value) -> Result<Value> {
-    let kept: Vec<(String, u64)> = s.store.as_ref().map(|st| st.list("recent")).unwrap_or_default();
+    let kept: Vec<(String, u64)> = s.store.as_ref().map(|st| st.list("designs")).unwrap_or_default();
     let out: Vec<Value> = entries(s)
         .into_iter()
         .map(|e| {
@@ -173,6 +156,8 @@ fn list(s: &mut Session, _: &Value) -> Result<Value> {
                 "name": e.name,
                 "path": e.path,
                 "pages": e.pages,
+                "edited": e.edited,
+                "folder": e.folder,
                 "thumbnail": if has_thumb { Some(thumb) } else { None },
             })
         })
@@ -180,35 +165,20 @@ fn list(s: &mut Session, _: &Value) -> Result<Value> {
     Ok(json!(out))
 }
 
-fn find(s: &Session, p: &Value, cmd: &str) -> Result<RecentEntry> {
-    let id = str_req(p, "id", cmd)?;
-    entries(s).into_iter().find(|e| e.id == id).ok_or_else(|| bad(cmd, format!("no recent design `{id}`")))
-}
-
 fn open(s: &mut Session, p: &Value) -> Result<Value> {
-    let e = find(s, p, "recent.open")?;
-    if let Some(path) = &e.path {
-        return super::file::open_path(s, path);
-    }
-    let bytes =
-        s.store.as_ref().and_then(|st| st.read(&e.copy_key())).ok_or_else(|| EngineError::Other(format!("the copy of {} is gone", e.title)))?;
-    let (doc, notes) = genha_format::from_bytes(&bytes)?;
-    let index = s.open_document(doc);
-    if let Some(d) = s.docs.get_mut(index) {
-        d.recent_id = Some(e.id.clone());
-    }
-    remember(s, index);
-    Ok(ok(json!({"document": index, "repaired": notes})))
+    let id = str_req(p, "id", "recent.open")?.to_string();
+    super::designs::open_entry(s, &id, "recent.open")
 }
 
 fn remove(s: &mut Session, p: &Value) -> Result<Value> {
-    let e = find(s, p, "recent.remove")?;
-    let mut list = entries(s);
-    list.retain(|x| x.id != e.id);
-    if let Some(store) = s.store.as_mut() {
-        store.remove(&e.copy_key());
-        store.remove(&e.thumbnail_key());
+    let id = str_req(p, "id", "recent.remove")?.to_string();
+    if s.store.is_none() {
+        return Err(EngineError::Other("there are no recent designs in this app".into()));
     }
-    store_list(s, &list).map_err(EngineError::Other)?;
-    Ok(ok(json!({"left": list.len()})))
+    super::designs::migrate(s);
+    let mut lib = library(s);
+    let e = lib.designs.iter_mut().find(|e| e.id == id).ok_or_else(|| bad("recent.remove", format!("no recent design `{id}`")))?;
+    e.recent = false;
+    super::designs::store_library(s, &lib)?;
+    Ok(ok(json!({"left": entries(s).len()})))
 }

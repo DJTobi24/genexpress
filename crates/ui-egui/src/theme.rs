@@ -24,6 +24,15 @@ pub struct Tokens {
     /// Present mode: the backdrop around the page and the text drawn on it.
     pub stage: Color32,
     pub stage_text: Color32,
+    /// Home screen tiles and illustrations: (gradient from, gradient to, ink), five families
+    /// (blue, violet, peach, pink, mint).
+    pub tiles: [[Color32; 3]; 5],
+    /// Paper in illustrations (pages, cards, photos).
+    pub art_paper: Color32,
+    /// Soft shadow under illustrated paper.
+    pub art_shadow: Color32,
+    /// Behind a thumbnail or a modal's content: the backdrop dimming the rest.
+    pub scrim: Color32,
 }
 
 impl Tokens {
@@ -46,6 +55,16 @@ impl Tokens {
         danger: Color32::from_rgb(0xd9, 0x30, 0x30),
         stage: Color32::BLACK,
         stage_text: Color32::from_gray(150),
+        tiles: [
+            [Color32::from_rgb(0xe3, 0xf1, 0xff), Color32::from_rgb(0xbc, 0xdb, 0xff), Color32::from_rgb(0x1f, 0x5f, 0xd6)],
+            [Color32::from_rgb(0xef, 0xea, 0xff), Color32::from_rgb(0xd2, 0xc6, 0xff), Color32::from_rgb(0x5b, 0x3c, 0xf5)],
+            [Color32::from_rgb(0xff, 0xee, 0xe2), Color32::from_rgb(0xff, 0xcd, 0xb0), Color32::from_rgb(0xd9, 0x55, 0x0b)],
+            [Color32::from_rgb(0xff, 0xe8, 0xf2), Color32::from_rgb(0xff, 0xbf, 0xda), Color32::from_rgb(0xc8, 0x22, 0x6c)],
+            [Color32::from_rgb(0xe0, 0xf8, 0xee), Color32::from_rgb(0xb2, 0xea, 0xd3), Color32::from_rgb(0x04, 0x84, 0x5f)],
+        ],
+        art_paper: Color32::WHITE,
+        art_shadow: Color32::from_rgba_premultiplied(0x18, 0x10, 0x40, 0x1c),
+        scrim: Color32::from_rgba_premultiplied(0x10, 0x0c, 0x24, 0x70),
     };
 
     pub const DARK: Tokens = Tokens {
@@ -67,12 +86,34 @@ impl Tokens {
         danger: Color32::from_rgb(0xff, 0x6b, 0x6b),
         stage: Color32::BLACK,
         stage_text: Color32::from_gray(150),
+        tiles: [
+            [Color32::from_rgb(0x1d, 0x2f, 0x4d), Color32::from_rgb(0x23, 0x44, 0x75), Color32::from_rgb(0x8d, 0xc2, 0xff)],
+            [Color32::from_rgb(0x2a, 0x24, 0x52), Color32::from_rgb(0x3b, 0x2f, 0x7a), Color32::from_rgb(0xb4, 0xa5, 0xff)],
+            [Color32::from_rgb(0x46, 0x2a, 0x1e), Color32::from_rgb(0x6a, 0x38, 0x22), Color32::from_rgb(0xff, 0xb0, 0x7a)],
+            [Color32::from_rgb(0x46, 0x1f, 0x34), Color32::from_rgb(0x6b, 0x26, 0x4b), Color32::from_rgb(0xff, 0x9c, 0xc8)],
+            [Color32::from_rgb(0x15, 0x3b, 0x31), Color32::from_rgb(0x1a, 0x57, 0x45), Color32::from_rgb(0x7d, 0xe8, 0xbf)],
+        ],
+        art_paper: Color32::from_rgb(0xf4, 0xf2, 0xfb),
+        art_shadow: Color32::from_rgba_premultiplied(0, 0, 0, 0x50),
+        scrim: Color32::from_rgba_premultiplied(0, 0, 0, 0x90),
     };
 
     pub fn get(ctx: &egui::Context) -> Tokens {
         if ctx.global_style().visuals.dark_mode { Tokens::DARK } else { Tokens::LIGHT }
     }
 }
+
+/// Colours offered for project folders (kept with the folder; the same in light and dark mode).
+pub const FOLDER_COLORS: [Color32; 8] = [
+    Color32::from_rgb(0x5b, 0x3c, 0xf5),
+    Color32::from_rgb(0x25, 0x63, 0xeb),
+    Color32::from_rgb(0x0e, 0x9f, 0x8e),
+    Color32::from_rgb(0x3f, 0xa3, 0x3c),
+    Color32::from_rgb(0xe8, 0xa3, 0x17),
+    Color32::from_rgb(0xea, 0x58, 0x0c),
+    Color32::from_rgb(0xdb, 0x27, 0x77),
+    Color32::from_rgb(0x6b, 0x69, 0x7c),
+];
 
 /// Applies the GenHa look to egui's widgets.
 pub fn apply(ctx: &egui::Context, dark: bool) {

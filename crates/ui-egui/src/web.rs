@@ -43,6 +43,10 @@ pub enum Purpose {
     Open,
     /// Place a picture into the open design (on the home screen: start a design from it).
     Place,
+    /// "Edit a photo": a picture opened as a design, selected for the picture tools.
+    Photo,
+    /// "Photo collage": pictures placed into the design made for them and arranged in a grid.
+    Collage,
     /// A picture from the clipboard (placed like [`Purpose::Place`]).
     Paste,
     /// A quick action on a picture; the result is downloaded as `{stem}-{action}.{ext}`.
@@ -77,6 +81,11 @@ thread_local! {
 /// Seconds since 1970 (the browser's clock).
 pub fn now() -> f64 {
     js_sys::Date::now() / 1000.0
+}
+
+/// The local hour (0–23), from the browser.
+pub fn local_hour() -> u32 {
+    js_sys::Date::new_0().get_hours().min(23)
 }
 
 /// A name for this page load's Data Recovery copies (unique enough between loads and tabs).
@@ -260,7 +269,7 @@ fn start_picker(purpose: Purpose, filters: &[(&str, &[&str])]) -> Result<(), Str
     let document = web_sys::window().and_then(|w| w.document()).ok_or("no document")?;
     let input: web_sys::HtmlInputElement = document.create_element("input").map_err(js)?.dyn_into().map_err(|_| "not an input element")?;
     input.set_type("file");
-    input.set_multiple(matches!(purpose, Purpose::Font));
+    input.set_multiple(matches!(purpose, Purpose::Font | Purpose::Collage));
     let accept: Vec<String> = filters.iter().flat_map(|(_, exts)| exts.iter().map(|e| format!(".{e}"))).collect();
     input.set_accept(&accept.join(","));
     let chosen = input.clone();
@@ -391,11 +400,31 @@ fn handle(app: &mut App, a: Arrived) {
             let data = base64::engine::general_purpose::STANDARD.encode(&a.bytes);
             app.run("image.place", &json!({"data": data, "name": a.name}));
         }
-        Purpose::Open | Purpose::Place => match genha_engine::cmd::file::open_bytes(&mut app.session, &a.name, &a.bytes) {
+        Purpose::Collage => {
+            if app.session.active().is_some() {
+                let data = base64::engine::general_purpose::STANDARD.encode(&a.bytes);
+                if app.run("image.place", &json!({"data": data, "name": a.name})).is_some() {
+                    crate::home::arrange_collage(app);
+                }
+            }
+        }
+        Purpose::Open if crate::fonts::FONT_FILES.1.iter().any(|f| a.name.to_ascii_lowercase().ends_with(&format!(".{f}"))) => {
+            match genha_engine::cmd::fonts::add_font_bytes(&mut app.session, &a.name, a.bytes, true) {
+                Ok((_, families)) => {
+                    app.refresh_fonts();
+                    app.set_status(genha_i18n::tr!("Added {fonts}", fonts = if families.is_empty() { a.name } else { families.join(", ") }));
+                }
+                Err(e) => app.set_status(e.to_string()),
+            }
+        }
+        Purpose::Open | Purpose::Place | Purpose::Photo => match genha_engine::cmd::file::open_bytes(&mut app.session, &a.name, &a.bytes) {
             Ok(_) => {
                 app.screen = Screen::Editor;
                 app.view.fit_pending = true;
-                app.refresh_recent();
+                app.refresh_library();
+                if matches!(a.purpose, Purpose::Photo) {
+                    crate::home::select_picture(app);
+                }
             }
             Err(e) => app.set_status(e.to_string()),
         },
@@ -445,7 +474,8 @@ pub fn export(app: &mut App, cmd: &str, ext: &str, params: &Value, stem: &str) {
 pub fn save(app: &mut App, stem: &str) {
     match genha_engine::cmd::file::design_bytes(&mut app.session) {
         Ok(b) => {
-            app.refresh_recent();
+            app.refresh_library();
+
             finish(app, &format!("{stem}.genha"), &b);
         }
         Err(e) => app.set_status(e.to_string()),

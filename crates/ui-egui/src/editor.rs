@@ -185,7 +185,7 @@ fn top_bar_width(app: &App, ui: &egui::Ui) -> f32 {
 /// Home, the design's name, undo and redo, resize.
 fn document_group(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     if ui.button(egui::RichText::new("GenHa").strong().color(t.accent)).on_hover_text(tr("Home")).clicked() {
-        app.screen = crate::Screen::Home;
+        app.go_home();
     }
     ui.separator();
     let title = app.session.active().map(|d| crate::shown_name(&d.doc.title)).unwrap_or_default();
@@ -1023,7 +1023,11 @@ fn shortcuts(app: &mut App, ctx: &egui::Context) {
                     app.run("image.place", &json!({"path": path.display().to_string()}));
                 }
             }
-            "file.new" => app.screen = crate::Screen::Home,
+            "file.new" => {
+                app.go_home();
+                crate::popups::open_size_picker(app, None);
+            }
+
             "ui.present" => crate::motion::start_presenting(app, ctx),
             "select.none" => {
                 // Esc also stops a playing animation.

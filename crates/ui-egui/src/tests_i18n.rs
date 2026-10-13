@@ -70,6 +70,10 @@ const SOURCES: &[(&str, &str)] = &[
     ("properties.rs", include_str!("properties.rs")),
     ("data_props.rs", include_str!("data_props.rs")),
     ("home.rs", include_str!("home.rs")),
+    ("designs.rs", include_str!("designs.rs")),
+    ("pages.rs", include_str!("pages.rs")),
+    ("popups.rs", include_str!("popups.rs")),
+    ("art.rs", include_str!("art.rs")),
     ("motion.rs", include_str!("motion.rs")),
     ("fonts.rs", include_str!("fonts.rs")),
     ("canvas.rs", include_str!("canvas.rs")),
@@ -80,6 +84,9 @@ const SOURCES: &[(&str, &str)] = &[
     ("io.rs", include_str!("io.rs")),
     ("models.rs", include_str!("models.rs")),
     ("apps/genha", include_str!("../../../apps/genha/src/main.rs")),
+    // Engine strings shown in the UI: the quick actions, a duplicate's title.
+    ("engine home.rs", include_str!("../../engine/src/cmd/home.rs")),
+    ("engine designs.rs", include_str!("../../engine/src/cmd/designs.rs")),
 ];
 
 /// Every English string the UI shows: (from the UI's code, plain), (counted), (from data in lower
@@ -230,6 +237,27 @@ fn the_german_ui_shows_no_english() {
         seen.extend(texts);
     };
     check("home", shown(&mut app, &ctx));
+    // The home screen's other pages, its search results and pop-ups.
+    for page in crate::home::Page::ALL {
+        crate::home::go(&mut app, page);
+        check(page.id(), shown(&mut app, &ctx));
+    }
+    crate::home::go(&mut app, crate::home::Page::Home);
+    app.home.search = "Plakat".into();
+    app.home.search_open = true;
+    check("search", shown(&mut app, &ctx));
+    app.home.search_open = false;
+    for modal in [
+        crate::popups::Modal::SizePicker { query: String::new(), palette: None },
+        crate::popups::Modal::Video,
+        crate::popups::Modal::Presentation,
+        crate::popups::Modal::Qr { text: String::new() },
+        crate::popups::Modal::NewFolder { name: String::new(), color: 0 },
+    ] {
+        app.home.modal = Some(modal);
+        check("pop-up", shown(&mut app, &ctx));
+    }
+    app.home.modal = None;
     app.run("file.new", &json!({"preset": "instagram-post", "title": "Mein Design"}));
     for tab in crate::LeftTab::ALL {
         app.left_tab = tab;
