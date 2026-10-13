@@ -321,7 +321,7 @@ fn text_doc(effect: TextEffect) -> Document {
 }
 
 fn count(r: &Raster, f: impl Fn([u8; 4]) -> bool) -> usize {
-    r.rgba.chunks_exact(4).filter(|p| f([p[0], p[1], p[2], p[3]])).count()
+    r.rgba.as_chunks::<4>().0.iter().filter(|p| f(**p)).count()
 }
 
 #[test]

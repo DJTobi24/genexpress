@@ -198,11 +198,13 @@ pub fn encode_jpeg(r: &Raster, quality: u8) -> Result<Vec<u8>, RenderError> {
     }
     let rgb: Vec<u8> = r
         .rgba
-        .chunks_exact(4)
-        .flat_map(|p| {
-            let a = u16::from(p[3]);
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .flat_map(|&[r, g, b, a]| {
+            let a = u16::from(a);
             let over = |c: u8| ((u16::from(c) * a + 255 * (255 - a) + 127) / 255) as u8;
-            [over(p[0]), over(p[1]), over(p[2])]
+            [over(r), over(g), over(b)]
         })
         .collect();
     let img = image::RgbImage::from_raw(r.width, r.height, rgb).ok_or_else(|| RenderError::Encode("pixel data does not match the size".into()))?;

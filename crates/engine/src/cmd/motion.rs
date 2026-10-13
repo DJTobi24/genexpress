@@ -370,8 +370,8 @@ fn plan(doc: &Document, pages: &[usize], fps: f64) -> Result<(Vec<Shot>, bool)> 
 fn letterbox(src: &genha_render::Raster, w: u32, h: u32) -> Vec<u8> {
     let (w, h) = (w as usize, h as usize);
     let mut out = vec![0u8; w * h * 4];
-    for px in out.chunks_exact_mut(4) {
-        px[3] = 255;
+    for [_, _, _, a] in out.as_chunks_mut::<4>().0 {
+        *a = 255;
     }
     let (sw, sh) = (src.width as usize, src.height as usize);
     let (ox, oy) = (w.saturating_sub(sw) / 2, h.saturating_sub(sh) / 2);
@@ -388,7 +388,7 @@ fn letterbox(src: &genha_render::Raster, w: u32, h: u32) -> Vec<u8> {
 
 /// Opaque RGBA (animated exports have no transparency): composited on white.
 fn opaque(mut rgba: Vec<u8>) -> Vec<u8> {
-    for px in rgba.chunks_exact_mut(4) {
+    for px in rgba.as_chunks_mut::<4>().0 {
         let a = u16::from(px[3]);
         if a < 255 {
             for c in &mut px[..3] {
