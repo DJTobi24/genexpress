@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last updated:** 2026-10-13 · **Change:** minor (text editing on the canvas, vector PDF)
+> **Last updated:** 2026-10-13 · **Change:** minor (MP4 video export: `crates/video`)
 
 How GenHa is built. Day-to-day rules (clean-room, never crash, quality gates) are in
 [`AGENTS.md`](../AGENTS.md) and [development.md](development.md). The layout deliberately mirrors the
@@ -22,7 +22,7 @@ that nothing below L6 depends on a UI toolkit (egui, eframe, winit, rfd). Table:
 | L0 | `geom`, `color` | frames (position, size, rotation), fitting, snapping, shape outlines (on `kurbo`); sRGB colours as hex, HSL, WCAG contrast, harmonies |
 | L1 | `doc` | the document model: designs with pages of any size, elements (shapes, text, pictures, groups), brand kit, embedded assets, page-size presets; pure data + serde |
 | L2 | `text`, `effects`, `layout`, `templates`, `motion` | font discovery and text layout to outlines (`skrifa`); picture decoding, adjustments, filters and quick actions (background removal, resize, convert…); smart resize, align/distribute, collages, snapping guides; templates, shapes/icons, text styles, palettes and QR codes generated in code; animations evaluated at a time (`page_at`) |
-| L3 | `render`, `svg`, `pdf`, `format` | page → pixels (`vello_cpu`) and PNG/JPEG; SVG export; vector PDF export (`krilla`: embedded font subsets, pictures, print boxes); the native `.genha` format (versioned, compressed JSON) |
+| L3 | `render`, `svg`, `pdf`, `video`, `format` | page → pixels (`vello_cpu`) and PNG/JPEG; SVG export; vector PDF export (`krilla`: embedded font subsets, pictures, print boxes); MP4 video (an H.264 encoder and MP4 writer of our own, pure Rust); the native `.genha` format (versioned, compressed JSON) |
 | L4 | `tools` | pointer gestures → commands (select/move/resize/rotate, shape and text tools, snapping) |
 | L5 | `engine` | sessions, undo history, selection, the command registry, file I/O, the panic guard |
 | L6 | `ui-egui`, `mcp` | the egui front end (home screen, editor, panels, canvas); the MCP server (JSON-RPC over stdio) |
@@ -95,8 +95,61 @@ one element at a time. `raster: true` keeps whole pages as pictures.
 
 `genha-motion::page_at(page, t)` is the page as it looks `t` seconds in: each animated element
 moved, scaled, turned, faded or (typewriter) cut short. Canvas playback, present mode and the
-animated exports (`export.gif`, `export.apng`, `export.frame`) all render that page with
+animated exports (`export.gif`, `export.apng`, `export.mp4`, `export.frame`) all render that page with
 `genha-render`, so they agree. Exports merge frames whose posed model is unchanged before rendering.
+
+## Video
+
+`export.mp4` plays every page in turn for its duration at a constant frame rate (30 fps unless
+`fps` says otherwise) and writes an H.264 video in an MP4 file. Frames whose posed page equals the
+previous one are not rendered again: the encoder repeats the previous picture, which costs a few bytes.
+Pages of another size are letterboxed into the first page's frame; frames are capped at 1920 × 1080
+pixels' worth (1080 × 1920 stories fit exactly) and videos at 3600 frames.
+
+**Encoder choice.** The requirements: a licence compatible with MIT/Apache (no GPL, so no x264 or
+FFmpeg), H.264 because it plays everywhere (browsers, QuickTime, Windows, Android, iOS), and the
+browser build must keep working. Options weighed:
+
+| Option | Licence | Builds for wasm32 | Verdict |
+|---|---|---|---|
+| `openh264` crate (Cisco OpenH264 compiled from source by `cc`) | BSD-2 (attribution) | no (`wasm32-unknown-unknown` unsupported) | good compression, but ~50k lines of C++ behind `unsafe` FFI (a crash there cannot be caught), needs a C++ toolchain on every platform, desktop only; Cisco's patent licence covers only Cisco's own binaries, not builds from source |
+| `less-avc` (pure Rust) | MIT/Apache | yes | I_PCM only (uncompressed): ~1.5 bytes per pixel per frame, 500 MB for 10 s of 1080 × 1080 |
+| `rav1e` (pure Rust AV1) + an MP4 muxer | BSD-2 | untested (without its assembly) | royalty-free codec, but slow and AV1 does not play on many phones, older Macs and Windows without an extension |
+| **Our own H.264 encoder** (`crates/video`) | MIT OR Apache-2.0 | **yes** | chosen: written from the public specification (Rec. ITU-T H.264 (08/2024)), no `unsafe`, no C, same code on desktop and web |
+
+MP4 muxers (`mp4`, `muxide`, `shiguredo_mp4`, `mp4e`) would work, but one video track of
+constant-rate samples is ~300 lines of box writing, so `crates/video/src/mp4.rs` writes it (and
+`genha_video::inspect` reads it back for tests).
+
+**What the encoder does** (`crates/video/src/h264`): Constrained Baseline profile (CAVLC, progressive,
+one reference frame, no B frames), so every decoder plays it; level chosen from the frame size and
+rate (3.0–4.2); BT.709 limited-range Y′CbCr 4:2:0 signalled in the VUI and an MP4 `colr` box; an IDR
+picture at each page start and at least every 2 s; one slice per picture; constant QP per quality
+(`low` 30, `medium` 25, `high` 20); the in-loop deblocking filter. Each macroblock is coded the way
+with the lowest `distortion + λ · bits` (bits counted exactly) among P_Skip, P_L0_16x16 with a
+full-sample motion vector (candidates from the neighbours and the previous picture, then a pattern
+search), Intra_16x16 (4 modes) and Intra_4x4 (9 modes per block); intra coding is only tried where
+motion prediction is worse than intra prediction. Unchanged macroblocks are skipped without a search.
+Not done (yet): sub-sample motion vectors, partitions smaller than 16 × 16, CABAC and B frames, which
+is why files are larger than a mature encoder's at the same quality.
+
+**Exactness.** The encoder reconstructs each picture exactly as a decoder will (prediction, inverse
+transform, deblocking from clauses 8.3–8.7). `crates/video` checks this against an independent
+decoder: where `ffmpeg` is installed (CI installs it) the test decodes test videos and requires every
+sample to match the encoder's reconstruction; the code tables are checked for prefix-freeness and
+were transcribed from the specification's text.
+
+**Patents.** H.264 is covered by patents licensed through a pool (Via LA, formerly MPEG LA); some have
+expired, others have not. GenHa's licence covers its code only; distributors of binaries in countries
+that enforce such patents should check what applies to them (Cisco's OpenH264 patent coverage would not
+have helped: it applies only to Cisco-built binaries). AV1 would avoid this, at the cost of playback on
+many devices.
+
+**Threads.** The desktop app runs the export on a worker thread (`genha_engine::cmd::motion::video_file`
+on a copy of the design) with progress and Cancel in the status bar. The CLI, control channel and MCP
+run `export.mp4` like any command. The browser has no threads: the page waits while the video is made
+(a native release build takes about 20 s for a 17 s, 1080 × 1920 story of three animated pages, most
+of it encoding; the browser is slower).
 
 ## Files
 

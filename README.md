@@ -27,9 +27,9 @@ What works today:
 - **Pictures**: place (also SVG as editable shapes), crop, fit, crop to shape, corner radius, border, adjustments, 14 filters, remove / blur / change background (colour-based).
 - **Smart resize**: re-lay out a page for another size, or add a resized copy.
 - **Motion**: entrance, loop and exit animations for any object or text, "animate all" with a stagger, playback on the canvas, present mode (F5).
-- **Export**: PNG (also transparent and 2×), JPEG, SVG, multi-page vector PDF (real, searchable text with embedded fonts; pictures at full resolution), print PDF (bleed, crop marks, optional CMYK), animated GIF and animated PNG. Native `.genha` files.
+- **Export**: PNG (also transparent and 2×), JPEG, SVG, multi-page vector PDF (real, searchable text with embedded fonts; pictures at full resolution), print PDF (bleed, crop marks, optional CMYK), MP4 video (H.264, every page for its duration; our own pure-Rust encoder, also in the browser), animated GIF and animated PNG. Native `.genha` files.
 - **Quick actions** (file in, file out): remove / blur / change background, resize, convert PNG/JPEG/WebP, trim, black & white, pixelate.
-- **Automation**: 146 commands reachable from the UI, the CLI, a JSON-lines control channel and MCP.
+- **Automation**: 147 commands reachable from the UI, the CLI, a JSON-lines control channel and MCP.
 
 ## Run it
 
@@ -49,6 +49,7 @@ Command-line examples:
 genha-cli templates
 genha-cli new --template event-night -o party.genha
 genha-cli export party.genha -o party.pdf
+genha-cli export party.genha -o party.mp4 --quality high   # every page, each for its duration
 genha-cli quick remove-background photo.jpg -o cutout.png
 genha-cli run script.json --export out.png         # script: [{"command": "...", "params": {...}}]
 genha-cli mcp                                      # MCP server for AI assistants

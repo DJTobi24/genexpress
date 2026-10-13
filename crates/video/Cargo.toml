@@ -1,0 +1,16 @@
+[package]
+name = "genha-video"
+description = "GenHa video export: a pure-Rust H.264 (Constrained Baseline) encoder and MP4 writer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints]
+workspace = true

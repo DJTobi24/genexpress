@@ -16,7 +16,7 @@ Every known shortfall, most valuable first. Pick work from the top unless the us
 | 8 | Snapping while resizing; distance hints between objects | Editor | multi-select handles and crop page to content landed |
 | 9 | Charts with several data series, axis titles; tables with merged cells and per-cell styles | Documents | single-series charts (7 kinds) and tables landed |
 | 10 | Version history across devices (sync) | Editor | local version history, recent files and Data Recovery landed |
-| 11 | MP4 export, timeline with scenes, audio | Video | animations, playback, present mode and GIF/animated PNG export landed (`crates/motion`); MP4 needs a pure-Rust encoder |
+| 11 | Timeline with scenes, audio; MP4 at 4K and smaller files (sub-sample motion, CABAC); MP4 export off the main thread in the browser | Video | MP4 export landed (M6.1: our own pure-Rust H.264 encoder, `crates/video`, desktop and web); animations, playback, present mode and GIF/animated PNG export landed (`crates/motion`) |
 | 12 | PDF import; text inside imported SVGs | Formats | SVG shapes, gradients and borders import (`genha_svg::import`) |
 | 13 | Screen reader support (AccessKit) and UI translations (German first); UI widgets (property fields, layer names) use egui's own font, so Arabic/CJK text shows as boxes there (the canvas is fine) | Accessibility | |
 | 14 | Template library growth (target 100+ original templates) | Content | 65 templates with search tags, 114 icons, 25 text styles, 40 palettes (M2.3); still short of the target library |

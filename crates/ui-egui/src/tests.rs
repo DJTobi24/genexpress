@@ -262,3 +262,39 @@ fn recovery_and_recent_designs_through_a_store() {
     assert!(next.clip_out.is_none());
     assert!(next.status.as_ref().is_none_or(|(m, _)| !m.contains("Internal error")), "{:?}", next.status);
 }
+
+/// Download › MP4 video runs on a worker thread: the editor keeps drawing (with progress in the
+/// status bar) and reports the file when it is written; Cancel stops it.
+#[test]
+fn video_export_runs_beside_the_editor() {
+    let ctx = egui::Context::default();
+    let mut app = App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default());
+    app.run("file.new", &json!({"width": 64, "height": 48}));
+    app.run("shape.add", &json!({"width": 20, "height": 20}));
+    app.run("animation.set", &json!({"kind": "pop"}));
+    let dir = std::env::temp_dir().join(format!("genha-ui-video-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("v.mp4");
+    let params = json!({"path": path.display().to_string()});
+    app.editor.video_job = crate::editor::VideoJob::start(&app, &ctx, params.clone(), path.clone());
+    assert!(app.editor.video_job.is_some());
+    let start = std::time::Instant::now();
+    while app.editor.video_job.is_some() && start.elapsed().as_secs() < 60 {
+        run_frames(&mut app, &ctx, 1);
+    }
+    assert!(app.editor.video_job.is_none(), "the export finished");
+    assert!(app.status.as_ref().is_some_and(|(m, _)| m.starts_with("Downloaded")), "{:?}", app.status);
+    let info = genha_video::inspect(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!((info.width, info.height), (64, 48));
+
+    // Cancelled before it starts: no file, a message.
+    std::fs::remove_file(&path).unwrap();
+    let job = crate::editor::VideoJob::start(&app, &ctx, params, path.clone()).unwrap();
+    job.cancel();
+    app.editor.video_job = Some(job);
+    while app.editor.video_job.is_some() && start.elapsed().as_secs() < 120 {
+        run_frames(&mut app, &ctx, 1);
+    }
+    assert!(app.status.as_ref().is_some_and(|(m, _)| m.contains("cancelled")), "{:?}", app.status);
+    assert!(!path.exists());
+}
