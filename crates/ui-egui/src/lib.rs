@@ -16,6 +16,7 @@ pub mod editor;
 pub mod fonts;
 pub mod home;
 mod io;
+pub mod models;
 pub mod motion;
 pub mod properties;
 pub mod textedit;
@@ -123,6 +124,8 @@ pub struct App {
     pub canvas: canvas::CanvasState,
     /// Playback on the canvas and present mode (UI-only state).
     pub motion: motion::MotionState,
+    /// Background removal with the AI model (method, download prompt, work in progress).
+    pub ml: models::MlState,
     pub control: Option<control::ControlServer>,
     font_families: Vec<String>,
     theme_applied: Option<bool>,
@@ -183,6 +186,7 @@ impl App {
             editor: editor::EditorState::default(),
             canvas: canvas::CanvasState::default(),
             motion: motion::MotionState::default(),
+            ml: models::MlState::default(),
             control: None,
             font_families: families,
             theme_applied: None,

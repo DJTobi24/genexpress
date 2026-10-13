@@ -86,6 +86,24 @@ pub fn list_in<'a>(items: impl Iterator<Item = (&'a str, u64)>, dir: &str) -> Ve
         .collect()
 }
 
+/// The per-user data folder the desktop app and the CLI share (Data Recovery copies, recent
+/// designs, added fonts, downloaded models): `GENHA_DATA_DIR` when set, else `%APPDATA%\GenHa`,
+/// `~/Library/Application Support/GenHa` or `$XDG_DATA_HOME/genha` (`~/.local/share/genha`).
+#[cfg(not(target_arch = "wasm32"))]
+pub fn user_data_dir() -> Option<std::path::PathBuf> {
+    let env = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(std::path::PathBuf::from);
+    if let Some(d) = env("GENHA_DATA_DIR") {
+        return Some(d);
+    }
+    if cfg!(target_os = "windows") {
+        return env("APPDATA").map(|d| d.join("GenHa"));
+    }
+    if cfg!(target_os = "macos") {
+        return env("HOME").map(|h| h.join("Library/Application Support/GenHa"));
+    }
+    env("XDG_DATA_HOME").or_else(|| env("HOME").map(|h| h.join(".local/share"))).map(|d| d.join("genha"))
+}
+
 /// A store in a folder on disk: key `recovery/a.genha` is the file `<root>/recovery/a.genha`.
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug, Clone)]

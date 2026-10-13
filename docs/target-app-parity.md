@@ -1,6 +1,6 @@
 # Target-app parity
 
-> **Last updated:** 2026-10-13 · **Change:** minor (text shaping, text edited on the canvas, vector PDF, multi-series charts and richer tables, formatting part of a text box, MP4 video export, German UI) · **Target:** Adobe Express (web, desktop and mobile), feature set as publicly documented in October 2026
+> **Last updated:** 2026-10-13 · **Change:** minor (text shaping, text edited on the canvas, vector PDF, multi-series charts and richer tables, formatting part of a text box, MP4 video export, German UI, AI background removal) · **Target:** Adobe Express (web, desktop and mobile), feature set as publicly documented in October 2026
 
 The feature inventory of the target app, compiled from **public sources only** (help pages, product
 and pricing pages, press releases, developer docs; URLs per area below), in our own words, feature
@@ -15,7 +15,7 @@ Legend: ✅ works (basic form) · 🟡 partial · ⬜ not yet (milestone in [roa
 | 1. Editor & canvas | ~50% (estimated) | pages of any size, select/move/resize/rotate, groups, order, lock/hide, undo/redo, snapping, version history, crop page, Data Recovery; no comments or co-editing yet |
 | 2. Templates & content | ~30% (estimated) | 121 original templates in 6 categories (animated ones, charts, tables, curved text, QR codes among them), 114 icons, 40 palettes, all generated in code; no stock library (by design: open content later) |
 | 3. Text | ~55% (estimated) | text boxes edited in place on the canvas, styles, formatting part of a box (font, size, bold, italic, underline, strikethrough, colour per word), presets, shadow/outline/highlight effects, curved text, system fonts, real shaping (kerning, ligatures, right-to-left and complex scripts, font fallback); no bulleted lists, grid text, colour emoji, spellcheck, translate |
-| 4. Pictures & AI | ~25% (estimated) | place, crop, fit, crop-to-shape, adjustments, filter presets, classic background removal, convert/resize quick actions; no generative AI yet |
+| 4. Pictures & AI | ~30% (estimated) | place, crop, fit, crop-to-shape, adjustments, filter presets, background removal with an optional local AI model (or colour-based), convert/resize quick actions; no generative AI yet |
 | 5. Video | ~15% (estimated) | element animations (12 entrances, 4 loops, exits) with canvas playback and present mode; MP4 (H.264), GIF and animated PNG export; no timeline, scenes or audio yet |
 | 6. Documents & PDF | ~35% (estimated) | multi-page vector PDF export (real text with embedded fonts), presentations as pages, QR codes, charts (bar, line, area, pie, donut, progress; several series, stacked, axis titles) and tables (merged cells, cell styles); no PDF editing/import, web pages |
 | 7. Brand kits | ~35% (estimated) | colours, heading/body fonts, logos slot, apply to page; no locking/template controls |
@@ -86,7 +86,7 @@ Sources: https://helpx.adobe.com/express/web/image-creation-and-editing/generate
 | Crop, fit, flip, rotate, crop to shape | ✅ | `image.crop/setFit/mask`, `object.flip*` |
 | Adjustments (brightness, contrast, saturation, warmth, sharpen, blur) | ✅ | `image.adjust` |
 | Filters with intensity | ✅ | `image.filter` (14 original presets) |
-| Remove / change background | 🟡 | classic colour-based remover (no ML yet); ML model: M8 |
+| Remove / change background | 🟡 | remove, blur or replace the background: an optional AI model (U²-Net family, downloaded on request, runs locally) finds the subject on busy photos, a colour-based method handles plain backdrops (`method: auto/ml/color`); edges of hair and fur are softer than a matting model's, and there is no brush to refine the cut-out (M4.2) |
 | Quick actions: resize, crop, convert JPG/PNG/WebP | ✅ | `genha-cli quick …` |
 | Convert to SVG (vectorize) | ⬜ | M4 (SVG files can be imported as editable shapes: `image.place`, `file.open`) |
 | Generative fill, expand, text-to-image | ⬜ | M8 |

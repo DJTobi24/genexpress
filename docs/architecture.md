@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last updated:** 2026-10-13 · **Change:** minor (text editing on the canvas, vector PDF, multi-series charts and merged table cells, MP4 video export: `crates/video`; translations: `crates/i18n`)
+> **Last updated:** 2026-10-13 · **Change:** minor (text editing on the canvas, vector PDF, multi-series charts and merged table cells, MP4 video export: `crates/video`, AI background removal: `crates/segment`; translations: `crates/i18n`)
 
 How GenHa is built. Day-to-day rules (clean-room, never crash, quality gates) are in
 [`AGENTS.md`](../AGENTS.md) and [development.md](development.md). The layout deliberately mirrors the
@@ -204,6 +204,74 @@ on a copy of the design) with progress and Cancel in the status bar. The CLI, co
 run `export.mp4` like any command. The browser has no threads: the page waits while the video is made
 (a native release build takes about 20 s for a 17 s, 1080 × 1920 story of three animated pages, most
 of it encoding; the browser is slower).
+
+## Background removal (AI model, optional download)
+
+`image.removeBackground`, `image.changeBackground`, `image.blurBackground` and the `quick.image`
+background actions take `method: auto | ml | color`. `color` is the classical flood fill from the
+picture's edges (`genha_effects::remove_background`: good on plain backdrops, poor on busy photos);
+`ml` asks a salient-object segmentation model where the subject is (`crates/segment`); `auto` (the
+default) uses the model when one is installed, else the colour method. All three produce a mask that
+`genha_effects::cut_out`, `change_background_masked` and `blur_background_masked` apply.
+
+**No model ships with GenHa.** `model.download {name}` (desktop, CLI `genha-cli model download`,
+MCP) fetches it over HTTPS (`ureq` + rustls, the operating system's certificate verifier, proxies
+from `HTTPS_PROXY`) into the data folder's `models/` (the same `Store` as Data Recovery), with
+progress and Cancel in the app, and keeps it only when its size and SHA-256 match the values pinned
+in `genha_segment::MODELS`. Every load checks the file again, so a damaged or swapped file is an
+error message, never parsed by the runtime. `model.status` lists the models and whether they are
+installed, `model.remove` deletes one. `settings.network {on}` (kept between runs) and
+`GENHA_OFFLINE=1` keep GenHa off the network; `GENHA_MODEL_BASE_URL` points downloads at a mirror
+(still checked against the pinned hash).
+
+**Model choice.** Requirements: weights whose licence allows commercial use and redistribution, a
+small download, an ONNX file the pure-Rust runtime can run. Checked (licences read from the
+original repositories, 2026-10-13):
+
+| Model | Weights licence | Size | Verdict |
+|---|---|---|---|
+| **U²-Netp** (Qin et al. 2020, [xuebinqin/U-2-Net](https://github.com/xuebinqin/U-2-Net)) | Apache-2.0 | 4.6 MB | **default** ("Fast"): small enough to offer on first use |
+| **U²-Net** (same repository) | Apache-2.0 | 176 MB | **optional** ("High quality"): same family, cleaner outlines, slower |
+| IS-Net general-use ([xuebinqin/DIS](https://github.com/xuebinqin/DIS)) | code Apache-2.0; trained on DIS5K, whose terms of use are separate | 179 MB | not used: the weights' terms are not clearly commercial-friendly |
+| BiRefNet ([ZhengPeng7/BiRefNet](https://github.com/ZhengPeng7/BiRefNet)) | MIT | over 200 MB (estimated) | not used: large; a candidate for a later "best" option |
+| MODNet ([ZHKKKe/MODNet](https://github.com/ZHKKKe/MODNet)) | Apache-2.0 | about 25 MB (estimated) | not used: portraits only, weights only on Google Drive |
+| RMBG-1.4 / 2.0 | non-commercial | — | excluded |
+
+The ONNX files come from the rembg project's release page (MIT; the conversions keep the weights'
+Apache-2.0 licence): `u2netp.onnx` SHA-256 `309c8469…ddd8`, `u2net.onnx` SHA-256 `8d10d2f3…b491`
+(full values in `crates/segment/src/lib.rs`).
+
+**Runtime.** [`tract-onnx`](https://github.com/sonos/tract) 0.23 (MIT OR Apache-2.0, pure Rust, no
+default features), behind `genha-segment`'s `inference` feature (`genha-engine/ml`), which the
+desktop app and the CLI turn on. It builds for `wasm32-unknown-unknown` too (random numbers from the
+browser's crypto API), but adds about 11 MB to the browser download (measured: 21.4 MB of
+WebAssembly with it, 10.1 MB without, `web` profile, no `wasm-opt`), so the default web build leaves it out (only the
+colour method; the picker is hidden) and `cargo xtask web --ml` puts it in; `cargo xtask wasm` checks
+both. Without the feature the same API reports that this build cannot run models. The loaded model
+is optimised once and cached in the process (`genha_segment::cached`).
+
+**Pipeline** (`crates/segment`): the picture (transparent pixels over black) is stretched to the
+model's 320 × 320 input, scaled so its brightest value is 1 and normalised with the ImageNet mean and
+deviation (`pre`); the model's first (fused) output is min–max normalised, upscaled bilinearly to a
+working size (at most 1280 px across), stray patches smaller than 4 % of the main subject are dropped,
+the edges are snapped to the picture's own edges by a guided filter (He et al. 2010) applied only in
+the uncertain band, values below 0.18 / above 0.82 become fully transparent / opaque with a linear
+feather in between, and the result is upscaled to the picture's size (`post`).
+
+**Threads.** The desktop app downloads on a worker thread (progress bar and Cancel in the prompt and
+the picture panel) and runs the model on another (`content::background_job` → `BackgroundJob::run`
+→ `apply_background`, one undo step; the colour method runs in place). The CLI, control channel and
+MCP run the commands directly. A browser build with the model runtime fetches the model itself (no
+threads there; from `models/<file>` next to the app or `?models=<address>`, since the download site
+does not allow cross-site fetches) and runs it in place.
+
+**Measured** (release build, a shared 4-core Linux machine): a 1280 × 957 photo through
+`genha-cli quick remove-background` takes about 2.5 s with U²-Netp and 6.5 s with U²-Net, loading
+the model included (about 0.3 s / 2 s of that); the colour method 0.2 s. On a drawn test scene (a
+figure on a busy backdrop of coloured blocks) the cut-out overlaps the true subject by 0.07 (colour,
+intersection over union) and 1.00 (U²-Netp). On photos the models keep people well, and sometimes a
+second prominent object next to them (a ball beside a person); hair is cut with a soft edge rather
+than matted strand by strand.
 
 ## Files
 

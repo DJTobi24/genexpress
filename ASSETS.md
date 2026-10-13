@@ -10,6 +10,19 @@ icons, templates, artwork, presets or stock content (see AGENTS.md).
 Templates, shapes, icons, palettes and filter presets are generated in code (`crates/templates`,
 `crates/effects`) and need no row.
 
+## Downloaded on request (not in the repository)
+
+Machine-learning models are never committed or bundled. The app downloads them only when the user
+asks (`model.download`, or the prompt behind Remove background), checks the pinned SHA-256 and keeps
+them in the user's data folder (`models/`). See docs/architecture.md › Background removal.
+
+| File (in the data folder) | Author | Source | Licence | Notes |
+|---|---|---|---|---|
+| models/u2netp.onnx | Xuebin Qin et al. (U²-Net); ONNX conversion by the rembg project (Daniel Gatis, MIT) | weights: https://github.com/xuebinqin/U-2-Net · file: https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx | Apache-2.0 | 4,574,861 bytes, SHA-256 309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8; default background removal model |
+| models/u2net.onnx | Xuebin Qin et al. (U²-Net); ONNX conversion by the rembg project (MIT) | weights: https://github.com/xuebinqin/U-2-Net · file: https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx | Apache-2.0 | 175,997,641 bytes, SHA-256 8d10d2f3bb75ae3b6d527c77944fc5e7dcd94b29809d47a739a7a728a912b491; optional "high quality" model |
+
+## In the repository
+
 | Path | Author | Source | Licence | Notes |
 |---|---|---|---|---|
 | docs/images/editor.png | GenHa contributors | screenshot of GenHa | MIT OR Apache-2.0 | the app showing an original template; rendered with system fonts (Inter, OFL) |

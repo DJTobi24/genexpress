@@ -100,6 +100,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.canvas)).show(ui, |ui| crate::canvas::show(app, ui, &t));
     palette(app, ui.ctx(), &t);
     versions_window(app, ui.ctx(), &t);
+    crate::models::show(app, ui.ctx());
 }
 
 fn panel_frame(t: &Tokens) -> egui::Frame {

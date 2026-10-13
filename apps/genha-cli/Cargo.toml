@@ -7,10 +7,11 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-genha-engine = { workspace = true }
+genha-engine = { workspace = true, features = ["ml"] }
 genha-text = { workspace = true }
 genha-render = { workspace = true }
 genha-mcp = { workspace = true }
+genha-segment = { workspace = true }
 serde_json = { workspace = true }
 
 [lints]
