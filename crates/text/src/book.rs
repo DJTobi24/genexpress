@@ -226,6 +226,22 @@ impl FontBook {
         self.select(family, bold, italic).and_then(|i| self.face(i)).map(|f| f.family.clone())
     }
 
+    /// What a synthetic style must add to the face text in `family` is set in: the weight it
+    /// lacks (bold, or the heavy "Display" generic, asked for but the face is lighter than
+    /// semibold; 0 otherwise) and whether it must be slanted (italic asked for, the face is
+    /// upright). Drawing applies it (`genha_render::synthetic`).
+    pub fn needs_synthetic(&self, family: &str, bold: bool, italic: bool) -> (f32, bool) {
+        let Some(f) = self.select(family, bold, italic).and_then(|i| self.face(i)) else { return (0.0, false) };
+        let wanted = match (family.trim().eq_ignore_ascii_case("display"), bold) {
+            (true, true) => 900.0,
+            (true, false) => 800.0,
+            (false, true) => 700.0,
+            (false, false) => 0.0,
+        };
+        let lacks = if wanted > 0.0 && f.weight < 600.0 { wanted - f.weight } else { 0.0 };
+        (lacks, italic && !f.italic)
+    }
+
     /// The best face of the family named `lower` (lower case) for the style.
     fn best_in_family(&self, lower: &str, weight: f32, italic: bool) -> Option<usize> {
         let mut best: Option<(f32, usize)> = None;

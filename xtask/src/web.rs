@@ -1,6 +1,7 @@
 //! `cargo xtask web`: the browser build in `dist/web` (docs/development.md › Web).
 //!
-//! 1. `cargo build -p genha-web --target wasm32-unknown-unknown --release`;
+//! 1. `cargo build -p genha-web --target wasm32-unknown-unknown --profile web` (the `web` profile
+//!    in the workspace Cargo.toml: optimised for size, whole-program LTO);
 //! 2. `wasm-bindgen --target web` (the CLI at the same version as the `wasm-bindgen` crate in
 //!    Cargo.lock, installed with `cargo install` when missing) writes the JavaScript glue;
 //! 3. `wasm-opt -Oz` shrinks the module when Binaryen is installed (optional);
@@ -12,12 +13,14 @@ use std::process::Command;
 
 use crate::run;
 
+/// The Cargo profile of the browser build.
+const PROFILE: &str = "web";
 const MARKER: &str = "<!-- genha:loader -->";
 const LOADER: &str = r#"<script type="module">import init from "./genha_web.js"; init();</script>"#;
 
 pub fn build(root: &Path) -> Result<(), String> {
-    run("cargo", &["build", "-p", "genha-web", "--target", "wasm32-unknown-unknown", "--release"])?;
-    let wasm = target_dir(root)?.join("wasm32-unknown-unknown").join("release").join("genha-web.wasm");
+    run("cargo", &["build", "-p", "genha-web", "--target", "wasm32-unknown-unknown", "--profile", PROFILE])?;
+    let wasm = target_dir(root)?.join("wasm32-unknown-unknown").join(PROFILE).join("genha-web.wasm");
     if !wasm.exists() {
         return Err(format!("{} was not built", wasm.display()));
     }
@@ -28,7 +31,9 @@ pub fn build(root: &Path) -> Result<(), String> {
     let (wasm_s, out_s) = (wasm.display().to_string(), out.display().to_string());
     run("wasm-bindgen", &["--target", "web", "--no-typescript", "--out-dir", &out_s, "--out-name", "genha_web", &wasm_s])?;
     let module = out.join("genha_web_bg.wasm");
+    let mb = |p: &Path| std::fs::metadata(p).map(|m| m.len()).unwrap_or(0) as f64 / 1_048_576.0;
     if Command::new("wasm-opt").arg("--version").output().is_ok_and(|o| o.status.success()) {
+        println!("web: {:.1} MB before wasm-opt", mb(&module));
         let m = module.display().to_string();
         run("wasm-opt", &["-Oz", "--enable-bulk-memory", "--enable-nontrapping-float-to-int", "-o", &m, &m])?;
     } else {
@@ -39,8 +44,7 @@ pub fn build(root: &Path) -> Result<(), String> {
         return Err(format!("apps/genha-web/index.html has no {MARKER} line"));
     }
     std::fs::write(out.join("index.html"), page.replace(MARKER, LOADER)).map_err(|e| format!("cannot write index.html: {e}"))?;
-    let size = std::fs::metadata(&module).map(|m| m.len()).unwrap_or(0);
-    println!("web: built {} ({:.1} MB of WebAssembly)", out.display(), size as f64 / 1_048_576.0);
+    println!("web: built {} ({:.1} MB of WebAssembly)", out.display(), mb(&module));
     println!("web: serve it, e.g. `python3 -m http.server -d dist/web 8080`, then open http://127.0.0.1:8080");
     Ok(())
 }
@@ -91,6 +95,12 @@ mod tests {
         let page = std::fs::read_to_string(crate::root().join("apps/genha-web/index.html")).unwrap();
         assert!(page.contains(super::MARKER));
         assert!(!page.contains("<script"), "the page itself is plain HTML and CSS");
+    }
+
+    #[test]
+    fn web_profile_exists() {
+        let manifest = std::fs::read_to_string(crate::root().join("Cargo.toml")).unwrap();
+        assert!(manifest.contains(&format!("[profile.{}]", super::PROFILE)));
     }
 
     #[test]

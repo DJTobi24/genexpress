@@ -1,12 +1,12 @@
 # Gaps — the ranked work list
 
-> **Last updated:** 2026-10-12
+> **Last updated:** 2026-10-13
 
 Every known shortfall, most valuable first. Pick work from the top unless the user asks for something else.
 
 | # | Gap | Area | Notes |
 |---|---|---|---|
-| 1 | Web build: installed/web fonts (only the built-in Ubuntu Light, one weight), Data Recovery and recent designs in browser storage, paste of pictures, control channel over a web socket | Platform | the web app runs (`apps/genha-web`, `cargo xtask web`): open, place, drop, quick actions, Save and Download as browser downloads |
+| 1 | Web build: control channel over a WebSocket; WOFF/WOFF2 font files; several tabs share one storage (each tab offers the others' live copies as recovered); a picture alone on the desktop clipboard needs Edit › Paste Picture (egui-winit reports Cmd+V only with text) | Platform | M2.17: fonts added in the browser (kept in IndexedDB) and installed fonts (Local Font Access, Chromium), synthetic bold/italic, Data Recovery and recent designs (with thumbnails) in IndexedDB, picture paste, `web` profile (download 11.8 → 8.3 MB, 6.7 MB with wasm-opt) |
 | 2 | Edit text directly on the canvas (caret, selection) instead of the floating editor | Editor | |
 | 3 | Kerning, ligatures and complex scripts (HarfRust shaping); per-glyph font fallback | Text | `crates/text` uses charmap + advances only |
 | 4 | Vector PDF (krilla) and CMYK print PDF | Export | pages are pictures with an invisible text layer; print PDF has bleed and crop marks |

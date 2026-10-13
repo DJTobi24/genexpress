@@ -46,8 +46,14 @@ fn file_new(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(ok(json!({"document": index, "width": w, "height": h})))
 }
 
-/// Opens document bytes (a `.genha` file, or a picture), as from a file or a drop.
+/// Opens document bytes (a `.genha` file, or a picture), as from a file or a drop. A design
+/// (not a picture) goes into the recent designs.
 pub fn open_bytes(s: &mut Session, name: &str, bytes: &[u8]) -> Result<Value> {
+    open_impl(s, name, bytes, None)
+}
+
+/// [`open_bytes`] for a design read from `path` (kept as the design's file).
+fn open_impl(s: &mut Session, name: &str, bytes: &[u8], path: Option<std::path::PathBuf>) -> Result<Value> {
     if genha_svg::import::is_svg(bytes) {
         let (mut el, w, h) = super::create::svg_element(name, bytes)?;
         let (w, h) = (w.clamp(1.0, MAX_PAGE_SIDE), h.clamp(1.0, MAX_PAGE_SIDE));
@@ -81,6 +87,10 @@ pub fn open_bytes(s: &mut Session, name: &str, bytes: &[u8]) -> Result<Value> {
         s.post(format!("{name}: {n}"));
     }
     let index = s.open_document(doc);
+    if let Some(d) = s.docs.get_mut(index) {
+        d.path = path;
+    }
+    super::recent::remember(s, index);
     Ok(ok(json!({"document": index, "repaired": notes})))
 }
 
@@ -89,33 +99,34 @@ pub fn open_bytes(s: &mut Session, name: &str, bytes: &[u8]) -> Result<Value> {
 pub fn design_bytes(s: &mut Session) -> Result<Vec<u8>> {
     super::versions::auto_version(s);
     let bytes = genha_format::to_bytes(&s.doc()?.doc, true)?;
-    super::recovery::forget(s, s.active);
+    let active = s.active;
+    super::recovery::forget(s, active);
     s.doc_mut()?.dirty = false;
+    super::recent::remember(s, active);
     Ok(bytes)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 fn file_open(s: &mut Session, p: &Value) -> Result<Value> {
-    let path = std::path::PathBuf::from(str_req(p, "path", "file.open")?);
+    open_path(s, str_req(p, "path", "file.open")?)
+}
+
+/// Opens the design (or picture) at `path`.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn open_path(s: &mut Session, path: &str) -> Result<Value> {
+    let path = std::path::PathBuf::from(path);
     let meta = std::fs::metadata(&path).map_err(|e| EngineError::Other(format!("cannot open {}: {e}", path.display())))?;
     if meta.len() > genha_format::MAX_FILE_BYTES {
         return Err(EngineError::Other(format!("{} is too large", path.display())));
     }
     let bytes = std::fs::read(&path).map_err(|e| EngineError::Other(format!("cannot read {}: {e}", path.display())))?;
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    let r = open_bytes(s, &name, &bytes)?;
     let is_native =
         path.extension().is_some_and(|e| e.eq_ignore_ascii_case(genha_format::EXTENSION) || e.eq_ignore_ascii_case(genha_format::LEGACY_EXTENSION));
-    if let Some(d) = s.active_mut()
-        && is_native
-    {
-        d.path = Some(path);
-    }
-    Ok(r)
+    open_impl(s, &name, &bytes, is_native.then_some(path))
 }
 
 #[cfg(target_arch = "wasm32")]
-fn file_open(_: &mut Session, _: &Value) -> Result<Value> {
+pub(crate) fn open_path(_: &mut Session, _: &str) -> Result<Value> {
     Err(EngineError::Other("opening files by path is not available in the browser; drop the file on the window".into()))
 }
 
@@ -140,10 +151,12 @@ fn save_to(s: &mut Session, path: &std::path::Path, compress: bool) -> Result<Va
     super::versions::auto_version(s);
     let bytes = genha_format::to_bytes(&s.doc()?.doc, compress)?;
     genha_format::write_atomic(path, &bytes)?;
-    super::recovery::forget(s, s.active);
+    let active = s.active;
+    super::recovery::forget(s, active);
     let d = s.doc_mut()?;
     d.path = Some(path.to_path_buf());
     d.dirty = false;
+    super::recent::remember(s, active);
     Ok(ok(json!({"path": path.display().to_string(), "bytes": bytes.len()})))
 }
 

@@ -46,6 +46,8 @@ pub struct TextPrim {
     /// Family, size, weight; `align` says which end of each line is its anchor.
     pub style: TextStyle,
     pub lines: Vec<TextLine>,
+    /// Synthetic bold: width of the stroke drawn over the letters in `color` (0: none).
+    pub embolden: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -111,7 +113,7 @@ impl Builder<'_> {
         }
         let style = self.style(size, bold, h);
         let wrap = if wrap.is_finite() && wrap > 0.0 { wrap } else { f64::INFINITY };
-        let mut l = genha_text::layout(self.fonts, text, &style, wrap);
+        let (mut l, syn) = crate::layout_text(self.fonts, text, &style, wrap);
         l.lines.truncate(max_lines.max(1));
         let height = l.lines.iter().map(|ln| ln.height).sum::<f64>();
         let box_w = if wrap.is_finite() { wrap } else { l.width };
@@ -139,7 +141,7 @@ impl Builder<'_> {
             lines.push(TextLine { x: ln.x + dx, width: ln.width, baseline: ln.baseline + dy, text: ln.text.trim_end().to_string() });
         }
         if color.a > 0 {
-            self.prims.push(Prim::Text(TextPrim { path, color, style, lines }));
+            self.prims.push(Prim::Text(TextPrim { path, color, style, lines, embolden: syn.embolden }));
         }
         if x0 > x1 {
             return Rect::from_origin_size(at, (0.0, 0.0));
@@ -913,7 +915,7 @@ pub fn table_scene(fonts: &FontBook, t: &TableEl, w: f64, h: f64) -> Scene {
                 continue;
             }
             let cw = (x1 - x0 - 2.0 * pad).max(1.0);
-            let l = genha_text::layout(fonts, text, &style, cw);
+            let (l, syn) = crate::layout_text(fonts, text, &style, cw);
             let dx = x0 + pad;
             let dy = y0 + ((y1 - y0) - l.height) / 2.0;
             let shift = Affine::translate((dx, dy));
@@ -924,7 +926,7 @@ pub fn table_scene(fonts: &FontBook, t: &TableEl, w: f64, h: f64) -> Scene {
                 lines.push(TextLine { x: ln.x + dx, width: ln.width, baseline: ln.baseline + dy, text: ln.text.trim_end().to_string() });
             }
             if style.color.a > 0 {
-                b.prims.push(Prim::Text(TextPrim { path, color: style.color, style: style.clone(), lines }));
+                b.prims.push(Prim::Text(TextPrim { path, color: style.color, style: style.clone(), lines, embolden: syn.embolden }));
             }
         }
     }

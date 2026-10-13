@@ -334,7 +334,7 @@ impl Writer<'_> {
     }
 
     fn text(&mut self, t: &TextEl, w: f64, h: f64, local: Affine) {
-        let layout = genha_text::layout(self.fonts, &t.text, &t.style, w);
+        let (layout, syn) = genha_render::layout_text(self.fonts, &t.text, &t.style, w);
         let st = &t.style;
         let mut glyphs = BezPath::new();
         for line in &layout.lines {
@@ -345,8 +345,16 @@ impl Writer<'_> {
             glyphs = p.clone();
         }
         // The drawing of the letters, [`FILL`] / [`STROKE`] standing for paint attributes.
-        let content = if self.opts.text_as_paths || curved.is_some() {
-            format!(r#"<path d="{}"{FILL}/>"#, path_data(&glyphs))
+        let as_paths = self.opts.text_as_paths || curved.is_some();
+        // Synthetic bold (outlines only; `<text>` asks the viewer for the bold weight): the letters
+        // are also stroked in their own paint.
+        let bold = if as_paths && syn.embolden > 0.0 {
+            format!(r#" stroke-width="{}" stroke-linejoin="round""#, num(syn.embolden.min(genha_render::MAX_STROKE_WIDTH)))
+        } else {
+            String::new()
+        };
+        let content = if as_paths {
+            format!(r#"<path d="{}"{FILL}{STROKE}/>"#, path_data(&glyphs))
         } else {
             let mut s = self.text_open(st);
             s.push_str(FILL);
@@ -364,13 +372,14 @@ impl Writer<'_> {
             TextEffect::None => {}
             TextEffect::Shadow { color, offset_x, offset_y, blur } => {
                 let sh = Shadow { color: *color, offset_x: *offset_x, offset_y: *offset_y, blur: *blur };
-                self.shadow(&sh, local, bounds, &content.replace(STROKE, ""));
+                let body = if bold.is_empty() { content.replace(STROKE, "") } else { content.replace(STROKE, &format!("{STROKE}{bold}")) };
+                self.shadow(&sh, local, bounds, &body);
             }
             TextEffect::Outline { color, width } => {
                 let width = sane(*width, 0.0, 10_000.0);
                 if width > 0.0 && color.a > 0 {
                     let p = Paint::color(*color);
-                    let stroke = format!(r#"{} stroke-width="{}" stroke-linejoin="round""#, p.attrs("stroke"), num(width * 2.0));
+                    let stroke = format!(r#"{} stroke-width="{}" stroke-linejoin="round""#, p.attrs("stroke"), num(width * 2.0 + syn.embolden));
                     let body = content.replace(FILL, &p.attrs("fill")).replace(STROKE, &stroke);
                     let _ = writeln!(self.body, r#"<g transform="{m}">{body}</g>"#);
                 }
@@ -389,7 +398,8 @@ impl Writer<'_> {
                 self.body.push_str("</g>\n");
             }
         }
-        let body = content.replace(FILL, &Paint::color(st.color).attrs("fill")).replace(STROKE, "");
+        let bold_stroke = if bold.is_empty() { String::new() } else { format!("{}{bold}", Paint::color(st.color).attrs("stroke")) };
+        let body = content.replace(FILL, &Paint::color(st.color).attrs("fill")).replace(STROKE, &bold_stroke);
         let _ = writeln!(self.body, r#"<g transform="{m}">{body}</g>"#);
     }
 
@@ -420,7 +430,13 @@ impl Writer<'_> {
                 Prim::Text(tp) => {
                     let fill = Paint::color(tp.color).attrs("fill");
                     if self.opts.text_as_paths {
-                        let _ = writeln!(self.body, r#"<path d="{}"{fill}/>"#, path_data(&tp.path));
+                        let bold = if tp.embolden > 0.0 {
+                            let w = num(tp.embolden.min(genha_render::MAX_STROKE_WIDTH));
+                            format!(r#"{} stroke-width="{w}" stroke-linejoin="round""#, Paint::color(tp.color).attrs("stroke"))
+                        } else {
+                            String::new()
+                        };
+                        let _ = writeln!(self.body, r#"<path d="{}"{fill}{bold}/>"#, path_data(&tp.path));
                     } else {
                         let mut s = self.text_open(&tp.style);
                         s.push_str(&fill);

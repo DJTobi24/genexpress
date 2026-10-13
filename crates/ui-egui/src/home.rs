@@ -48,6 +48,8 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
             templates(app, ui, &t);
             ui.add_space(22.0);
             quick_actions(app, ui, &t);
+            ui.add_space(22.0);
+            fonts(app, ui, &t);
             if !app.session.docs.is_empty() {
                 ui.add_space(22.0);
                 open_designs(app, ui, &t);
@@ -341,23 +343,28 @@ fn recovered(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     let mut action: Option<(&str, String)> = None;
     egui::Frame::new().fill(t.accent_soft).corner_radius(12).inner_margin(12).show(ui, |ui| {
         ui.label(egui::RichText::new("Recovered designs").size(17.0).strong());
-        ui.label(egui::RichText::new("GenHa closed unexpectedly last time. These designs had unsaved changes.").color(t.text_dim));
-        for (path, title) in &app.recovered {
+        let why = if cfg!(target_arch = "wasm32") {
+            "These designs had unsaved changes when GenHa was last closed or reloaded."
+        } else {
+            "GenHa closed unexpectedly last time. These designs had unsaved changes."
+        };
+        ui.label(egui::RichText::new(why).color(t.text_dim));
+        for (key, title) in &app.recovered {
             ui.horizontal(|ui| {
                 ui.label(egui::RichText::new(title).strong());
                 if ui.button("Open").clicked() {
-                    action = Some(("recovery.open", path.clone()));
+                    action = Some(("recovery.open", key.clone()));
                 }
                 if ui.button("Discard").clicked() {
-                    action = Some(("recovery.discard", path.clone()));
+                    action = Some(("recovery.discard", key.clone()));
                 }
             });
         }
     });
     ui.add_space(14.0);
-    if let Some((cmd, path)) = action {
-        app.recovered.retain(|(p, _)| *p != path);
-        app.run(cmd, &json!({"path": path}));
+    if let Some((cmd, key)) = action {
+        app.recovered.retain(|(k, _)| *k != key);
+        app.run(cmd, &json!({"key": key}));
         if cmd == "recovery.open" {
             app.screen = crate::Screen::Editor;
             app.view.fit_pending = true;
@@ -366,27 +373,84 @@ fn recovered(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 }
 
 fn recent(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    let files: Vec<std::path::PathBuf> = app.recent.iter().filter(|p| p.exists()).cloned().collect();
-    if files.is_empty() {
+    // On the desktop, files that were moved or deleted are left out.
+    let entries: Vec<_> = app.recent.iter().filter(|e| e.path.as_ref().is_none_or(|p| std::path::Path::new(p).exists())).cloned().collect();
+    if entries.is_empty() {
         return;
     }
     ui.label(egui::RichText::new("Recent designs").size(20.0).strong());
     ui.add_space(6.0);
+    let ctx = ui.ctx().clone();
+    let rev = app.recent_rev;
     let mut open = None;
-    ui.horizontal_wrapped(|ui| {
-        for p in files {
-            let name = p.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            if ui
-                .add(egui::Button::new(egui::RichText::new(name).size(14.0)).min_size(egui::vec2(170.0, 40.0)).fill(t.panel))
-                .on_hover_text(p.display().to_string())
-                .clicked()
-            {
-                open = Some(p);
+    let mut remove = None;
+    rows(ui, entries, 198.0, |ui, e| {
+        let session = &app.session;
+        let tex = app.thumbs.get(&ctx, &format!("recent:{}", e.id), rev, || {
+            let png = genha_engine::cmd::recent::thumbnail(session, &e.id)?;
+            let img = genha_effects::decode(&png).ok()?;
+            Some(genha_render::Raster { width: img.width(), height: img.height(), rgba: img.into_raw() })
+        });
+        let (w, h) = tex.as_ref().map_or((4.0, 3.0), |t| (t.size()[0] as f32, t.size()[1] as f32));
+        let pages = format!("{} page{}", e.pages.max(1), if e.pages > 1 { "s" } else { "" });
+        let r = template_card(ui, t, &e.title, &pages, w, h, tex.as_ref());
+        let r = match &e.path {
+            Some(p) => r.on_hover_text(p),
+            None => r.on_hover_text(&e.name),
+        };
+        r.context_menu(|ui| {
+            if ui.button("Remove from recent designs").clicked() {
+                remove = Some(e.id.clone());
+                ui.close();
             }
+        });
+        if r.clicked() {
+            open = Some(e.id.clone());
         }
     });
     ui.add_space(18.0);
-    if let Some(p) = open {
-        app.run("file.open", &json!({"path": p.display().to_string()}));
+    if let Some(id) = open {
+        app.run("recent.open", &json!({"id": id}));
+    }
+    if let Some(id) = remove {
+        app.run("recent.remove", &json!({"id": id}));
+    }
+}
+
+fn fonts(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
+    ui.label(egui::RichText::new("Fonts").size(20.0).strong());
+    let n = app.font_families().len().saturating_sub(4);
+    let s = if n == 1 { "y" } else { "ies" };
+    let hint = if cfg!(target_arch = "wasm32") {
+        format!("{n} font famil{s}. Add font files (kept in this browser), or use the fonts installed on this computer.")
+    } else {
+        format!("{n} font famil{s}: the installed fonts and the ones you added.")
+    };
+    ui.label(egui::RichText::new(hint).color(t.text_dim));
+    ui.add_space(6.0);
+    crate::fonts::add_fonts_ui(app, ui);
+    let added: Vec<(String, String)> = app
+        .session
+        .execute("font.list", &json!({}))
+        .ok()
+        .and_then(|v| v.get("added").and_then(|a| a.as_array()).cloned())
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|v| Some((v.get("key")?.as_str()?.to_string(), v.get("name")?.as_str()?.to_string())))
+        .collect();
+    if added.is_empty() {
+        return;
+    }
+    let mut remove = None;
+    ui.horizontal_wrapped(|ui| {
+        ui.label(egui::RichText::new("Added:").color(t.text_dim));
+        for (key, name) in &added {
+            if ui.small_button(format!("{name}  ×")).on_hover_text("Don't load this font next time").clicked() {
+                remove = Some(key.clone());
+            }
+        }
+    });
+    if let Some(key) = remove {
+        app.run("font.remove", &json!({"key": key}));
     }
 }

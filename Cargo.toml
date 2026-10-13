@@ -56,6 +56,8 @@ flate2 = { version = "1", default-features = false, features = ["rust_backend"] 
 egui = "0.36"
 eframe = { version = "0.36", default-features = false }
 rfd = { version = "0.17", default-features = false, features = ["xdg-portal"] }
+# Pictures on the system clipboard (the same version and features egui-winit uses).
+arboard = { version = "3.6", default-features = false, features = ["image-data"] }
 env_logger = { version = "0.11", default-features = false, features = ["auto-color", "humantime"] }
 # Fallback fonts for the browser (no system fonts there): egui's own, shipped as a crate
 # (Ubuntu Font Licence 1.0, OFL-1.1, MIT/Bitstream Vera; see NOTICE). No font files in this repo.
@@ -89,4 +91,13 @@ opt-level = 1
 
 [profile.release]
 lto = "thin"
+codegen-units = 1
+
+# The browser build (`cargo xtask web`, which uses only this profile): smaller code over faster
+# code, with whole-program LTO, since every byte is downloaded. `panic` is left as it is: wasm32
+# aborts on panic anyway (`genha_engine::guard` only catches panics in native builds).
+[profile.web]
+inherits = "release"
+opt-level = "s"
+lto = "fat"
 codegen-units = 1

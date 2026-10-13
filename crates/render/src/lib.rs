@@ -18,6 +18,7 @@ mod curve;
 mod datavis;
 mod paint;
 mod pictures;
+mod synth;
 
 use genha_color::Color;
 use genha_doc::{Document, Element, ElementKind, Fill, ImageEl, Shadow, ShapeEl, ShapeKind, StrokeStyle, TextEffect, TextEl};
@@ -33,6 +34,7 @@ pub use datavis::{
     CHART_PALETTE, Prim, Scene, TableGeometry, TextLine, TextPrim, chart_colors, chart_scene, format_number, table_geometry, table_scene,
 };
 pub use paint::{MAX_PATH_DATA, MAX_STROKE_WIDTH, linear_points, radial_radius, shape_path};
+pub use synth::{SYNTHETIC_BOLD_EM, SYNTHETIC_SLANT, Synthetic, layout_text, slant_about, synthetic};
 
 /// Largest raster side, in pixels.
 pub const MAX_SIDE: u32 = 16_384;
@@ -395,13 +397,14 @@ impl Draw<'_> {
                 Prim::Text(tp) => {
                     ctx.set_paint(paint::pcolor(tp.color));
                     ctx.fill_path(&tp.path);
+                    embolden(ctx, &tp.path, tp.embolden);
                 }
             }
         }
     }
 
     fn text(&mut self, ctx: &mut RenderContext, t: &TextEl, frame: &Frame, local: Affine) {
-        let layout = genha_text::layout(self.fonts, &t.text, &t.style, frame.width);
+        let (layout, syn) = layout_text(self.fonts, &t.text, &t.style, frame.width);
         let curved = curved_text_path(self.fonts, t, frame.width, frame.height);
         let glyphs = match &curved {
             Some(p) => p.clone(),
@@ -421,6 +424,7 @@ impl Draw<'_> {
                 self.shadow(ctx, local, &sh, &mut |c, xf| {
                     c.set_transform(xf);
                     c.fill_path(&glyphs);
+                    embolden(c, &glyphs, syn.embolden);
                 });
             }
             TextEffect::Outline { color, width } => {
@@ -430,7 +434,7 @@ impl Draw<'_> {
                     ctx.reset_paint_transform();
                     ctx.set_paint(paint::pcolor(*color));
                     // Twice as wide, half of it covered by the letters drawn on top.
-                    ctx.set_stroke(Stroke::new(width * 2.0).with_join(kurbo::Join::Round));
+                    ctx.set_stroke(Stroke::new(width * 2.0 + syn.embolden).with_join(kurbo::Join::Round));
                     ctx.stroke_path(&glyphs);
                 }
             }
@@ -451,6 +455,7 @@ impl Draw<'_> {
         ctx.reset_paint_transform();
         ctx.set_paint(paint::pcolor(t.style.color));
         ctx.fill_path(&glyphs);
+        embolden(ctx, &glyphs, syn.embolden);
     }
 
     fn image(&mut self, ctx: &mut RenderContext, im: &ImageEl, frame: &Frame, local: Affine) {
@@ -505,6 +510,14 @@ impl Draw<'_> {
             ctx.set_stroke(st);
             ctx.stroke_path(&clip);
         }
+    }
+}
+
+/// Synthetic bold: strokes `glyphs` `width` wide in the current paint (already filled with it).
+fn embolden(ctx: &mut RenderContext, glyphs: &BezPath, width: f64) {
+    if width > 0.0 && width.is_finite() {
+        ctx.set_stroke(Stroke::new(width.min(MAX_STROKE_WIDTH)).with_join(kurbo::Join::Round));
+        ctx.stroke_path(glyphs);
     }
 }
 

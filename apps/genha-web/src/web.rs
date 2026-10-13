@@ -15,12 +15,15 @@ pub fn start() {
         log::error!("genha-web: the page has no <canvas id=\"{CANVAS_ID}\">");
         return;
     };
-    // Pages can't read installed fonts: this is the built-in fallback faces.
+    // Pages can't read installed fonts: this is the built-in fallback faces (fonts the user added
+    // come from the browser's storage, installed ones when the user allows it).
     let book = genha_ui_egui::fonts::system_or_fallback();
-    log::info!("genha-web: {} font faces", book.len());
+    log::info!("genha-web: {} built-in font faces", book.len());
     let fonts = Arc::new(book);
-    let opts = AppOptions { dark: prefers_dark(), ..Default::default() };
     wasm_bindgen_futures::spawn_local(async move {
+        // Data Recovery copies, recent designs and added fonts, from IndexedDB.
+        let store = genha_ui_egui::open_web_store().await;
+        let opts = AppOptions { dark: prefers_dark(), store: Some(store), instance: Some(genha_ui_egui::web_instance_id()), ..Default::default() };
         let result = eframe::WebRunner::new()
             .start(
                 canvas,

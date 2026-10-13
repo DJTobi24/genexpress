@@ -112,3 +112,35 @@ fn chart_table_and_curve_panels_run() {
     assert_eq!(n, 4);
     assert!(app.status.as_ref().is_none_or(|(m, _)| !m.contains("Internal error")), "{:?}", app.status);
 }
+
+#[test]
+fn recovery_and_recent_designs_through_a_store() {
+    // The browser's setup: a store instead of a folder, one run after another.
+    let store = Box::new(genha_engine::store::MemStore::default());
+    let opts = AppOptions { store: Some(store), instance: Some("run1".into()), ..Default::default() };
+    let mut app = App::new(Arc::new(genha_text::FontBook::new()), opts);
+    app.run("template.use", &json!({"id": genha_templates::catalog()[0].id}));
+    app.run("recovery.save", &json!({}));
+    // A download records it in the recent designs.
+    let bytes = genha_engine::cmd::file::design_bytes(&mut app.session).unwrap();
+    assert!(!bytes.is_empty());
+    app.run("text.add", &json!({"text": "Unsaved"}));
+    app.run("recovery.save", &json!({}));
+    let store = app.session.store.take();
+    // The next run (a reload) offers the copy and lists the design.
+    let mut next = App::new(Arc::new(genha_text::FontBook::new()), AppOptions { store, instance: Some("run2".into()), ..Default::default() });
+    assert_eq!(next.recovered.len(), 1);
+    assert_eq!(next.recent.len(), 1);
+    let ctx = egui::Context::default();
+    run_frames(&mut next, &ctx, 3);
+    let id = next.recent[0].id.clone();
+    next.run("recent.open", &json!({"id": id}));
+    assert_eq!(next.screen, Screen::Editor);
+    // Copying objects puts their text on the system clipboard.
+    next.run("text.add", &json!({"text": "Copy me"}));
+    next.run("edit.copy", &json!({}));
+    assert_eq!(next.clip_out.as_deref(), Some("Copy me"));
+    run_frames(&mut next, &ctx, 1);
+    assert!(next.clip_out.is_none());
+    assert!(next.status.as_ref().is_none_or(|(m, _)| !m.contains("Internal error")), "{:?}", next.status);
+}

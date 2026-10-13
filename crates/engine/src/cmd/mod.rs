@@ -1,16 +1,19 @@
 //! The command registry. Every user-visible action is a [`CommandSpec`] here.
 
 pub mod brand;
+pub mod clipboard;
 pub mod content;
 pub mod create;
 pub mod data;
 pub mod edit;
 pub mod export;
 pub mod file;
+pub mod fonts;
 pub mod motion;
 pub mod object;
 pub mod page;
 pub mod query;
+pub mod recent;
 pub mod recovery;
 pub mod style;
 pub mod versions;
@@ -120,6 +123,9 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(content::specs());
         v.extend(versions::specs());
         v.extend(recovery::specs());
+        v.extend(recent::specs());
+        v.extend(fonts::specs());
+        v.extend(clipboard::specs());
         v.extend(query::specs());
         v
     })
