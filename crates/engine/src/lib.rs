@@ -58,6 +58,12 @@ impl From<genha_format::FormatError> for EngineError {
     }
 }
 
+impl From<genha_segment::SegmentError> for EngineError {
+    fn from(e: genha_segment::SegmentError) -> Self {
+        EngineError::Other(e.to_string())
+    }
+}
+
 impl From<genha_effects::EffectError> for EngineError {
     fn from(e: genha_effects::EffectError) -> Self {
         EngineError::Other(e.to_string())
@@ -178,6 +184,12 @@ pub struct Session {
     /// Where Data Recovery copies, recent designs and added fonts are kept ([`store`]); none: the
     /// `recovery.*` and `recent.*` commands are off and added fonts last until the app quits.
     pub store: Option<Box<dyn store::Store>>,
+    /// Where downloaded models are kept (`models/…`) when not in [`Session::store`]: the CLI keeps
+    /// them in the app's data folder without using its recent designs or recovery copies.
+    pub models: Option<Box<dyn store::Store>>,
+    /// Whether GenHa may use the network (model downloads; `settings.network`). `GENHA_OFFLINE`
+    /// in the environment turns it off whatever this says.
+    pub network: bool,
     /// Names this run's Data Recovery copies, so copies left by another run (one that ended
     /// unexpectedly) can be told apart: the process id on the desktop, set by the host elsewhere.
     pub instance: String,
@@ -205,6 +217,8 @@ impl Session {
             merge_key: None,
             fonts: Arc::new(genha_text::FontBook::new()),
             store: None,
+            models: None,
+            network: true,
             instance: default_instance(),
         }
     }

@@ -17,8 +17,9 @@ commands:
   cleanroom   check for Adobe copyright notices and files made with Adobe applications
   wasm        check that the engine and below, the UI and the web app build for wasm32-unknown-unknown
               (clippy -D warnings)
-  web         build the web app into dist/web (wasm release build + wasm-bindgen; installs
-              wasm-bindgen-cli at the version in Cargo.lock when missing)";
+  web [--ml]  build the web app into dist/web (wasm release build + wasm-bindgen; installs
+              wasm-bindgen-cli at the version in Cargo.lock when missing); --ml adds the AI
+              background removal runtime (about 11 MB more)";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -28,7 +29,7 @@ fn main() -> ExitCode {
         Some("assets") => checks::assets(&root()),
         Some("cleanroom") => checks::cleanroom(&root()),
         Some("wasm") => wasm(),
-        Some("web") => web::build(&root()),
+        Some("web") => web::build(&root(), args.iter().any(|a| a == "--ml")),
         Some("-h" | "--help" | "help") | None => {
             println!("{USAGE}");
             Ok(())
@@ -101,6 +102,7 @@ const WASM_CRATES: &[&str] = &[
     "genha-svg",
     "genha-pdf",
     "genha-video",
+    "genha-segment",
     "genha-format",
     "genha-tools",
     "genha-engine",
@@ -127,5 +129,7 @@ fn wasm() -> Result<(), String> {
         }
     }
     args.extend(["--", "-D", "warnings"]);
-    run("cargo", &args)
+    run("cargo", &args)?;
+    // The browser build with the AI background removal runtime (`cargo xtask web --ml`).
+    run("cargo", &["clippy", "--target", "wasm32-unknown-unknown", "-q", "-p", "genha-web", "--features", "ml", "--", "-D", "warnings"])
 }

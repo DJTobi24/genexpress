@@ -57,18 +57,6 @@ impl eframe::App for Shell {
     }
 }
 
-/// Per-user data folder: recent files and Data Recovery copies.
-fn data_dir() -> Option<std::path::PathBuf> {
-    let env = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(std::path::PathBuf::from);
-    if cfg!(target_os = "windows") {
-        return env("APPDATA").map(|d| d.join("GenHa"));
-    }
-    if cfg!(target_os = "macos") {
-        return env("HOME").map(|h| h.join("Library/Application Support/GenHa"));
-    }
-    env("XDG_DATA_HOME").or_else(|| env("HOME").map(|h| h.join(".local/share"))).map(|d| d.join("genha"))
-}
-
 fn main() -> std::process::ExitCode {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let mut opts = AppOptions::default();
@@ -91,7 +79,8 @@ fn main() -> std::process::ExitCode {
             f => opts.open.push(f.into()),
         }
     }
-    opts.data_dir = data_dir();
+    // Recent designs, Data Recovery copies, added fonts and downloaded models.
+    opts.data_dir = genha_engine::store::user_data_dir();
     // The system's fonts, or built-in fallback faces when there are none.
     let fonts = Arc::new(genha_ui_egui::fonts::system_or_fallback());
     log::info!("{} font families found", fonts.families().len());

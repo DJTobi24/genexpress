@@ -9,6 +9,7 @@ pub mod edit;
 pub mod export;
 pub mod file;
 pub mod fonts;
+pub mod models;
 pub mod motion;
 pub mod object;
 pub mod page;
@@ -129,6 +130,7 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(recovery::specs());
         v.extend(recent::specs());
         v.extend(fonts::specs());
+        v.extend(models::specs());
         v.extend(clipboard::specs());
         v.extend(query::specs());
         v

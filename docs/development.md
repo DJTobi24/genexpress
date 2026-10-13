@@ -50,6 +50,12 @@ In the browser:
   are written every 15 s in the browser; a reload offers them on the home screen.
 - **Clipboard**: Ctrl+V of a picture places it (the page's paste event); Edit › Paste Picture
   reads the Clipboard API.
+- **Background removal with the AI model**: only in a build made with `cargo xtask web --ml` (the
+  model runtime adds about 11 MB of WebAssembly; the default build has the colour method only).
+  It fetches the model from `models/<file>`
+  next to the app (copy `u2netp.onnx` there when hosting; its download site does not allow
+  cross-site fetches) or from `?models=<https address of a folder>` in the page's address, checks
+  the pinned SHA-256 and keeps it in IndexedDB. It runs on the page's thread (the page waits).
 - Not in the browser (yet): the control channel.
 
 Check the browser code with `cargo clippy -p genha-ui-egui -p genha-web --target
@@ -66,6 +72,14 @@ the web app; needs `rustup target add wasm32-unknown-unknown`).
 Video tests decode what the H.264 encoder wrote with `ffmpeg` when it is installed (CI installs it) and
 require every sample to match the encoder's own reconstruction; without `ffmpeg` they are skipped.
 `cargo test -p genha-video speed -- --ignored --nocapture` prints the encoder's speed.
+
+Background removal tests run the real models only when they are on the machine (in
+`GENHA_MODEL_DIR`, else the data folder's `models/`; `genha-cli model download [u2net]` puts them
+there); otherwise they are skipped and only the pre/post-processing and the commands are tested.
+`GENHA_ML_OUT=<folder>` writes colour-based vs AI cut-outs on a checkerboard for looking at, and
+`GENHA_ML_PHOTOS=<folder>` adds your own photos to them (keep photos out of the repository):
+`cargo test -p genha-segment --test real_model -- --nocapture`. `GENHA_DATA_DIR` moves the data
+folder (tests, portable installs); `GENHA_OFFLINE=1` forbids network use.
 
 ## Robustness: GenHa never crashes
 

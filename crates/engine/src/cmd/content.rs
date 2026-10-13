@@ -60,7 +60,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Remove Background",
             [],
             None,
-            "{ids?, tolerance?: 0–100 = 30} — colour-based: removes the backdrop connected to the picture's edges (works best on plain backgrounds)",
+            "{ids?, method?: auto|ml|color = auto, model?: u2netp|u2net, tolerance?: 0–100 = 30} — ml: a segmentation model finds the subject (works on busy photos; needs model.download once); color: removes the backdrop connected to the picture's edges (plain backgrounds); auto: ml when a model is installed, else color",
             has_selection,
             remove_background
         ),
@@ -69,7 +69,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Change Background",
             [],
             None,
-            "{ids?, color: #rrggbb, tolerance?: 0–100 = 30} — replaces the backdrop connected to the picture's edges with a colour",
+            "{ids?, color: #rrggbb, method?: auto|ml|color = auto, model?, tolerance?: 0–100 = 30} — replaces the background with a colour (the subject is found as in image.removeBackground)",
             has_selection,
             change_background
         ),
@@ -78,7 +78,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Blur Background",
             [],
             None,
-            "{ids?, amount?: px 0–100 = 12, tolerance?: 0–100 = 30} — keeps the subject sharp",
+            "{ids?, amount?: px 0–100 = 12, method?: auto|ml|color = auto, model?, tolerance?: 0–100 = 30} — keeps the subject sharp (found as in image.removeBackground)",
             has_selection,
             blur_background
         ),
@@ -99,7 +99,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Quick Action",
             [],
             None,
-            "{action: remove-background|change-background|blur-background|resize|convert|auto-crop|filter|pixelate|rotate|flip, input: path, output: path (format from its extension), scale?, width?, height?, fit?, preset?, tolerance?, color?, amount?, block?, quarter_turns?, horizontal?}",
+            "{action: remove-background|change-background|blur-background|resize|convert|auto-crop|filter|pixelate|rotate|flip, input: path, output: path (format from its extension), scale?, width?, height?, fit?, preset?, method?: auto|ml|color (background actions), model?, tolerance?, color?, amount?, block?, quarter_turns?, horizontal?}",
             always,
             quick_image
         ),
@@ -387,61 +387,239 @@ fn png_asset(name: &str, img: &genha_effects::RgbaImage) -> Result<Asset> {
 }
 
 fn remove_background(s: &mut Session, p: &Value) -> Result<Value> {
-    let tolerance = f64_or(p, "tolerance", 30.0).clamp(0.0, 100.0) as f32;
-    replace_pictures(s, p, "image.removeBackground", "Remove Background", "cutout", |img| genha_effects::remove_background(img, tolerance))
+    run_background(s, "image.removeBackground", p)
 }
 
 fn change_background(s: &mut Session, p: &Value) -> Result<Value> {
-    let tolerance = f64_or(p, "tolerance", 30.0).clamp(0.0, 100.0) as f32;
-    let color = super::color_req(p, "color", "image.changeBackground")?;
-    replace_pictures(s, p, "image.changeBackground", "Change Background", "background", |img| genha_effects::change_background(img, color, tolerance))
+    run_background(s, "image.changeBackground", p)
 }
 
 fn blur_background(s: &mut Session, p: &Value) -> Result<Value> {
-    let tolerance = f64_or(p, "tolerance", 30.0).clamp(0.0, 100.0) as f32;
-    let amount = f64_or(p, "amount", 12.0).clamp(0.0, 100.0) as f32;
-    replace_pictures(s, p, "image.blurBackground", "Blur Background", "blurred", |img| genha_effects::blur_background(img, tolerance, amount))
+    run_background(s, "image.blurBackground", p)
 }
 
-/// Replaces the selected pictures' data with `f` applied to it (one new asset per source picture).
-fn replace_pictures(
-    s: &mut Session,
-    p: &Value,
-    cmd: &str,
-    label: &str,
-    suffix: &str,
-    f: impl Fn(&genha_effects::RgbaImage) -> genha_effects::RgbaImage,
-) -> Result<Value> {
-    let ids = image_targets(s, p, cmd)?;
-    // Decode and cut out before the edit (the slow part), one new asset per source picture.
-    let d = s.doc()?;
-    let mut done: std::collections::BTreeMap<AssetId, Asset> = Default::default();
-    for id in &ids {
-        if let Ok(Element { kind: ElementKind::Image(img), .. }) = d.doc.element(*id)
-            && !done.contains_key(&img.asset)
-        {
-            let src = d.doc.asset(img.asset)?;
-            let pixels = genha_effects::decode(&src.data)?;
-            let cut = f(&pixels);
-            let stem = src.name.rsplit_once('.').map(|(a, _)| a).unwrap_or(&src.name);
-            done.insert(img.asset, png_asset(&format!("{stem}-{suffix}.png"), &cut)?);
+/// A background command in one go: [`background_job`], [`BackgroundJob::run`], [`apply_background`].
+fn run_background(s: &mut Session, cmd: &str, p: &Value) -> Result<Value> {
+    let job = background_job(s, cmd, p)?;
+    let done = job.run(&mut |_, _| true)?;
+    apply_background(s, done)
+}
+
+/// How the subject of a picture is told from its background.
+#[derive(Clone, Debug)]
+pub enum Finder {
+    /// The classical colour-based flood fill from the edges (`tolerance` 0–100).
+    Color { tolerance: f32 },
+    /// A segmentation model; `bytes` holds the model file while it still has to be loaded.
+    Ml { spec: &'static genha_segment::ModelSpec, model: Option<genha_segment::Segmenter>, bytes: Option<Vec<u8>> },
+}
+
+impl Finder {
+    /// `"ml"` or `"color"`.
+    pub fn method(&self) -> &'static str {
+        match self {
+            Finder::Color { .. } => "color",
+            Finder::Ml { .. } => "ml",
         }
     }
-    s.edit(label, |doc, _| {
-        let mut map = std::collections::BTreeMap::new();
-        for (old, asset) in done {
-            map.insert(old, doc.add_asset(asset));
+
+    /// The model's name (ML only).
+    pub fn model(&self) -> Option<&'static str> {
+        match self {
+            Finder::Ml { spec, .. } => Some(spec.name),
+            Finder::Color { .. } => None,
         }
-        for id in &ids {
-            if let ElementKind::Image(img) = &mut doc.element_mut(*id)?.kind
-                && let Some(n) = map.get(&img.asset)
-            {
-                img.asset = *n;
+    }
+
+    /// Loads the model when needed (slow the first time: the desktop app does it off the UI thread).
+    fn ready(&mut self) -> Result<()> {
+        if let Finder::Ml { spec, model, bytes } = self
+            && model.is_none()
+        {
+            let b = bytes.take();
+            *model = genha_segment::cached(spec, || b)?;
+            if model.is_none() {
+                return Err(EngineError::Other(format!("the {} model could not be read", spec.name)));
             }
         }
         Ok(())
+    }
+}
+
+/// The finder `p` asks for (`method`: auto, ml or color; `model`; `tolerance`). Without a
+/// session (file quick actions in the browser) only the colour method is available.
+pub fn finder(s: Option<&Session>, p: &Value, cmd: &str) -> Result<Finder> {
+    let tolerance = f64_or(p, "tolerance", 30.0).clamp(0.0, 100.0) as f32;
+    let method = match p.get("method") {
+        None | Some(Value::Null) => "auto",
+        Some(Value::String(m)) => m.as_str(),
+        Some(_) => return Err(bad(cmd, "`method` must be auto, ml or color")),
+    };
+    let named = match p.get("model") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(n)) => Some(super::models::spec(n, cmd)?),
+        Some(_) => return Err(bad(cmd, "`model` must be a model name (see model.status)")),
+    };
+    // The installed model to use, ready or with its file's bytes.
+    let ml = |s: &Session| -> Option<Finder> {
+        let spec = named.or_else(|| super::models::preferred(s))?;
+        if !super::models::installed(s, spec) {
+            return None;
+        }
+        let model = genha_segment::peek(spec);
+        let bytes = if model.is_none() { Some(super::models::unloaded_bytes(s, spec)?) } else { None };
+        Some(Finder::Ml { spec, model, bytes })
+    };
+    match method {
+        "color" | "colour" => Ok(Finder::Color { tolerance }),
+        "auto" => Ok(s.filter(|_| genha_segment::INFERENCE).and_then(ml).unwrap_or(Finder::Color { tolerance })),
+        "ml" if !genha_segment::INFERENCE => Err(genha_segment::SegmentError::Unavailable.into()),
+        "ml" => s.and_then(ml).ok_or_else(|| {
+            let spec = named.or_else(|| s.and_then(super::models::preferred)).unwrap_or(&genha_segment::MODELS[0]);
+            EngineError::Other(format!(
+                "the background removal model is not installed: download it first (model.download {{\"name\": \"{}\"}}, {:.1} MB) or use method \"color\"",
+                spec.name,
+                spec.bytes as f64 / 1e6
+            ))
+        }),
+        other => Err(bad(cmd, format!("unknown method `{}` (auto, ml or color)", other.chars().take(40).collect::<String>()))),
+    }
+}
+
+/// What a background command does to each picture.
+#[derive(Clone, Copy, Debug)]
+pub enum BackgroundOp {
+    Remove,
+    Change(Color),
+    Blur(f32),
+}
+
+impl BackgroundOp {
+    /// `img` changed, its subject found by `finder` (loaded: [`Finder::ready`]).
+    pub fn apply(&self, img: &genha_effects::RgbaImage, finder: &Finder) -> Result<genha_effects::RgbaImage> {
+        use genha_effects as fx;
+        let mask = match finder {
+            // The colour method keeps its own exact results (and their tests).
+            Finder::Color { tolerance } => {
+                return Ok(match *self {
+                    BackgroundOp::Remove => fx::remove_background(img, *tolerance),
+                    BackgroundOp::Change(c) => fx::change_background(img, c, *tolerance),
+                    BackgroundOp::Blur(r) => fx::blur_background(img, *tolerance, r),
+                });
+            }
+            Finder::Ml { model: Some(m), .. } => m.mask(img)?,
+            Finder::Ml { spec, .. } => return Err(EngineError::Other(format!("the {} model is not loaded", spec.name))),
+        };
+        Ok(match *self {
+            BackgroundOp::Remove => fx::cut_out(img, &mask),
+            BackgroundOp::Change(c) => fx::change_background_masked(img, &mask, c),
+            BackgroundOp::Blur(r) => fx::blur_background_masked(img, &mask, r),
+        })
+    }
+}
+
+/// A background command's work, taken from the session so it can run on another thread (the
+/// desktop app does, with progress): the pictures, the operation and how subjects are found.
+#[derive(Debug)]
+pub struct BackgroundJob {
+    label: &'static str,
+    suffix: &'static str,
+    ids: Vec<NodeId>,
+    sources: Vec<(AssetId, Asset)>,
+    op: BackgroundOp,
+    pub finder: Finder,
+}
+
+/// A finished [`BackgroundJob`], for [`apply_background`].
+#[derive(Debug)]
+pub struct BackgroundDone {
+    label: &'static str,
+    ids: Vec<NodeId>,
+    assets: Vec<(AssetId, Asset)>,
+    method: &'static str,
+    model: Option<&'static str>,
+}
+
+/// Prepares `cmd` (image.removeBackground, image.changeBackground or image.blurBackground) with
+/// params `p` on the selected pictures (or `ids`).
+pub fn background_job(s: &Session, cmd: &str, p: &Value) -> Result<BackgroundJob> {
+    let (op, label, suffix) = match cmd {
+        "image.removeBackground" => (BackgroundOp::Remove, "Remove Background", "cutout"),
+        "image.changeBackground" => (BackgroundOp::Change(super::color_req(p, "color", cmd)?), "Change Background", "background"),
+        "image.blurBackground" => (BackgroundOp::Blur(f64_or(p, "amount", 12.0).clamp(0.0, 100.0) as f32), "Blur Background", "blurred"),
+        other => return Err(bad(other, "not a background command")),
+    };
+    let ids = image_targets(s, p, cmd)?;
+    let finder = finder(Some(s), p, cmd)?;
+    let d = s.doc()?;
+    let mut sources: Vec<(AssetId, Asset)> = vec![];
+    for id in &ids {
+        if let Ok(Element { kind: ElementKind::Image(img), .. }) = d.doc.element(*id)
+            && !sources.iter().any(|(a, _)| *a == img.asset)
+        {
+            sources.push((img.asset, d.doc.asset(img.asset)?.clone()));
+        }
+    }
+    Ok(BackgroundJob { label, suffix, ids, sources, op, finder })
+}
+
+impl BackgroundJob {
+    /// How many pictures it changes.
+    pub fn len(&self) -> usize {
+        self.sources.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.sources.is_empty()
+    }
+
+    /// Does the work (the slow part): loads the model if needed, then decodes each picture, finds
+    /// its subject and encodes the result. `progress(done, total)` is called before the first
+    /// picture and after each one; returning false stops it (an error says so).
+    pub fn run(mut self, progress: &mut dyn FnMut(usize, usize) -> bool) -> Result<BackgroundDone> {
+        let total = self.sources.len();
+        let cancelled = || EngineError::Other("cancelled".into());
+        if !progress(0, total) {
+            return Err(cancelled());
+        }
+        self.finder.ready()?;
+        let mut assets = vec![];
+        for (i, (id, src)) in self.sources.iter().enumerate() {
+            let pixels = genha_effects::decode(&src.data)?;
+            let out = self.op.apply(&pixels, &self.finder)?;
+            let stem = src.name.rsplit_once('.').map(|(a, _)| a).unwrap_or(&src.name);
+            assets.push((*id, png_asset(&format!("{stem}-{}.png", self.suffix), &out)?));
+            if !progress(i + 1, total) {
+                return Err(cancelled());
+            }
+        }
+        Ok(BackgroundDone { label: self.label, ids: self.ids, assets, method: self.finder.method(), model: self.finder.model() })
+    }
+}
+
+/// Puts a finished job's pictures in the design (one undo step). Pictures deleted or changed in
+/// the meantime are left alone.
+pub fn apply_background(s: &mut Session, done: BackgroundDone) -> Result<Value> {
+    let ids = done.ids;
+    let assets = done.assets;
+    let changed = s.edit(done.label, |doc, _| {
+        let mut map = std::collections::BTreeMap::new();
+        for (old, asset) in assets {
+            map.insert(old, doc.add_asset(asset));
+        }
+        let mut n = 0usize;
+        for id in &ids {
+            if let Ok(el) = doc.element_mut(*id)
+                && let ElementKind::Image(img) = &mut el.kind
+                && let Some(new) = map.get(&img.asset)
+            {
+                img.asset = *new;
+                n += 1;
+            }
+        }
+        Ok(n)
     })?;
-    Ok(ok(json!({"changed": ids.len()})))
+    Ok(ok(json!({"changed": changed, "method": done.method, "model": done.model})))
 }
 
 fn place_asset(s: &mut Session, p: &Value) -> Result<Value> {
@@ -543,7 +721,7 @@ fn brand_use_palette(s: &mut Session, p: &Value) -> Result<Value> {
 // ---------- quick actions (file in, file out) ----------
 
 #[cfg(not(target_arch = "wasm32"))]
-fn quick_image(_: &mut Session, p: &Value) -> Result<Value> {
+fn quick_image(s: &mut Session, p: &Value) -> Result<Value> {
     str_req(p, "action", "quick.image")?;
     let input = str_req(p, "input", "quick.image")?;
     let output = str_req(p, "output", "quick.image")?;
@@ -554,7 +732,7 @@ fn quick_image(_: &mut Session, p: &Value) -> Result<Value> {
         return Err(EngineError::Other(format!("{input} is too large")));
     }
     let bytes = std::fs::read(input).map_err(|e| EngineError::Other(format!("cannot read {input}: {e}")))?;
-    let (data, width, height) = quick_image_bytes(&bytes, ext, p)?;
+    let (data, width, height) = quick_image_with(Some(s), &bytes, ext, p)?;
     super::export::write(output, &data)?;
     Ok(ok(json!({"output": output, "width": width, "height": height, "bytes": data.len()})))
 }
@@ -571,8 +749,15 @@ fn quick_format(ext: &str, p: &Value) -> Result<genha_effects::OutputFormat> {
 
 /// A quick action on picture bytes (`quick.image`'s params without `input`/`output`): the result
 /// encoded as `ext` (png, jpg, webp, gif, bmp), and its width and height. For hosts without a
-/// file system (the web build).
+/// file system (the web build). Background actions use the colour method here; see
+/// [`quick_image_with`] for the ML one.
 pub fn quick_image_bytes(bytes: &[u8], ext: &str, p: &Value) -> Result<(Vec<u8>, u32, u32)> {
+    quick_image_with(None, bytes, ext, p)
+}
+
+/// [`quick_image_bytes`] with the session's installed models available to the background
+/// actions (`method`: auto, ml or color).
+pub fn quick_image_with(s: Option<&Session>, bytes: &[u8], ext: &str, p: &Value) -> Result<(Vec<u8>, u32, u32)> {
     use genha_effects as fx;
     let action = str_req(p, "action", "quick.image")?;
     let format = quick_format(ext, p)?;
@@ -580,8 +765,13 @@ pub fn quick_image_bytes(bytes: &[u8], ext: &str, p: &Value) -> Result<(Vec<u8>,
         return Err(EngineError::Other("the picture is too large".into()));
     }
     let img = fx::decode(bytes)?;
+    let background = |op: BackgroundOp| -> Result<fx::RgbaImage> {
+        let mut f = finder(s, p, "quick.image")?;
+        f.ready()?;
+        op.apply(&img, &f)
+    };
     let out = match action {
-        "remove-background" => fx::remove_background(&img, f64_or(p, "tolerance", 30.0).clamp(0.0, 100.0) as f32),
+        "remove-background" => background(BackgroundOp::Remove)?,
         "resize" => {
             let (w, h) = match (p.get("width").and_then(Value::as_f64), p.get("height").and_then(Value::as_f64)) {
                 (Some(w), Some(h)) => (w, h),
@@ -599,11 +789,8 @@ pub fn quick_image_bytes(bytes: &[u8], ext: &str, p: &Value) -> Result<(Vec<u8>,
             fx::resize(&img, w.round().clamp(1.0, 16384.0) as u32, h.round().clamp(1.0, 16384.0) as u32, fit)?
         }
         "convert" => img,
-        "change-background" => {
-            let color = super::color_param(p, "color", "quick.image")?.unwrap_or(Color::WHITE);
-            fx::change_background(&img, color, f64_or(p, "tolerance", 30.0).clamp(0.0, 100.0) as f32)
-        }
-        "blur-background" => fx::blur_background(&img, f64_or(p, "tolerance", 30.0).clamp(0.0, 100.0) as f32, f64_or(p, "amount", 12.0) as f32),
+        "change-background" => background(BackgroundOp::Change(super::color_param(p, "color", "quick.image")?.unwrap_or(Color::WHITE)))?,
+        "blur-background" => background(BackgroundOp::Blur(f64_or(p, "amount", 12.0) as f32))?,
         "pixelate" => fx::pixelate(&img, f64_or(p, "block", 16.0).clamp(2.0, 256.0) as u32),
         "auto-crop" => fx::auto_crop(&img),
         "rotate" => fx::rotate(&img, f64_or(p, "quarter_turns", 1.0).clamp(-4.0, 4.0) as i32),

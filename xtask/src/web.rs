@@ -18,8 +18,12 @@ const PROFILE: &str = "web";
 const MARKER: &str = "<!-- genha:loader -->";
 const LOADER: &str = r#"<script type="module">import init from "./genha_web.js"; init();</script>"#;
 
-pub fn build(root: &Path) -> Result<(), String> {
-    run("cargo", &["build", "-p", "genha-web", "--target", "wasm32-unknown-unknown", "--profile", PROFILE])?;
+pub fn build(root: &Path, ml: bool) -> Result<(), String> {
+    let mut args = vec!["build", "-p", "genha-web", "--target", "wasm32-unknown-unknown", "--profile", PROFILE];
+    if ml {
+        args.extend(["--features", "ml"]);
+    }
+    run("cargo", &args)?;
     let wasm = target_dir(root)?.join("wasm32-unknown-unknown").join(PROFILE).join("genha-web.wasm");
     if !wasm.exists() {
         return Err(format!("{} was not built", wasm.display()));

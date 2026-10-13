@@ -284,11 +284,12 @@ fn view_snapping(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(ok(json!({"on": on})))
 }
 
-/// Reads the preferences kept in the session's store (smart guides on or off).
+/// Reads the preferences kept in the session's store (smart guides on or off, network use).
 pub fn load_preferences(s: &mut Session) {
     if let Some(v) = s.store.as_ref().and_then(|st| st.read(SNAPPING_KEY)) {
         s.snapping = v.as_slice() != b"off";
     }
+    super::models::load_preferences(s);
 }
 
 fn batch(s: &mut Session, p: &Value) -> Result<Value> {

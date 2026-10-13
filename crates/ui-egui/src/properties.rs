@@ -15,6 +15,8 @@ struct Actions {
     commands: Vec<(&'static str, Value)>,
     /// Play the page's animation on the canvas afterwards (UI only).
     preview: bool,
+    /// Background removal: method and progress.
+    ml: crate::models::Panel,
 }
 
 impl Actions {
@@ -32,7 +34,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     // The text being edited in place: the style at its selection.
     let editing = genha_engine::text_selection_style(&app.session);
     let editing_caret = app.session.text_editing.as_ref().is_some_and(|e| e.anchor == e.caret);
-    let mut acts = Actions::default();
+    let mut acts = Actions { ml: crate::models::panel(app), ..Default::default() };
     let mut choices = app.motion.panel;
     match selected.as_slice() {
         [] => {
@@ -48,8 +50,13 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         many => multi_props(ui, t, many, &mut acts),
     }
     app.motion.panel = choices;
+    crate::models::apply(app, acts.ml);
     for (id, p) in acts.commands {
-        app.run(id, &p);
+        if crate::models::is_background(id) {
+            crate::models::start(app, ui.ctx(), id, p);
+        } else {
+            app.run(id, &p);
+        }
     }
     if acts.preview {
         crate::motion::play(app, ui.ctx());
@@ -483,7 +490,7 @@ fn element_props(
             }
             section(ui, t, "QUICK ACTIONS");
             ui.horizontal_wrapped(|ui| {
-                if ui.button("Remove background").on_hover_text("Colour-based: works best on plain backdrops").clicked() {
+                if ui.button("Remove background").on_hover_text("Finds the subject and removes everything else").clicked() {
                     acts.run("image.removeBackground", json!({}));
                 }
                 if ui.button("Blur background").clicked() {
@@ -507,6 +514,7 @@ fn element_props(
                     acts.run("brand.fromPicture", json!({}));
                 }
             });
+            crate::models::draw(ui, &mut acts.ml);
         }
         ElementKind::Chart(c) => data_props::chart(ui, t, id, c, brand, acts),
         ElementKind::Table(tb) => data_props::table(ui, t, id, tb, el.frame.width, brand, acts),

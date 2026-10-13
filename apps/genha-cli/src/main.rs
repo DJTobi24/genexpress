@@ -15,7 +15,12 @@ const USAGE: &str = "usage: genha-cli <command> …
   run SCRIPT.json [--open FILE] [--save OUT.genha] [--export OUT.png|jpg|svg|pdf|gif|mp4]
                                      SCRIPT: [{\"command\": \"shape.add\", \"params\": {…}}, …]
   quick ACTION IN -o OUT [--scale S] [--width W] [--height H] [--preset P] [--tolerance T]
-                                     ACTION: remove-background, resize, convert, auto-crop, filter, rotate, flip
+                    [--method auto|ml|color] [--model NAME] [--color #RRGGBB] [--amount PX]
+                                     ACTION: remove-background, change-background, blur-background,
+                                     resize, convert, auto-crop, filter, pixelate, rotate, flip
+  model [status | download [NAME] | remove NAME]
+                                     the AI background removal models (kept in the app's data folder;
+                                     GENHA_OFFLINE=1 forbids downloads)
   exec COMMAND [JSON-PARAMS] [--open FILE]   run one command and print its result
   commands [PREFIX]                  every command with its parameters
   presets | templates                page sizes and templates
@@ -46,7 +51,14 @@ fn num(args: &[String], name: &str) -> Result<Option<f64>, String> {
 }
 
 fn session() -> Session {
-    Session::with_fonts(Arc::new(genha_text::FontBook::system()))
+    with_models(Session::with_fonts(Arc::new(genha_text::FontBook::system())))
+}
+
+/// `s` with the models the app downloaded (the data folder's `models/`), for the background
+/// commands' AI method and `model.*`.
+fn with_models(mut s: Session) -> Session {
+    s.models = genha_engine::store::user_data_dir().map(|d| Box::new(genha_engine::store::DirStore::new(d)) as Box<dyn genha_engine::store::Store>);
+    s
 }
 
 fn exec(s: &mut Session, cmd: &str, params: Value) -> Result<Value, String> {
@@ -212,19 +224,39 @@ fn run(args: &[String]) -> Result<(), String> {
             let out = opt(rest, "-o").ok_or("quick needs -o OUT")?;
             let mut p = json!({"action": action, "input": input, "output": out});
             if let Some(o) = p.as_object_mut() {
-                for key in ["scale", "width", "height", "tolerance", "intensity", "quality", "quarter_turns"] {
+                for key in ["scale", "width", "height", "tolerance", "intensity", "quality", "quarter_turns", "amount", "block"] {
                     if let Some(v) = num(rest, &format!("--{key}"))? {
                         o.insert(key.into(), json!(v));
                     }
                 }
-                for key in ["preset", "fit"] {
+                for key in ["preset", "fit", "method", "model", "color"] {
                     if let Some(v) = opt(rest, &format!("--{key}")) {
                         o.insert(key.into(), json!(v));
                     }
                 }
             }
-            let mut s = Session::new();
+            let mut s = with_models(Session::new());
             print(&exec(&mut s, "quick.image", p)?);
+            Ok(())
+        }
+        "model" => {
+            let mut s = with_models(Session::new());
+            let r = match (rest.first().map(String::as_str), rest.get(1)) {
+                (None | Some("status"), _) => exec(&mut s, "model.status", json!({}))?,
+                (Some("download"), name) => {
+                    let spec = genha_segment::model(name.map(String::as_str).unwrap_or(genha_segment::DEFAULT_MODEL)).map_err(|e| e.to_string())?;
+                    eprintln!(
+                        "downloading {} ({:.1} MB) from {}",
+                        spec.label,
+                        spec.bytes as f64 / 1e6,
+                        genha_engine::cmd::models::download_url(spec)
+                    );
+                    exec(&mut s, "model.download", json!({"name": spec.name}))?
+                }
+                (Some("remove"), Some(name)) => exec(&mut s, "model.remove", json!({"name": name}))?,
+                (Some(other), _) => return Err(format!("unknown model command `{other}` (status, download [NAME], remove NAME)")),
+            };
+            print(&r);
             Ok(())
         }
         "mcp" => {
@@ -241,6 +273,7 @@ fn run(args: &[String]) -> Result<(), String> {
                     });
                     let mut backend = genha_mcp::Headless::new(Some(hook));
                     backend.session.fonts = Arc::new(genha_text::FontBook::system());
+                    backend.session.models = with_models(Session::new()).models;
                     genha_mcp::Server::new(backend).serve(stdin.lock(), stdout.lock())
                 }
             }

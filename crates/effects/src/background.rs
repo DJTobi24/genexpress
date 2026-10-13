@@ -12,7 +12,7 @@
 //!    (a 3×3 box filter over the mask) so it does not look jagged.
 
 use genha_color::Color;
-use image::{Rgba, RgbaImage};
+use image::{GrayImage, Luma, Rgba, RgbaImage};
 
 /// Pixels at or below this alpha already count as background.
 const CLEAR: u8 = 16;
@@ -189,23 +189,62 @@ pub fn remove_background(img: &RgbaImage, tolerance: f32) -> RgbaImage {
 
 /// Replaces the background of `img` (found as in [`remove_background`]) with `color`.
 pub fn change_background(img: &RgbaImage, color: Color, tolerance: f32) -> RgbaImage {
-    let mut out = remove_background(img, tolerance);
-    for p in out.pixels_mut() {
+    fill_behind(remove_background(img, tolerance), color)
+}
+
+/// `cut` (a cut-out) over a solid `color`.
+fn fill_behind(mut cut: RgbaImage, color: Color) -> RgbaImage {
+    for p in cut.pixels_mut() {
         *p = over(*p, color);
     }
-    out
+    cut
 }
 
 /// Blurs the background of `img` (found as in [`remove_background`]) and keeps the subject sharp,
 /// like a shallow depth of field. `radius` is the blur in pixels (clamped to `0..=100`).
 pub fn blur_background(img: &RgbaImage, tolerance: f32, radius: f32) -> RgbaImage {
     let cut = remove_background(img, tolerance);
+    let mask = GrayImage::from_fn(cut.width(), cut.height(), |x, y| Luma([cut.get_pixel(x, y)[3]]));
+    blur_background_masked(img, &mask, radius)
+}
+
+/// `img` with `mask` (255 keeps a pixel, 0 removes it; another size is stretched to fit) as its
+/// transparency: the cut-out for a mask from any source (an ML model, a painted mask…). The
+/// picture's own transparency is kept too.
+pub fn cut_out(img: &RgbaImage, mask: &GrayImage) -> RgbaImage {
+    let mask = fit_mask(mask, img.width(), img.height());
+    let mut out = img.clone();
+    for (p, m) in out.pixels_mut().zip(mask.pixels()) {
+        p[3] = ((u32::from(p[3]) * u32::from(m[0]) + 127) / 255) as u8;
+    }
+    out
+}
+
+/// [`change_background`] with the subject given by `mask` (see [`cut_out`]).
+pub fn change_background_masked(img: &RgbaImage, mask: &GrayImage, color: Color) -> RgbaImage {
+    fill_behind(cut_out(img, mask), color)
+}
+
+/// `mask` at `w × h` (resized with a smooth filter when it is another size).
+fn fit_mask(mask: &GrayImage, w: u32, h: u32) -> GrayImage {
+    if mask.dimensions() == (w, h) {
+        return mask.clone();
+    }
+    if mask.width() == 0 || mask.height() == 0 {
+        return GrayImage::from_pixel(w, h, Luma([255]));
+    }
+    image::imageops::resize(mask, w, h, image::imageops::FilterType::Triangle)
+}
+
+/// [`blur_background`] with the subject given by `mask` (see [`cut_out`]).
+pub fn blur_background_masked(img: &RgbaImage, mask: &GrayImage, radius: f32) -> RgbaImage {
+    let mask = fit_mask(mask, img.width(), img.height());
     let r = if radius.is_finite() { radius.clamp(0.0, 100.0) } else { 12.0 };
     let blurred = image::imageops::blur(img, r.max(0.1) / 2.0);
     let mut out = blurred;
-    for (o, (c, src)) in out.pixels_mut().zip(cut.pixels().zip(img.pixels())) {
-        // The cut-out's alpha says how much of the sharp subject shows.
-        let a = f32::from(c[3]) / 255.0;
+    for (o, (c, src)) in out.pixels_mut().zip(mask.pixels().zip(img.pixels())) {
+        // The mask says how much of the sharp subject shows.
+        let a = f32::from(c[0]) / 255.0;
         for k in 0..3 {
             let v = f32::from(src[k]) * a + f32::from(o[k]) * (1.0 - a);
             o[k] = v.round().clamp(0.0, 255.0) as u8;
@@ -327,6 +366,31 @@ mod tests {
         assert_eq!(out.get_pixel(0, 0)[3], 0);
         assert_eq!(out.get_pixel(0, 39)[3], 0);
         assert_eq!(out.get_pixel(20, 20)[3], 255);
+    }
+
+    #[test]
+    fn masks_from_elsewhere() {
+        let img = product_shot();
+        // Keep the left half, fade the right half.
+        let mask = GrayImage::from_fn(60, 40, |x, _| Luma([if x < 30 { 255 } else { 0 }]));
+        let cut = cut_out(&img, &mask);
+        assert_eq!(cut.get_pixel(10, 10)[3], 255);
+        assert_eq!(cut.get_pixel(50, 10)[3], 0);
+        assert_eq!(&cut.get_pixel(10, 10).0[..3], &img.get_pixel(10, 10).0[..3]);
+        // A mask of another size is stretched; an empty one keeps everything.
+        let small = GrayImage::from_fn(6, 4, |x, _| Luma([if x < 3 { 255 } else { 0 }]));
+        let cut = cut_out(&img, &small);
+        assert_eq!((cut.get_pixel(2, 20)[3], cut.get_pixel(57, 20)[3]), (255, 0));
+        assert!(cut_out(&img, &GrayImage::new(0, 0)).pixels().all(|p| p[3] == 255));
+        // The picture's own transparency stays.
+        let half = RgbaImage::from_pixel(4, 4, Rgba([9, 9, 9, 128]));
+        assert_eq!(cut_out(&half, &GrayImage::from_pixel(4, 4, Luma([255]))).get_pixel(1, 1)[3], 128);
+        let filled = change_background_masked(&img, &mask, Color::rgb(0, 255, 0));
+        assert_eq!(*filled.get_pixel(50, 10), Rgba([0, 255, 0, 255]));
+        assert_eq!(*filled.get_pixel(25, 20), *img.get_pixel(25, 20));
+        let blurred = blur_background_masked(&img, &mask, 8.0);
+        assert_eq!(blurred.get_pixel(10, 10), img.get_pixel(10, 10));
+        assert_eq!(blurred.dimensions(), img.dimensions());
     }
 
     #[test]

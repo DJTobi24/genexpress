@@ -1,0 +1,37 @@
+[package]
+name = "genha-segment"
+description = "GenHa subject segmentation: optional ML models (downloaded, verified, run with tract) for background removal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+image = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+tract-onnx = { workspace = true, optional = true }
+
+# In the browser, tract's random numbers (not used by segmentation, but compiled in) come from
+# the JavaScript crypto API.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tract-onnx = { workspace = true, features = ["getrandom-js"], optional = true }
+
+# Downloading models (desktop only; the browser fetches with its own `fetch`).
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ureq = { workspace = true }
+
+[dev-dependencies]
+genha-effects = { workspace = true }
+
+[features]
+# Running models (tract). Without it the registry, checks and downloads still work and loading a
+# model reports that this build cannot run it (it adds about 11 MB to the browser build).
+inference = ["dep:tract-onnx"]
+
+[[test]]
+name = "real_model"
+required-features = ["inference"]
+
+[lints]
+workspace = true

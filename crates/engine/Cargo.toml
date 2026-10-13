@@ -21,6 +21,7 @@ genha-svg = { workspace = true }
 genha-pdf = { workspace = true }
 genha-motion = { workspace = true }
 genha-video = { workspace = true }
+genha-segment = { workspace = true }
 image = { workspace = true }
 png = { workspace = true }
 serde = { workspace = true }
@@ -28,6 +29,10 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 base64 = { workspace = true }
 log = { workspace = true }
+
+[features]
+# AI background removal (genha-segment's model runtime): on in the desktop app and the CLI.
+ml = ["genha-segment/inference"]
 
 [dev-dependencies]
 proptest = { workspace = true }
