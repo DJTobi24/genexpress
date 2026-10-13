@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last updated:** 2026-10-13 · **Change:** minor (text editing on the canvas, vector PDF, multi-series charts and merged table cells, MP4 video export: `crates/video`)
+> **Last updated:** 2026-10-13 · **Change:** minor (text editing on the canvas, vector PDF, multi-series charts and merged table cells, MP4 video export: `crates/video`; translations: `crates/i18n`)
 
 How GenHa is built. Day-to-day rules (clean-room, never crash, quality gates) are in
 [`AGENTS.md`](../AGENTS.md) and [development.md](development.md). The layout deliberately mirrors the
@@ -19,7 +19,7 @@ that nothing below L6 depends on a UI toolkit (egui, eframe, winit, rfd). Table:
 
 | Layer | Crates | Role |
 |---|---|---|
-| L0 | `geom`, `color` | frames (position, size, rotation), fitting, snapping, shape outlines (on `kurbo`); sRGB colours as hex, HSL, WCAG contrast, harmonies |
+| L0 | `geom`, `color`, `i18n` | frames (position, size, rotation), fitting, snapping, shape outlines (on `kurbo`); sRGB colours as hex, HSL, WCAG contrast, harmonies; the UI's translations (gettext PO catalogues compiled in, `tr`/`tr!`/`tr_n!`, the language per thread) |
 | L1 | `doc` | the document model: designs with pages of any size, elements (shapes, text, pictures, groups), brand kit, embedded assets, page-size presets; pure data + serde |
 | L2 | `text`, `effects`, `layout`, `templates`, `motion` | font discovery and text layout to outlines (`skrifa`); picture decoding, adjustments, filters and quick actions (background removal, resize, convert…); smart resize, align/distribute, collages, snapping guides; templates, shapes/icons, text styles, palettes and QR codes generated in code; animations evaluated at a time (`page_at`) |
 | L3 | `render`, `svg`, `pdf`, `video`, `format` | page → pixels (`vello_cpu`) and PNG/JPEG; SVG export; vector PDF export (`krilla`: embedded font subsets, pictures, print boxes); MP4 video (an H.264 encoder and MP4 writer of our own, pure Rust); the native `.genha` format (versioned, compressed JSON) |
@@ -177,6 +177,16 @@ What the app keeps between runs (Data Recovery copies, recent designs with thumb
 user added) goes through `genha_engine::store::Store`, a small key-value trait: a folder on the
 desktop (`DirStore`, the per-user data folder), IndexedDB in the browser (`genha_ui_egui` ›
 `web::IdbStore`). The `recovery.*`, `recent.*` and `font.*` commands only see the trait.
+
+## Translations
+
+The UI is written in English; `genha_i18n::tr` looks each string up in the current language's
+catalogue (`crates/i18n/po/<code>.po`) where it is shown, falling back to English. Command labels and
+menus, size presets and other labels from lower crates stay English in the engine (agents and the
+CLI see English) and are translated by the UI. The language is a session preference
+(`ui.setLanguage`, kept in the store); the UI applies it at the start of every frame (the current
+language is per thread, so parallel tests do not interfere). See [development.md](development.md) ›
+Translating GenHa.
 
 ## Agent control
 

@@ -317,6 +317,17 @@ impl FontBook {
         best.map(|(_, i)| i)
     }
 
+    /// Whether face `face` maps character `c`.
+    pub fn face_covers(&self, face: usize, c: char) -> bool {
+        self.face(face).is_some_and(|f| f.covers(c))
+    }
+
+    /// Faces to look in for characters a regular, upright face lacks, best first (as text layout
+    /// falls back): e.g. to give another renderer, such as the UI's, fonts for more scripts.
+    pub fn fallback_faces(&self) -> Vec<usize> {
+        self.fallback_order(false, false)
+    }
+
     /// Faces to look in for characters the chosen face lacks, best first: the generic families in
     /// this style, then every other face, those with OpenType layout tables (which shape complex
     /// scripts) before those without.

@@ -3,6 +3,10 @@
 //! The UI is thin: it reads engine state and acts through [`App::run`], which executes engine
 //! commands. Two screens: [`home`] (start a design from a size, a template or a picture; quick
 //! actions) and the editor ([`editor`], [`canvas`], [`properties`]), plus present mode ([`motion`]).
+//!
+//! Every string the UI shows is English in the code and translated where it is shown
+//! (`genha_i18n::tr`, `tr!`, `tr_n!`; catalogues in `crates/i18n/po`). The language is the
+//! session's `ui.setLanguage` preference, applied at the start of every frame.
 #![forbid(unsafe_code)]
 
 pub mod canvas;
@@ -26,10 +30,12 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use genha_engine::{Session, guard};
+use genha_engine::{EngineError, Session, guard};
+use genha_i18n::{N_, tr};
 use genha_render::Renderer;
 use genha_text::FontBook;
 
+pub use genha_i18n as i18n;
 pub use thumbs::Thumbs;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,14 +56,15 @@ pub enum LeftTab {
 
 impl LeftTab {
     pub const ALL: [LeftTab; 6] = [LeftTab::Templates, LeftTab::Elements, LeftTab::Text, LeftTab::Media, LeftTab::Brand, LeftTab::Layers];
+    /// The tab's name in English (as the control channel reports it; shown translated).
     pub fn label(self) -> &'static str {
         match self {
-            LeftTab::Templates => "Templates",
-            LeftTab::Elements => "Elements",
-            LeftTab::Text => "Text",
-            LeftTab::Media => "Media",
-            LeftTab::Brand => "Brand",
-            LeftTab::Layers => "Layers",
+            LeftTab::Templates => N_("Templates"),
+            LeftTab::Elements => N_("Elements"),
+            LeftTab::Text => N_("Text"),
+            LeftTab::Media => N_("Media"),
+            LeftTab::Brand => N_("Brand"),
+            LeftTab::Layers => N_("Layers"),
         }
     }
 }
@@ -130,6 +137,8 @@ pub struct App {
     pub recovered: Vec<(String, String)>,
     /// Text to put on the system clipboard next frame (after copying objects).
     pub(crate) clip_out: Option<String>,
+    /// System fonts egui falls back to for scripts its own faces lack (Arabic, CJK…).
+    pub(crate) ui_fonts: fonts::UiFonts,
 }
 
 /// Font families for pickers: generic names first, then the book's families.
@@ -154,6 +163,7 @@ impl App {
             session.instance = i;
         }
         genha_engine::cmd::edit::load_preferences(&mut session);
+        genha_i18n::set_language(session.language.resolve());
         // Fonts the user added before.
         let added = genha_engine::cmd::fonts::load_stored_fonts(&mut session);
         if added > 0 {
@@ -182,6 +192,7 @@ impl App {
             recent_rev: 0,
             recovered: vec![],
             clip_out: None,
+            ui_fonts: fonts::UiFonts::default(),
         };
         app.refresh_recent();
         if let Ok(list) = app.session.execute("recovery.list", &json!({})) {
@@ -215,6 +226,8 @@ impl App {
     /// Reloads the font families (after fonts were added).
     pub fn refresh_fonts(&mut self) {
         self.font_families = family_list(&self.session.fonts);
+        // A new font may cover a script the UI could not show yet.
+        self.ui_fonts.refresh();
         // Text drawn before the font arrived is drawn again.
         self.thumbs.forget_prefix("");
         if self.session.text_editing.is_none() {
@@ -249,7 +262,7 @@ impl App {
                 Some(v)
             }
             Err(e) => {
-                self.set_status(e.to_string());
+                self.set_status(error_text(&e));
                 None
             }
         }
@@ -274,7 +287,7 @@ impl App {
         if (self.session.docs.iter().any(|d| d.dirty) || self.recovery_state.iter().any(|s| s.2))
             && let Err(e) = self.session.execute("recovery.save", &json!({}))
         {
-            self.set_status(format!("Data Recovery: {e}"));
+            self.set_status(genha_i18n::tr!("Data Recovery: {error}", error = error_text(&e)));
             return;
         }
         self.recovery_state = state;
@@ -291,12 +304,15 @@ impl App {
         if let Err(msg) = guard::catch_panic(|| self.ui_frame(ui)) {
             self.session.preview = None;
             self.session.tools.cancel();
-            self.set_status(format!("Internal error: {msg} (please report this bug)"));
+            self.set_status(genha_i18n::tr!("Internal error: {error} (please report this bug)", error = msg));
         }
     }
 
     fn ui_frame(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
+        // The language can change at any time (`ui.setLanguage` from the UI, the control channel…).
+        genha_i18n::set_language(self.session.language.resolve());
+        fonts::update_ui_fonts(self, &ctx);
         if self.theme_applied != Some(self.dark) {
             theme::apply(&ctx, self.dark);
             self.theme_applied = Some(self.dark);
@@ -340,12 +356,12 @@ impl App {
                         Ok(m) if m.len() <= genha_text::MAX_FONT_FILE as u64 => std::fs::read(&path)
                             .map_err(|e| e.to_string())
                             .and_then(|b| genha_engine::cmd::fonts::add_font_bytes(&mut self.session, &name, b, true).map_err(|e| e.to_string())),
-                        _ => Err(format!("{name} is too large or can't be read")),
+                        _ => Err(genha_i18n::tr!("{name} is too large or can't be read", name = name)),
                     };
                     match added {
                         Ok((_, families)) => {
                             self.refresh_fonts();
-                            self.set_status(format!("Added {}", if families.is_empty() { name } else { families.join(", ") }));
+                            self.set_status(genha_i18n::tr!("Added {fonts}", fonts = if families.is_empty() { name } else { families.join(", ") }));
                         }
                         Err(e) => self.set_status(e),
                     }
@@ -355,7 +371,7 @@ impl App {
                     self.run("file.open", &json!({"path": p}));
                 }
             } else if let Ok(bytes) = f.bytes() {
-                let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "picture".into());
+                let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| tr("picture").into());
                 if self.screen == Screen::Editor {
                     use base64::Engine as _;
                     let data = base64::engine::general_purpose::STANDARD.encode(&bytes);
@@ -368,6 +384,37 @@ impl App {
                 }
             }
         }
+    }
+}
+
+/// An object's name as the UI shows it: its own, else the first line of its text, else its kind
+/// (in the UI's language).
+pub fn element_name(el: &genha_doc::Element) -> String {
+    let name = el.display_name();
+    if el.name.is_empty() && name == el.kind.type_name() { tr(&name).to_string() } else { name }
+}
+
+/// A name as the UI shows it: the default names GenHa gives designs, pages and brands ("Untitled
+/// design", "Page 2", "My brand") in the UI's language; names someone chose as they are.
+pub fn shown_name(name: &str) -> String {
+    if let Some(n) = name.strip_prefix("Page ").and_then(|n| n.parse::<u32>().ok()) {
+        return genha_i18n::tr!("Page {n}", n = n);
+    }
+    const DEFAULTS: [&str; 7] = [N_("Untitled design"), N_("Untitled"), N_("My brand"), N_("Primary"), N_("Secondary"), N_("Dark"), N_("Light")];
+    if DEFAULTS.contains(&name) { tr(name).to_string() } else { name.to_string() }
+}
+
+/// An engine error as the status bar shows it, in the UI's language where it is one users meet
+/// (others, such as invalid parameters from scripts, stay in English).
+pub fn error_text(e: &EngineError) -> String {
+    match e {
+        EngineError::NoDocument => tr("no document open").to_string(),
+        EngineError::Disabled(id, why) => {
+            let command = genha_engine::find_command(id).map_or(id.as_str(), |s| tr(s.label));
+            genha_i18n::tr!("{command} is not available right now: {reason}", command = command, reason = tr(why))
+        }
+        EngineError::Other(msg) => tr(msg).to_string(),
+        e => e.to_string(),
     }
 }
 
@@ -384,3 +431,5 @@ pub(crate) fn now() -> f64 {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_i18n;

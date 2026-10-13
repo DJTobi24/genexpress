@@ -11,6 +11,7 @@ genha-engine = { workspace = true }
 genha-doc = { workspace = true }
 genha-geom = { workspace = true }
 genha-color = { workspace = true }
+genha-i18n = { workspace = true }
 genha-text = { workspace = true }
 genha-render = { workspace = true }
 genha-effects = { workspace = true }

@@ -91,6 +91,7 @@ fn cmd_layers() -> Result<(), String> {
 const WASM_CRATES: &[&str] = &[
     "genha-geom",
     "genha-color",
+    "genha-i18n",
     "genha-doc",
     "genha-text",
     "genha-effects",

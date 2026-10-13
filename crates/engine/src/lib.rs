@@ -163,6 +163,9 @@ pub struct Session {
     /// Smart guides preference (`view.snapping`): moves and resizes snap to the page, other
     /// objects, equal gaps and matching sizes. Kept in the store between runs.
     pub snapping: bool,
+    /// The user interface's language (`ui.setLanguage`): the system's, or a fixed one. Kept in
+    /// the store between runs.
+    pub language: genha_i18n::Setting,
     /// The preview of a gesture in progress.
     pub preview: Option<Preview>,
     /// The text box being edited in place (`text.beginEdit` … `text.endEdit`).
@@ -198,6 +201,7 @@ impl Session {
             style_clipboard: None,
             tools: ToolState::default(),
             snapping: true,
+            language: genha_i18n::Setting::System,
             preview: None,
             text_editing: None,
             straight: std::sync::Mutex::new(None),

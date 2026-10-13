@@ -51,6 +51,15 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             view_snapping
         ),
         cmd!(
+            query "ui.setLanguage",
+            "Language",
+            [],
+            None,
+            "{lang?: \"system\"|\"en\"|\"de\"} — the user interface's language (\"system\": the computer's or browser's language when GenHa has it, else English); kept for next time. Without `lang` it only reports. Returns {lang, resolved, available: [{lang, name}]}",
+            always,
+            ui_set_language
+        ),
+        cmd!(
             "command.batch",
             "Run Commands",
             [],
@@ -284,10 +293,34 @@ fn view_snapping(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(ok(json!({"on": on})))
 }
 
-/// Reads the preferences kept in the session's store (smart guides on or off).
+/// Where the language preference is kept.
+const LANGUAGE_KEY: &str = "settings/language";
+
+fn ui_set_language(s: &mut Session, p: &Value) -> Result<Value> {
+    if let Some(v) = p.get("lang").filter(|v| !v.is_null()) {
+        let text = v.as_str().ok_or_else(|| bad("ui.setLanguage", "`lang` must be a string"))?;
+        let setting = genha_i18n::Setting::parse(text)
+            .ok_or_else(|| bad("ui.setLanguage", format!("unknown language `{text}` (use \"system\", \"en\" or \"de\")")))?;
+        s.language = setting;
+        if let Some(store) = s.store.as_mut() {
+            // Losing the preference only means the system's language next run: not worth failing.
+            if let Err(e) = store.write(LANGUAGE_KEY, setting.id().as_bytes()) {
+                s.post(format!("Could not keep the language setting: {e}"));
+            }
+        }
+    }
+    let available: Vec<Value> = genha_i18n::Lang::ALL.iter().map(|l| json!({"lang": l.code(), "name": l.native_name()})).collect();
+    Ok(ok(json!({"lang": s.language.id(), "resolved": s.language.resolve().code(), "available": available})))
+}
+
+/// Reads the preferences kept in the session's store (smart guides on or off, the language).
 pub fn load_preferences(s: &mut Session) {
     if let Some(v) = s.store.as_ref().and_then(|st| st.read(SNAPPING_KEY)) {
         s.snapping = v.as_slice() != b"off";
+    }
+    if let Some(v) = s.store.as_ref().and_then(|st| st.read(LANGUAGE_KEY)) {
+        // A setting this version doesn't know (a newer one wrote it) means the system's language.
+        s.language = std::str::from_utf8(&v).ok().and_then(genha_i18n::Setting::parse).unwrap_or_default();
     }
 }
 

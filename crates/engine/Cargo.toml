@@ -9,6 +9,7 @@ rust-version.workspace = true
 [dependencies]
 genha-geom = { workspace = true }
 genha-color = { workspace = true }
+genha-i18n = { workspace = true }
 genha-doc = { workspace = true }
 genha-effects = { workspace = true }
 genha-format = { workspace = true }
