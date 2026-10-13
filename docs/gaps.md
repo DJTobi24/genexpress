@@ -1,6 +1,6 @@
 # Gaps — the ranked work list
 
-> **Last updated:** 2026-10-12
+> **Last updated:** 2026-10-13
 
 Every known shortfall, most valuable first. Pick work from the top unless the user asks for something else.
 
@@ -8,7 +8,7 @@ Every known shortfall, most valuable first. Pick work from the top unless the us
 |---|---|---|---|
 | 1 | Web build: installed/web fonts (only the built-in Ubuntu Light, one weight), Data Recovery and recent designs in browser storage, paste of pictures, control channel over a web socket | Platform | the web app runs (`apps/genha-web`, `cargo xtask web`): open, place, drop, quick actions, Save and Download as browser downloads |
 | 2 | Edit text directly on the canvas (caret, selection) instead of the floating editor | Editor | |
-| 3 | Kerning, ligatures and complex scripts (HarfRust shaping); per-glyph font fallback | Text | `crates/text` uses charmap + advances only |
+| 3 | Colour emoji (COLR/bitmap fonts are not drawn), justified text, OpenType feature and language settings, hyphenation, vertical text | Text | shaping landed (M3.1): HarfRust kerning, ligatures, marks, Arabic/Hebrew/Indic, bidi reordering, UAX #14 line breaks, per-cluster font fallback |
 | 4 | Vector PDF (krilla) and CMYK print PDF | Export | pages are pictures with an invisible text layer; print PDF has bleed and crop marks |
 | 5 | Document-wide text styles; grid text | Text | curved text landed (`text.setCurve`) |
 | 6 | Smart resize: reflow text boxes to the new width, re-layout grids | Layout | stacked elements now move as blocks; boxes keep their scaled widths |

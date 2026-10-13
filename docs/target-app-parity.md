@@ -1,6 +1,6 @@
 # Target-app parity
 
-> **Last updated:** 2026-10-12 · **Change:** major (first assessment) · **Target:** Adobe Express (web, desktop and mobile), feature set as publicly documented in October 2026
+> **Last updated:** 2026-10-13 · **Change:** minor (text shaping) · **Target:** Adobe Express (web, desktop and mobile), feature set as publicly documented in October 2026
 
 The feature inventory of the target app, compiled from **public sources only** (help pages, product
 and pricing pages, press releases, developer docs; URLs per area below), in our own words, feature
@@ -14,7 +14,7 @@ Legend: ✅ works (basic form) · 🟡 partial · ⬜ not yet (milestone in [roa
 |---|---|---|
 | 1. Editor & canvas | ~50% (estimated) | pages of any size, select/move/resize/rotate, groups, order, lock/hide, undo/redo, snapping, version history, crop page, Data Recovery; no comments or co-editing yet |
 | 2. Templates & content | ~25% (estimated) | 65 original templates in 6 categories, 114 icons, 40 palettes, all generated in code; no stock library (by design: open content later) |
-| 3. Text | ~40% (estimated) | text boxes, styles, presets, shadow/outline/highlight effects, curved text, system fonts; no grid text, spellcheck, translate |
+| 3. Text | ~45% (estimated) | text boxes, styles, presets, shadow/outline/highlight effects, curved text, system fonts, real shaping (kerning, ligatures, right-to-left and complex scripts, font fallback); no grid text, colour emoji, spellcheck, translate |
 | 4. Pictures & AI | ~25% (estimated) | place, crop, fit, crop-to-shape, adjustments, filter presets, classic background removal, convert/resize quick actions; no generative AI yet |
 | 5. Video | ~10% (estimated) | element animations (12 entrances, 4 loops, exits) with canvas playback and present mode; GIF and animated PNG export; no timeline, scenes, audio or MP4 yet |
 | 6. Documents & PDF | ~25% (estimated) | multi-page PDF export (raster), presentations as pages, QR codes, charts (bar, line, area, pie, donut, progress) and tables; no PDF editing/import, web pages |
@@ -64,6 +64,7 @@ Sources: https://www.adobe.com/express/feature/design/text-effects/curved · htt
 | Feature | Status | GenHa |
 |---|---|---|
 | Add text, font, size, colour, alignment, spacing, line height | ✅ | `text.add`, `text.setStyle` |
+| Typography: kerning, ligatures, right-to-left and complex scripts, mixed scripts | 🟡 | `genha-text` shapes with HarfRust (kerning, standard ligatures, off when letter-spaced; mark positioning; Arabic joining, Hebrew, Devanagari and other Indic scripts as far as HarfRust and the font go), reorders bidi text per line (UAX #9), breaks lines at UAX #14 opportunities (also between ideographs), and sets characters the chosen font lacks in another installed font. Not yet: colour emoji, justified text, user OpenType features, vertical text |
 | Text presets (heading/subheading/body…) | ✅ | 25 presets (display, serif, mono, kicker, tracked capitals, quotes, big numbers, price tag, button, outline, shadow, glow, highlight), `text.addPreset` |
 | Shadow, outline, shape-behind-text (highlight) | ✅ | `text.setEffect` |
 | Curved / grid text | 🟡 | curved text: `text.setCurve` (-360..360 degrees, arch or smile, multi-line on concentric arcs, shadow and outline follow; highlight boxes are left out on curves); grid text M3 |
@@ -178,6 +179,7 @@ Source: https://www.adobe.com/accessibility/compliance/adobe-express-android-202
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Text shaping (kerning, ligatures, bidi, complex scripts, font fallback) |
 | 2026-10-12 | minor | PDF text layer and print PDF (bleed, crop marks) |
 | 2026-10-12 | minor | Version history, crop page to content, Data Recovery, recent files, SVG import |
 | 2026-10-12 | major | First inventory from public sources and first self-assessment |
