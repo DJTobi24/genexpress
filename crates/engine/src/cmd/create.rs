@@ -42,13 +42,13 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
     ]
 }
 
-fn page_size(s: &Session) -> Result<(f64, f64)> {
+pub(crate) fn page_size(s: &Session) -> Result<(f64, f64)> {
     let d = s.doc()?;
     Ok(d.doc.pages.get(d.page).map(|p| (p.width, p.height)).unwrap_or((1080.0, 1080.0)))
 }
 
 /// `x, y, width, height, rotation` from params, defaulting to a `dw × dh` box centred on the page.
-fn frame_params(p: &Value, page: (f64, f64), dw: f64, dh: f64) -> Frame {
+pub(crate) fn frame_params(p: &Value, page: (f64, f64), dw: f64, dh: f64) -> Frame {
     let w = f64_or(p, "width", dw).max(1.0);
     let h = f64_or(p, "height", dh).max(1.0);
     let x = f64_or(p, "x", (page.0 - w) / 2.0);
@@ -188,7 +188,7 @@ fn text_add(s: &mut Session, p: &Value) -> Result<Value> {
     let width = f64_or(p, "width", page.0 * 0.8);
     let h = text_height(s, &text, &style, width);
     let frame = frame_params(p, page, width, h);
-    let el = Element::new(genha_doc::NodeId(0), frame, ElementKind::Text(TextEl { text, style, effect }));
+    let el = Element::new(genha_doc::NodeId(0), frame, ElementKind::Text(TextEl { text, style, effect, curve: 0.0 }));
     add_element(s, "Add Text", el)
 }
 

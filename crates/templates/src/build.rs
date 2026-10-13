@@ -200,7 +200,7 @@ impl B {
     pub fn text_el(&mut self, name: &str, x: f64, y: f64, w: f64, text: &str, style: TextStyle) -> Element {
         let lines = text.lines().count().max(1) as f64;
         let h = (lines * style.font_size * style.line_height + style.font_size * 0.15).ceil();
-        self.el(name, Frame::new(x, y, w, h), ElementKind::Text(TextEl { text: text.into(), style, effect: TextEffect::None }))
+        self.el(name, Frame::new(x, y, w, h), ElementKind::Text(TextEl { text: text.into(), style, effect: TextEffect::None, curve: 0.0 }))
     }
 
     pub fn text(&mut self, name: &str, x: f64, y: f64, w: f64, text: &str, style: TextStyle) -> NodeId {
@@ -212,6 +212,30 @@ impl B {
     pub fn ctext(&mut self, name: &str, y: f64, w: f64, text: &str, style: TextStyle) -> NodeId {
         let x = (self.w - w) / 2.0;
         self.text(name, x, y, w, text, style)
+    }
+
+    /// A library icon (see [`crate::shape_library`]) in the given frame; nothing if `id` is unknown.
+    pub fn icon(&mut self, name: &str, id: &str, x: f64, y: f64, w: f64, h: f64, fill: Fill) -> Option<NodeId> {
+        let shape = crate::shapes::library_shape(id);
+        debug_assert!(shape.is_some(), "unknown library icon `{id}`");
+        Some(self.shape(name, shape?, x, y, w, h, fill))
+    }
+
+    /// A rounded button: a pill of `fill` with `label` centred on it.
+    pub fn pill(&mut self, name: &str, x: f64, y: f64, w: f64, h: f64, fill: Fill, label: &str, style: TextStyle) {
+        self.rect(name, x, y, w, h, h / 2.0, fill);
+        let style = TextStyle { line_height: 1.15, ..style };
+        let ty = y + (h - style.font_size * style.line_height) / 2.0;
+        self.text(&format!("{name} label"), x, ty, w, label, style);
+    }
+
+    /// Gives the last shape a dashed stroke.
+    pub fn dash_last(&mut self, color: Color, width: f64, dash: &[f64]) {
+        if let Some(e) = self.last()
+            && let ElementKind::Shape(s) = &mut e.kind
+        {
+            s.stroke = Some(StrokeStyle { color, width, dash: dash.to_vec() });
+        }
     }
 
     /// Groups `children` (in page coordinates) under one element whose frame is their bounds.

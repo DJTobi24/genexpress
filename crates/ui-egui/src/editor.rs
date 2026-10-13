@@ -93,12 +93,28 @@ fn top_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.menu_button(egui::RichText::new("Download").strong().color(t.accent), |ui| download_menu(app, ui))
                         .response
-                        .on_hover_text("Export as PNG, JPEG, SVG or PDF");
+                        .on_hover_text("Export as PNG, JPEG, SVG, PDF, GIF or animated PNG");
                     if ui.button("Versions").on_hover_text("Version history").clicked() {
                         app.editor.versions_open = !app.editor.versions_open;
                     }
                     if ui.button("Save").on_hover_text("Save (Ctrl+S)").clicked() {
                         save(app, false);
+                    }
+                    ui.separator();
+                    if ui.button("Present").on_hover_text("Show the design full screen, page by page (F5)").clicked() {
+                        crate::motion::start_presenting(app, ui.ctx());
+                    }
+                    let playing = app.motion.playing.is_some();
+                    if ui
+                        .add(egui::Button::new(if playing { "Stop" } else { "Play" }).selected(playing))
+                        .on_hover_text("Play this page's animations")
+                        .clicked()
+                    {
+                        if playing {
+                            crate::motion::stop(app);
+                        } else {
+                            crate::motion::play(app, ui.ctx());
+                        }
                     }
                     ui.separator();
                     if ui.button("Fit").on_hover_text("Fit page (Ctrl+0)").clicked() {
@@ -156,7 +172,7 @@ fn resize_menu(app: &mut App, ui: &mut egui::Ui) {
 
 fn download_menu(app: &mut App, ui: &mut egui::Ui) {
     let name = app.session.active().map(|d| io::file_stem(&d.doc.title)).unwrap_or_else(|| "design".into());
-    let entries: [(&str, &str, &str, Value); 7] = [
+    let entries: [(&str, &str, &str, Value); 9] = [
         ("PNG", "export.png", "png", json!({})),
         ("PNG — transparent background", "export.png", "png", json!({"transparent": true})),
         ("PNG — 2× size", "export.png", "png", json!({"scale": 2.0})),
@@ -164,10 +180,14 @@ fn download_menu(app: &mut App, ui: &mut egui::Ui) {
         ("SVG", "export.svg", "svg", json!({})),
         ("PDF — all pages", "export.pdf", "pdf", json!({})),
         ("PDF — print (300 dpi, bleed, crop marks)", "export.pdf", "pdf", json!({"print": true})),
+        ("GIF (animated)", "export.gif", "gif", json!({})),
+        ("Animated PNG", "export.apng", "png", json!({})),
     ];
     for (label, cmd, ext, extra) in entries {
         if ui.button(label).clicked() {
             ui.close();
+            #[cfg(target_arch = "wasm32")]
+            crate::web::export(app, cmd, ext, &extra, &name);
             if let Some(path) = io::pick_save(&format!("{name}.{ext}"), (ext, &[ext])) {
                 let mut p = extra;
                 if let Some(o) = p.as_object_mut() {
@@ -188,6 +208,8 @@ pub fn save(app: &mut App, save_as: bool) {
         return;
     }
     let name = app.session.active().map(|d| io::file_stem(&d.doc.title)).unwrap_or_else(|| "design".into());
+    #[cfg(target_arch = "wasm32")]
+    crate::web::save(app, &name);
     if let Some(path) = io::pick_save(&format!("{name}.genha"), io::DESIGNS)
         && app.run("file.saveAs", &json!({"path": path.display().to_string()})).is_some()
     {
@@ -311,7 +333,7 @@ fn d_key(doc: &std::sync::Arc<genha_doc::Document>) -> u64 {
 
 fn left_rail(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     egui::Panel::left("rail")
-        .exact_size(72.0)
+        .exact_size(106.0)
         .frame(egui::Frame::new().fill(t.panel).inner_margin(egui::Margin::symmetric(6, 10)).stroke(egui::Stroke::new(1.0, t.border)))
         .show(ui, |ui| {
             ui.vertical_centered(|ui| {
@@ -319,7 +341,7 @@ fn left_rail(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                     let on = app.left_tab == tab;
                     let text = egui::RichText::new(tab.label()).size(12.0).color(if on { t.accent } else { t.text_dim });
                     let b = egui::Button::new(text)
-                        .min_size(egui::vec2(80.0, 40.0))
+                        .min_size(egui::vec2(92.0, 40.0))
                         .fill(if on { t.accent_soft } else { egui::Color32::TRANSPARENT })
                         .frame(on);
                     if ui.add(b).clicked() {
@@ -457,6 +479,27 @@ fn elements_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     if let Some(id) = add {
         app.run("library.addShape", &json!({"id": id}));
     }
+    ui.separator();
+    heading(ui, "Charts & tables");
+    ui.horizontal_wrapped(|ui| {
+        for (label, kind) in [
+            ("Bar", "bar"),
+            ("Horizontal bar", "horizontal-bar"),
+            ("Line", "line"),
+            ("Area", "area"),
+            ("Pie", "pie"),
+            ("Donut", "donut"),
+            ("Progress", "progress"),
+            ("Ring", "ring"),
+        ] {
+            if ui.button(label).on_hover_text(format!("Add a {} chart", label.to_lowercase())).clicked() {
+                app.run("chart.add", &json!({"kind": kind}));
+            }
+        }
+        if ui.button("Table").on_hover_text("Add a 3 x 3 table").clicked() {
+            app.run("table.add", &json!({}));
+        }
+    });
     ui.separator();
     heading(ui, "QR code");
     ui.add(egui::TextEdit::singleline(&mut app.editor.qr_text).hint_text("https://…"));
@@ -777,6 +820,9 @@ fn shortcuts(app: &mut App, ctx: &egui::Context) {
         if i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::Num0)) {
             app.view.fit_pending = true;
         }
+        if i.consume_key(egui::Modifiers::NONE, egui::Key::F5) {
+            todo.push(("ui.present", json!({})));
+        }
     });
     for (id, p) in todo {
         match id {
@@ -793,7 +839,10 @@ fn shortcuts(app: &mut App, ctx: &egui::Context) {
                 }
             }
             "file.new" => app.screen = crate::Screen::Home,
+            "ui.present" => crate::motion::start_presenting(app, ctx),
             "select.none" => {
+                // Esc also stops a playing animation.
+                crate::motion::stop(app);
                 app.session.tools.cancel();
                 app.session.preview = None;
                 app.run(id, &p);

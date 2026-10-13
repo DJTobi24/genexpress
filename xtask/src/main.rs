@@ -2,6 +2,7 @@
 
 mod checks;
 mod layers;
+mod web;
 
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
@@ -14,7 +15,10 @@ commands:
   layers      check that crates only depend on lower layers and UI crates stay at L6+
   assets      check that every file under assets/ has a row in ASSETS.md
   cleanroom   check for Adobe copyright notices and files made with Adobe applications
-  wasm        check that the engine and below build for wasm32-unknown-unknown";
+  wasm        check that the engine and below, the UI and the web app build for wasm32-unknown-unknown
+              (clippy -D warnings)
+  web         build the web app into dist/web (wasm release build + wasm-bindgen; installs
+              wasm-bindgen-cli at the version in Cargo.lock when missing)";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -24,6 +28,7 @@ fn main() -> ExitCode {
         Some("assets") => checks::assets(&root()),
         Some("cleanroom") => checks::cleanroom(&root()),
         Some("wasm") => wasm(),
+        Some("web") => web::build(&root()),
         Some("-h" | "--help" | "help") | None => {
             println!("{USAGE}");
             Ok(())
@@ -82,7 +87,7 @@ fn cmd_layers() -> Result<(), String> {
     }
 }
 
-/// Crates that must build for the browser (everything up to the engine, plus the MCP-free UI).
+/// Crates that must build for the browser: everything up to the engine, the UI and the web app.
 const WASM_CRATES: &[&str] = &[
     "genha-geom",
     "genha-color",
@@ -91,12 +96,15 @@ const WASM_CRATES: &[&str] = &[
     "genha-effects",
     "genha-layout",
     "genha-templates",
+    "genha-motion",
     "genha-render",
     "genha-svg",
     "genha-pdf",
     "genha-format",
     "genha-tools",
     "genha-engine",
+    "genha-ui-egui",
+    "genha-web",
 ];
 
 fn wasm() -> Result<(), String> {
@@ -108,12 +116,15 @@ fn wasm() -> Result<(), String> {
         println!("wasm: skipped (run `rustup target add wasm32-unknown-unknown`)");
         return Ok(());
     }
-    let mut args = vec!["check", "--target", "wasm32-unknown-unknown", "-q"];
+    // Clippy rather than check: the no-panic lints also cover the browser-only code.
+    let mut args = vec!["clippy", "--target", "wasm32-unknown-unknown", "-q"];
     for c in WASM_CRATES {
-        if root().join("crates").join(c.trim_start_matches("genha-")).exists() {
+        let short = c.trim_start_matches("genha-");
+        if root().join("crates").join(short).exists() || root().join("apps").join(c).exists() {
             args.push("-p");
             args.push(c);
         }
     }
+    args.extend(["--", "-D", "warnings"]);
     run("cargo", &args)
 }

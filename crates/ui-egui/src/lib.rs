@@ -2,17 +2,21 @@
 //!
 //! The UI is thin: it reads engine state and acts through [`App::run`], which executes engine
 //! commands. Two screens: [`home`] (start a design from a size, a template or a picture; quick
-//! actions) and the editor ([`editor`], [`canvas`], [`properties`]).
+//! actions) and the editor ([`editor`], [`canvas`], [`properties`]), plus present mode ([`motion`]).
 #![forbid(unsafe_code)]
 
 pub mod canvas;
 pub mod control;
 pub mod editor;
+pub mod fonts;
 pub mod home;
 mod io;
+pub mod motion;
 pub mod properties;
 pub mod theme;
 mod thumbs;
+#[cfg(target_arch = "wasm32")]
+mod web;
 
 use std::sync::Arc;
 
@@ -99,6 +103,8 @@ pub struct App {
     pub home: home::HomeState,
     pub editor: editor::EditorState,
     pub canvas: canvas::CanvasState,
+    /// Playback on the canvas and present mode (UI-only state).
+    pub motion: motion::MotionState,
     pub control: Option<control::ControlServer>,
     font_families: Vec<String>,
     theme_applied: Option<bool>,
@@ -131,6 +137,7 @@ impl App {
             home: home::HomeState::default(),
             editor: editor::EditorState::default(),
             canvas: canvas::CanvasState::default(),
+            motion: motion::MotionState::default(),
             control: None,
             font_families: families,
             theme_applied: None,
@@ -248,7 +255,11 @@ impl App {
         }
         control::process(self, &ctx);
         self.autosave(&ctx);
+        #[cfg(not(target_arch = "wasm32"))]
         self.handle_dropped_files(&ctx);
+        // Files picked or dropped in the browser arrive asynchronously.
+        #[cfg(target_arch = "wasm32")]
+        web::poll(self, &ctx);
         // Engine messages (repaired files…) surface in the status bar.
         if let Some(m) = self.session.messages.pop() {
             self.session.messages.clear();
@@ -259,10 +270,12 @@ impl App {
         }
         match self.screen {
             Screen::Home => home::show(self, ui),
+            Screen::Editor if self.motion.present.is_some() => motion::present(self, ui),
             Screen::Editor => editor::show(self, ui),
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn handle_dropped_files(&mut self, ctx: &egui::Context) {
         let dropped = ctx.input(|i| i.raw.dropped_files.clone());
         for f in dropped {
@@ -300,7 +313,7 @@ pub(crate) fn now() -> f64 {
     }
     #[cfg(target_arch = "wasm32")]
     {
-        0.0
+        web::now()
     }
 }
 

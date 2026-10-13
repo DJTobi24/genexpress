@@ -119,7 +119,7 @@ pub fn smart_resize(page: &Page, width: f64, height: f64) -> Page {
         let stretchy = match &el.kind {
             ElementKind::Shape(sh) => matches!(sh.shape, ShapeKind::Rect { .. } | ShapeKind::Line | ShapeKind::Path { .. }),
             ElementKind::Image(_) => true,
-            ElementKind::Text(_) | ElementKind::Group(_) => false,
+            ElementKind::Text(_) | ElementKind::Group(_) | ElementKind::Chart(_) | ElementKind::Table(_) => false,
         };
         let (ix0, ix1) = ink_x(el, &f, b);
         let (sx, tx) = if full_bleed || (stretchy && xa.spans(b.x0, b.x1)) { xa.stretch(b.x0, b.x1) } else { xa.anchor(ix0, ix1) };
@@ -303,6 +303,14 @@ fn apply(el: &mut Element, map: &Map, s: f64) {
                 apply(c, map, s);
             }
         }
+        ElementKind::Chart(c) => c.font_size = (c.font_size * s).max(1.0),
+        ElementKind::Table(t) => {
+            t.font_size = (t.font_size * s).max(1.0);
+            k(&mut t.padding);
+            if let Some(st) = &mut t.border {
+                k(&mut st.width);
+            }
+        }
     }
 }
 
@@ -332,7 +340,7 @@ mod tests {
         p.elements.push(Element::new(
             NodeId(3),
             Frame::new(200.0, 450.0, 600.0, 100.0),
-            ElementKind::Text(TextEl { text: "Title".into(), style, effect: TextEffect::Outline { color: Color::WHITE, width: 4.0 } }),
+            ElementKind::Text(TextEl { text: "Title".into(), style, effect: TextEffect::Outline { color: Color::WHITE, width: 4.0 }, curve: 0.0 }),
         ));
         p.elements.push(shape(4, Frame::new(860.0, 860.0, 100.0, 100.0))); // bottom-right logo
         p.elements.push(shape(5, Frame::new(40.0, 40.0, 100.0, 50.0))); // top-left badge
@@ -415,7 +423,7 @@ mod tests {
         p.elements.push(Element::new(
             NodeId(5),
             Frame::new(100.0, 400.0, 800.0, 50.0),
-            ElementKind::Text(TextEl { text: "Short".into(), style, effect: TextEffect::None }),
+            ElementKind::Text(TextEl { text: "Short".into(), style, effect: TextEffect::None, curve: 0.0 }),
         ));
         let r = smart_resize(&p, 1000.0, 2000.0);
         // The inset border follows the page with its margins.
@@ -436,7 +444,7 @@ mod tests {
         p.elements.push(Element::new(
             NodeId(3),
             Frame::new(400.0, 910.0, 260.0, 40.0),
-            ElementKind::Text(TextEl { text: "Go".into(), style, effect: TextEffect::None }),
+            ElementKind::Text(TextEl { text: "Go".into(), style, effect: TextEffect::None, curve: 0.0 }),
         ));
         let r = smart_resize(&p, 2000.0, 1000.0);
         let (pill, label) = (r.elements[0].frame, r.elements[1].frame);
@@ -460,6 +468,7 @@ mod block_tests {
                 text: "Some words here".into(),
                 style: TextStyle { font_size: size, align: TextAlign::Left, color: Color::BLACK, ..TextStyle::default() },
                 effect: TextEffect::None,
+                curve: 0.0,
             }),
         )
     }

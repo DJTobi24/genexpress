@@ -18,3 +18,18 @@ jobs:
       - name: System libraries for the desktop app
         run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libgtk-3-dev fonts-dejavu-core
       - run: cargo xtask ci
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the web app (wasm + wasm-bindgen into dist/web)
+        run: cargo xtask web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: genha-web
+          path: dist/web

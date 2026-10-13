@@ -21,12 +21,12 @@ that nothing below L6 depends on a UI toolkit (egui, eframe, winit, rfd). Table:
 |---|---|---|
 | L0 | `geom`, `color` | frames (position, size, rotation), fitting, snapping, shape outlines (on `kurbo`); sRGB colours as hex, HSL, WCAG contrast, harmonies |
 | L1 | `doc` | the document model: designs with pages of any size, elements (shapes, text, pictures, groups), brand kit, embedded assets, page-size presets; pure data + serde |
-| L2 | `text`, `effects`, `layout`, `templates` | font discovery and text layout to outlines (`skrifa`); picture decoding, adjustments, filters and quick actions (background removal, resize, convert…); smart resize, align/distribute, collages, snapping guides; templates, shapes/icons, text styles, palettes and QR codes generated in code |
+| L2 | `text`, `effects`, `layout`, `templates`, `motion` | font discovery and text layout to outlines (`skrifa`); picture decoding, adjustments, filters and quick actions (background removal, resize, convert…); smart resize, align/distribute, collages, snapping guides; templates, shapes/icons, text styles, palettes and QR codes generated in code; animations evaluated at a time (`page_at`) |
 | L3 | `render`, `svg`, `pdf`, `format` | page → pixels (`vello_cpu`) and PNG/JPEG; SVG export; PDF export; the native `.genha` format (versioned, compressed JSON) |
 | L4 | `tools` | pointer gestures → commands (select/move/resize/rotate, shape and text tools, snapping) |
 | L5 | `engine` | sessions, undo history, selection, the command registry, file I/O, the panic guard |
 | L6 | `ui-egui`, `mcp` | the egui front end (home screen, editor, panels, canvas); the MCP server (JSON-RPC over stdio) |
-| L7 | `apps/genha`, `apps/genha-cli`, `xtask` | desktop app (eframe), CLI (`run`, `export`, `quick`, `info`, `mcp`…), build tooling |
+| L7 | `apps/genha`, `apps/genha-web`, `apps/genha-cli`, `xtask` | desktop app (eframe), web app (eframe web runner, wasm32; `cargo xtask web`), CLI (`run`, `export`, `quick`, `info`, `mcp`…), build tooling |
 
 ## The document
 
@@ -35,8 +35,10 @@ Document ─ title, brand kit, assets (pictures stored once, shared by id)
  └─ Page ─ size (px), background (solid/gradient), duration (video), notes
      └─ Element ─ id, name, frame {x, y, width, height, rotation}, opacity, lock, hide, flip, animation
          ├─ Shape  ─ rect/ellipse/triangle/polygon/star/line/path, fill, border, shadow
-         ├─ Text   ─ text, style (family, size, weight, colour, align, spacing…), effect (shadow/outline/highlight)
+         ├─ Text   ─ text, style (family, size, weight, colour, align, spacing…), effect (shadow/outline/highlight), curve
          ├─ Image  ─ asset, crop, fit, corner radius, crop-to-shape, adjustments, filter, border
+         ├─ Chart  ─ kind (bar/horizontal-bar/line/area/pie/donut/progress), labelled values, colours, labels/values/legend
+         ├─ Table  ─ rows of cell text, header row, fills, grid lines, padding, alignment, column widths
          └─ Group  ─ children (page coordinates)
 ```
 
@@ -54,7 +56,17 @@ so anything a user can do an agent can do. `command.batch` runs several as one u
 
 Pages are rasterized on the CPU by `vello_cpu`; the desktop app shows the result as a texture and
 draws selection handles, guides and previews on top with egui. Text is laid out by `genha-text`
-into glyph outlines so the canvas, PNG/JPEG/PDF exports and SVG-as-paths all match.
+into glyph outlines so the canvas, PNG/JPEG/PDF exports and SVG-as-paths all match. Curved text
+places each glyph's own outline (`genha_text::layout_glyphs`) along an arc. Charts and tables are
+turned into a `Scene` of filled/stroked paths and laid-out text by `genha_render::{chart_scene,
+table_scene}`, which both the rasterizer and the SVG writer draw, so they agree.
+
+## Motion
+
+`genha-motion::page_at(page, t)` is the page as it looks `t` seconds in: each animated element
+moved, scaled, turned, faded or (typewriter) cut short. Canvas playback, present mode and the
+animated exports (`export.gif`, `export.apng`, `export.frame`) all render that page with
+`genha-render`, so they agree. Exports merge frames whose posed model is unchanged before rendering.
 
 ## Files
 

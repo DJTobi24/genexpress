@@ -177,3 +177,22 @@ fn add_font_from_memory() {
     fn assert_send_sync<T: Send + Sync + Clone>(_: &T) {}
     assert_send_sync(&book);
 }
+
+#[test]
+fn glyph_layout_matches_line_layout() {
+    for book in [&FontBook::new(), system()] {
+        let s = style(30.0);
+        let lines = layout(book, "Hi there\nyou", &s, 0.0);
+        let glyphs = layout_glyphs(book, "Hi there\nyou", &s, 0.0);
+        assert_eq!(glyphs.lines.len(), 2);
+        assert_eq!((glyphs.width, glyphs.height), (lines.width, lines.height));
+        for (g, l) in glyphs.lines.iter().zip(&lines.lines) {
+            assert_eq!(g.glyphs.len(), l.text.chars().count());
+            assert_eq!((g.x, g.width, g.baseline), (l.x, l.width, l.baseline));
+            // Glyphs advance left to right, and together draw the line.
+            assert!(g.glyphs.windows(2).all(|w| w[1].x > w[0].x));
+            let n: usize = g.glyphs.iter().map(|p| p.path.elements().len()).sum();
+            assert_eq!(n, l.path.elements().len());
+        }
+    }
+}

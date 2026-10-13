@@ -312,12 +312,16 @@ fn text_doc(effect: TextEffect) -> Document {
     let mut d = doc(300.0, 100.0);
     let id = d.alloc_id();
     let style = TextStyle { font_size: 60.0, color: Color::BLACK, align: TextAlign::Left, ..TextStyle::default() };
-    d.pages[0].elements.push(Element::new(id, Frame::new(10.0, 10.0, 280.0, 80.0), ElementKind::Text(TextEl { text: "HHHH".into(), style, effect })));
+    d.pages[0].elements.push(Element::new(
+        id,
+        Frame::new(10.0, 10.0, 280.0, 80.0),
+        ElementKind::Text(TextEl { text: "HHHH".into(), style, effect, curve: 0.0 }),
+    ));
     d
 }
 
 fn count(r: &Raster, f: impl Fn([u8; 4]) -> bool) -> usize {
-    r.rgba.chunks_exact(4).filter(|p| f([p[0], p[1], p[2], p[3]])).count()
+    r.rgba.as_chunks::<4>().0.iter().filter(|p| f(**p)).count()
 }
 
 #[test]
@@ -387,4 +391,154 @@ fn encoders_round_trip() {
     let bad = Raster { width: 2, height: 2, rgba: vec![0; 3] };
     assert!(encode_png(&bad).is_err());
     assert!(encode_jpeg(&bad, 80).is_err());
+}
+
+/// A page with every chart kind, a table and curved text (written to `$GENHA_SAMPLES/data.png`
+/// when that variable is set, to look at).
+fn data_sample() -> Document {
+    let mut d = doc(1500.0, 1300.0);
+    let kinds = genha_doc::ChartKind::ALL;
+    for (i, k) in kinds.iter().enumerate() {
+        let (col, row) = (i % 3, i / 3);
+        let mut c = genha_doc::ChartEl::sample(*k);
+        if *k == genha_doc::ChartKind::Bar {
+            c.data.push(genha_doc::ChartPoint::new("Loss", -12.0));
+        }
+        if *k == genha_doc::ChartKind::HorizontalBar {
+            c.show_legend = true;
+        }
+        let id = d.alloc_id();
+        let frame = Frame::new(20.0 + col as f64 * 490.0, 20.0 + row as f64 * 400.0, 460.0, 360.0);
+        d.pages[0].elements.push(Element::new(id, frame, ElementKind::Chart(c)));
+    }
+    let mut bar = genha_doc::ChartEl::sample(genha_doc::ChartKind::Progress);
+    bar.data[0].label = "Funding goal".into();
+    let id = d.alloc_id();
+    d.pages[0].elements.push(Element::new(id, Frame::new(510.0, 860.0, 460.0, 90.0), ElementKind::Chart(bar)));
+    let mut t = genha_doc::TableEl::blank(4, 3);
+    t.rows = vec![
+        vec!["Plan".into(), "Price".into(), "Includes".into()],
+        vec!["Starter".into(), "$0".into(), "Templates and basic export".into()],
+        vec!["Plus".into(), "$9".into(), "Brand kit, more storage, priority support for teams".into()],
+        vec!["Team".into(), "$29".into(), "Everything".into()],
+    ];
+    t.column_widths = vec![0.25, 0.2, 0.55];
+    t.font_size = 20.0;
+    let id = d.alloc_id();
+    d.pages[0].elements.push(Element::new(id, Frame::new(1000.0, 800.0, 470.0, 200.0), ElementKind::Table(t)));
+    for (k, (curve, x, y)) in [(120.0, 510.0, 980.0), (-90.0, 1000.0, 1060.0)].into_iter().enumerate() {
+        let style = TextStyle { font_size: 44.0, bold: true, color: Color::rgb(0x5b, 0x3c, 0xf5), ..TextStyle::default() };
+        let mut te = TextEl::new(if k == 0 { "CURVED ARCH TEXT" } else { "smiling along the bottom" }, style);
+        te.curve = curve;
+        if k == 1 {
+            te.effect = TextEffect::Outline { color: Color::rgb(0xff, 0xcc, 0x00), width: 3.0 };
+        }
+        let id = d.alloc_id();
+        d.pages[0].elements.push(Element::new(id, Frame::new(x, y, 470.0, 200.0), ElementKind::Text(te)));
+    }
+    d
+}
+
+#[test]
+fn charts_tables_and_curved_text_draw() {
+    let d = data_sample();
+    // Without fonts: shapes still draw, nothing fails.
+    let r = render(&d);
+    let violet = |p: [u8; 4]| close(p, [0x5b, 0x3c, 0xf5, 255], 12);
+    assert!(count(&r, violet) > 10_000, "{}", count(&r, violet));
+    let fonts = fonts();
+    let r = render_page(&d, 0, fonts, &RenderOptions::default()).unwrap();
+    if let Ok(dir) = std::env::var("GENHA_SAMPLES") {
+        std::fs::write(std::path::Path::new(&dir).join("data.png"), encode_png(&r).unwrap()).unwrap();
+    }
+    // Every scene is finite, for each kind, with odd sizes and hostile data.
+    for k in genha_doc::ChartKind::ALL {
+        let mut c = genha_doc::ChartEl::sample(k);
+        for (w, h) in [(400.0, 300.0), (1.0, 1.0), (5000.0, 20.0), (0.0, 10.0)] {
+            let s = chart_scene(fonts, &genha_doc::BrandKit::default(), &c, w, h);
+            for p in &s.prims {
+                let path = match p {
+                    Prim::Fill { path, .. } | Prim::Stroke { path, .. } => path,
+                    Prim::Text(t) => &t.path,
+                };
+                let b = path.bounding_box();
+                assert!(path.is_empty() || (b.x0.is_finite() && b.y1.is_finite()), "{k:?} {w}x{h}");
+            }
+        }
+        c.data = vec![genha_doc::ChartPoint::new("z", 0.0), genha_doc::ChartPoint::new("n", -5.0)];
+        c.max = Some(1e-300);
+        let _ = chart_scene(fonts, &genha_doc::BrandKit::default(), &c, 300.0, 300.0);
+        c.data.clear();
+        let _ = chart_scene(fonts, &genha_doc::BrandKit::default(), &c, 300.0, 300.0);
+    }
+}
+
+#[test]
+fn pie_starts_at_twelve_and_goes_clockwise() {
+    let mut d = doc(200.0, 200.0);
+    let mut c = genha_doc::ChartEl::sample(genha_doc::ChartKind::Pie);
+    c.data = vec![genha_doc::ChartPoint::new("a", 1.0), genha_doc::ChartPoint::new("b", 3.0)];
+    c.colors = vec![RED, Color::rgb(0, 0, 255)];
+    c.show_legend = false;
+    c.show_values = false;
+    let id = d.alloc_id();
+    d.pages[0].elements.push(Element::new(id, Frame::new(0.0, 0.0, 200.0, 200.0), ElementKind::Chart(c)));
+    let r = render(&d);
+    // The first quarter (12 to 3 o'clock) is red, the rest blue.
+    assert!(close(r.pixel(140, 60).unwrap(), [255, 0, 0, 255], 10), "{:?}", r.pixel(140, 60));
+    assert!(close(r.pixel(60, 60).unwrap(), [0, 0, 255, 255], 10));
+    assert!(close(r.pixel(140, 140).unwrap(), [0, 0, 255, 255], 10));
+}
+
+#[test]
+fn table_cells_fill_and_grow() {
+    let mut t = genha_doc::TableEl::blank(3, 2);
+    t.header_fill = RED;
+    t.border = None;
+    let g = table_geometry(&FontBook::new(), &t, 200.0, 0.0);
+    assert_eq!((g.xs.len(), g.ys.len()), (3, 4));
+    assert!(g.natural_height > 0.0);
+    // A long cell wraps and makes its row taller.
+    let mut long = t.clone();
+    long.rows[1][0] = "many words in one narrow cell that must wrap".into();
+    let g2 = table_geometry(&FontBook::new(), &long, 200.0, 0.0);
+    assert!(g2.ys[2] - g2.ys[1] > (g.ys[2] - g.ys[1]) * 2.0);
+    // A taller box stretches the rows.
+    let g3 = table_geometry(&FontBook::new(), &t, 200.0, g.natural_height * 2.0);
+    assert!((g3.ys[3] - g.natural_height * 2.0).abs() < 1e-6);
+    let mut d = doc(200.0, 200.0);
+    let id = d.alloc_id();
+    d.pages[0].elements.push(Element::new(id, Frame::new(0.0, 0.0, 200.0, 200.0), ElementKind::Table(t)));
+    let r = render(&d);
+    assert!(close(r.pixel(5, 5).unwrap(), [255, 0, 0, 255], 2));
+}
+
+#[test]
+fn curved_text_bends() {
+    let fonts = fonts();
+    let style = TextStyle { font_size: 40.0, ..TextStyle::default() };
+    let mut t = TextEl::new("Curved text here", style);
+    assert!(curved_text_path(fonts, &t, 600.0, 100.0).is_none());
+    t.curve = 180.0;
+    let (w, h) = curved_text_size(fonts, &t, 600.0).unwrap();
+    let (sw, sh) = genha_text::measure(fonts, &t.text, &t.style);
+    // Half a circle: about as tall as its radius (+ the letters), narrower than the straight line.
+    assert!(h > sh * 1.5 && w < sw, "{w}x{h} vs {sw}x{sh}");
+    if fonts.is_empty() {
+        return;
+    }
+    let p = curved_text_path(fonts, &t, 600.0, 300.0).unwrap();
+    let arch = p.bounding_box();
+    assert!((arch.center().x - 300.0).abs() < 10.0 && (arch.center().y - 150.0).abs() < 30.0, "{arch:?}");
+    // An arch's middle is at its top; a smile's at its bottom.
+    let middle = |p: &kurbo::BezPath| {
+        p.segments()
+            .map(|s| s.bounding_box())
+            .filter(|b| b.x0 < 300.0 && b.x1 > 300.0)
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), b| (lo.min(b.y0), hi.max(b.y1)))
+    };
+    assert!(middle(&p).0 < arch.y0 + 10.0, "{:?} vs {arch:?}", middle(&p));
+    t.curve = -180.0;
+    let smile = curved_text_path(fonts, &t, 600.0, 300.0).unwrap();
+    assert!(middle(&smile).1 > smile.bounding_box().y1 - 10.0);
 }

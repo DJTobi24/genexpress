@@ -4,7 +4,7 @@ use genha_color::Color;
 use genha_geom::{Fit, Frame};
 use serde::{Deserialize, Serialize};
 
-use crate::{AssetId, NodeId};
+use crate::{AssetId, ChartEl, NodeId, TableEl};
 
 fn one() -> f32 {
     1.0
@@ -67,6 +67,8 @@ pub enum ElementKind {
     Text(TextEl),
     Image(ImageEl),
     Group(GroupEl),
+    Chart(ChartEl),
+    Table(TableEl),
 }
 
 impl ElementKind {
@@ -76,6 +78,8 @@ impl ElementKind {
             ElementKind::Text(_) => "Text",
             ElementKind::Image(_) => "Image",
             ElementKind::Group(_) => "Group",
+            ElementKind::Chart(_) => "Chart",
+            ElementKind::Table(_) => "Table",
         }
     }
 }
@@ -200,6 +204,31 @@ pub struct TextEl {
     pub style: TextStyle,
     #[serde(default)]
     pub effect: TextEffect,
+    /// Curved text: how far the lines bend, in degrees of arc spanned by the widest line
+    /// (`-360..=360`, 0 = straight). Positive bends the text over the top of a circle (an arch,
+    /// letters pointing away from the centre); negative wraps it under the bottom (a smile, letters
+    /// pointing towards the centre). ±360 closes the widest line into a full circle.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub curve: f64,
+}
+
+fn is_zero(v: &f64) -> bool {
+    *v == 0.0
+}
+
+/// Largest curve, in degrees.
+pub const MAX_CURVE: f64 = 360.0;
+
+impl TextEl {
+    /// Straight text with no effect.
+    pub fn new(text: impl Into<String>, style: TextStyle) -> Self {
+        TextEl { text: text.into(), style, effect: TextEffect::None, curve: 0.0 }
+    }
+
+    /// The curve clamped to `-360..=360` (0 when not finite).
+    pub fn curve_degrees(&self) -> f64 {
+        if self.curve.is_finite() { self.curve.clamp(-MAX_CURVE, MAX_CURVE) } else { 0.0 }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -394,24 +423,64 @@ pub struct GroupEl {
 
 // ---------- animation ----------
 
+/// How an element enters (and, mirrored, leaves) the page. Played by `genha-motion`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum AnimationKind {
     Fade,
+    /// Moves leftwards into place (comes in from the right).
     SlideLeft,
+    /// Moves upwards into place (comes in from below).
     SlideUp,
     Rise,
     Pop,
     Zoom,
     Bounce,
     Typewriter,
+    /// Moves rightwards into place (comes in from the left).
+    SlideRight,
+    /// Moves downwards into place (comes in from above).
+    SlideDown,
+    /// Turns and grows into place.
+    Spin,
+    /// Unfolds horizontally, like a card turning over.
+    Flip,
+}
+
+/// A movement repeated while the element is on screen, between its entrance and its exit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LoopKind {
+    /// Grows and shrinks a little.
+    Pulse,
+    /// Drifts up and down.
+    Float,
+    /// Tilts left and right.
+    Sway,
+    /// Dims and brightens.
+    Blink,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Animation {
+    /// The entrance.
     pub kind: AnimationKind,
-    /// Seconds.
+    /// Seconds (entrance, and exit when there is one).
     pub duration: f64,
+    /// Seconds from the start of the page to the start of the entrance.
     #[serde(default)]
     pub delay: f64,
+    /// Repeated between the entrance and the exit.
+    #[serde(default, rename = "loop", skip_serializing_if = "Option::is_none")]
+    pub looping: Option<LoopKind>,
+    /// Played at the end of the page, so the element leaves before the next one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit: Option<AnimationKind>,
+}
+
+impl Animation {
+    /// An entrance of `kind` (no loop, no exit).
+    pub fn new(kind: AnimationKind, duration: f64, delay: f64) -> Self {
+        Animation { kind, duration, delay, looping: None, exit: None }
+    }
 }

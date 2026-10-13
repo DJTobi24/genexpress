@@ -115,6 +115,7 @@ fn text_layer_and_print_boxes() {
             text: "Hello (world) café".into(),
             style: TextStyle { font_size: 20.0, ..TextStyle::default() },
             effect: TextEffect::None,
+            curve: 0.0,
         }),
     ));
     let fonts = genha_text::FontBook::system();

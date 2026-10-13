@@ -84,6 +84,16 @@ pub fn open_bytes(s: &mut Session, name: &str, bytes: &[u8]) -> Result<Value> {
     Ok(ok(json!({"document": index, "repaired": notes})))
 }
 
+/// The active design as `.genha` bytes (compressed), for hosts without a file system (the web
+/// build downloads them). Like a save: records a version and marks the design saved.
+pub fn design_bytes(s: &mut Session) -> Result<Vec<u8>> {
+    super::versions::auto_version(s);
+    let bytes = genha_format::to_bytes(&s.doc()?.doc, true)?;
+    super::recovery::forget(s, s.active);
+    s.doc_mut()?.dirty = false;
+    Ok(bytes)
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn file_open(s: &mut Session, p: &Value) -> Result<Value> {
     let path = std::path::PathBuf::from(str_req(p, "path", "file.open")?);

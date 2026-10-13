@@ -1,7 +1,8 @@
 //! The GenHa document model (layer L1): pure data + serde.
 //!
 //! A [`Document`] (a "project") holds pages of possibly different sizes. Each [`Page`] has a
-//! background and a z-ordered list of [`Element`]s (bottom first): shapes, text, images and groups.
+//! background and a z-ordered list of [`Element`]s (bottom first): shapes, text, images, groups,
+//! charts and tables.
 //! Pictures and other binary data live once in [`Document::assets`] and are shared by id. The
 //! [`BrandKit`] carries the project's colours, fonts and logos.
 //!
@@ -11,6 +12,7 @@
 
 mod asset;
 mod brand;
+mod data;
 mod element;
 mod page;
 pub mod preset;
@@ -20,9 +22,10 @@ use std::collections::BTreeMap;
 
 pub use asset::{Asset, AssetId, Bytes};
 pub use brand::{BrandColor, BrandKit};
+pub use data::{ChartEl, ChartKind, ChartPoint, MAX_CELL_CHARS, MAX_CHART_POINTS, MAX_TABLE_COLS, MAX_TABLE_ROWS, TableEl, ValueFormat};
 pub use element::{
-    Adjustments, Animation, AnimationKind, CropRect, Element, ElementKind, Fill, GradientStop, GroupEl, ImageEl, Shadow, ShapeEl, ShapeKind,
-    StrokeStyle, TextAlign, TextEffect, TextEl, TextStyle,
+    Adjustments, Animation, AnimationKind, CropRect, Element, ElementKind, Fill, GradientStop, GroupEl, ImageEl, LoopKind, MAX_CURVE, Shadow,
+    ShapeEl, ShapeKind, StrokeStyle, TextAlign, TextEffect, TextEl, TextStyle,
 };
 pub use genha_color::Color;
 pub use genha_geom::{Fit, Frame};
@@ -186,6 +189,7 @@ impl Document {
         }
         let mut seen = std::collections::HashSet::new();
         let mut dupes = 0usize;
+        let mut fixed_data = false;
         for p in &mut self.pages {
             p.width = clamp_side(p.width);
             p.height = clamp_side(p.height);
@@ -211,7 +215,22 @@ impl Document {
                     e.opacity = 1.0;
                 }
                 e.opacity = e.opacity.clamp(0.0, 1.0);
+                match &mut e.kind {
+                    ElementKind::Chart(c) => fixed_data |= c.sanitize(),
+                    ElementKind::Table(t) => fixed_data |= t.sanitize(),
+                    ElementKind::Text(t) => {
+                        let c = t.curve_degrees();
+                        if c != t.curve {
+                            t.curve = c;
+                            fixed_data = true;
+                        }
+                    }
+                    _ => {}
+                }
             });
+        }
+        if fixed_data {
+            notes.push("capped chart, table or curved-text values that were out of range".into());
         }
         if dupes > 0 {
             notes.push(format!("gave {dupes} objects with duplicate ids new ids"));

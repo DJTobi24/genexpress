@@ -15,27 +15,33 @@ workspace, "everything is a command", a never-crash policy, and first-class auto
 
 ## Status
 
-**Stage: pre-alpha (M1 done).** A working desktop editor with templates, smart resize, picture tools
-and exports; ~20–25% of the target feature set by our own (low) estimate — see
+**Stage: pre-alpha (M1 done, M2 in progress).** A working desktop and web editor with templates, smart resize, charts, animation, picture tools
+and exports; ~30–35% of the target feature set by our own (low) estimate — see
 [ROADMAP.md](ROADMAP.md) and [docs/target-app-parity.md](docs/target-app-parity.md).
 
 What works today:
 
-- **Start**: 35 size presets (social, video, print, marketing, documents) or a custom size; 17 original templates; open pictures as a design.
-- **Edit**: multi-page designs (pages of different sizes), select/move/resize/rotate with smart snapping, groups, layer order, lock/hide, align & distribute, copy/paste (also style), undo/redo.
-- **Content**: text with styles, presets and effects (shadow, outline, highlight); shapes and 25 original icons; QR codes; collages; brand kit (colours, fonts, palettes, colours from a photo).
-- **Pictures**: place, crop, fit, crop to shape, corner radius, border, adjustments, 14 filters, background removal (colour-based).
+- **Start**: 35 size presets (social, video, print, marketing, documents) or a custom size; 65 original templates (posts, carousels, stories, covers, flyers, posters, cards, invitations, decks, resumes, logos, ads); open pictures as a design.
+- **Edit**: multi-page designs (pages of different sizes), select/move/resize/rotate with smart snapping (also several objects at once), groups, layer order, lock/hide, align & distribute, copy/paste (also style), undo/redo, crop page to content, version history, Data Recovery after a crash, recent files.
+- **Content**: text with styles, presets and effects (shadow, outline, highlight) and curved text; 25 text styles; charts (bar, line, area, pie, donut, progress) and tables; shapes and 114 original icons in 11 categories; QR codes; 40 palettes; collages; brand kit (colours, fonts, palettes, colours from a photo).
+- **Pictures**: place (also SVG as editable shapes), crop, fit, crop to shape, corner radius, border, adjustments, 14 filters, remove / blur / change background (colour-based).
 - **Smart resize**: re-lay out a page for another size, or add a resized copy.
-- **Export**: PNG (also transparent and 2×), JPEG, SVG, multi-page PDF. Native `.genha` files.
-- **Quick actions** (file in, file out): remove background, resize, convert PNG/JPEG/WebP, trim, black & white.
-- **Automation**: 102 commands reachable from the UI, the CLI, a JSON-lines control channel and MCP.
+- **Motion**: entrance, loop and exit animations for any object or text, "animate all" with a stagger, playback on the canvas, present mode (F5).
+- **Export**: PNG (also transparent and 2×), JPEG, SVG, multi-page PDF with searchable text, print PDF (300 dpi, bleed, crop marks), animated GIF and animated PNG. Native `.genha` files.
+- **Quick actions** (file in, file out): remove / blur / change background, resize, convert PNG/JPEG/WebP, trim, black & white, pixelate.
+- **Automation**: 136 commands reachable from the UI, the CLI, a JSON-lines control channel and MCP.
 
 ## Run it
 
 ```sh
 cargo run --release -p genha                       # the desktop app
 cargo run --release -p genha-cli -- --help         # the command line
+cargo xtask web && python3 -m http.server -d dist/web 8080   # the web app: open http://127.0.0.1:8080
 ```
+
+The web version is the same app compiled to WebAssembly: files are opened through the browser's
+file picker or by dropping them on the page, and Save / Download become browser downloads
+(see [docs/development.md › Web](docs/development.md#web)).
 
 Command-line examples:
 
