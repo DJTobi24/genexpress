@@ -206,6 +206,62 @@ jobs:
           fi
           shasum -a 256 "$dmg"
 
+      - name: Smoke test (start the app like Finder does, with a design to open)
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="$PWD/dist/macos/GenHa.app"
+          work="$RUNNER_TEMP/smoke"
+          mkdir -p "$work"
+          "$app/Contents/MacOS/genha-cli" new --template event-night -o "$work/smoke.genha"
+          # Launch Services starts the bundle and hands it the file as an "open documents" event,
+          # as a double-click in Finder does; --control lets the check below ask what is open.
+          open -n -a "$app" "$work/smoke.genha" --args --control 7979
+          python3 - <<'EOF'
+          import json, socket, subprocess, sys, time
+
+          def alive():
+              return subprocess.run(["pgrep", "-f", "GenHa.app/Contents/MacOS/genha"], capture_output=True).returncode == 0
+
+          sock = None
+          for _ in range(120):
+              if not alive():
+                  sys.exit("::error::GenHa quit or crashed while starting (see the crash report in ~/Library/Logs/DiagnosticReports)")
+              try:
+                  sock = socket.create_connection(("127.0.0.1", 7979), timeout=10)
+                  break
+              except OSError:
+                  time.sleep(0.5)
+          if sock is None:
+              sys.exit("::error::GenHa did not open its control channel")
+          f = sock.makefile("rw")
+
+          def call(i, method):
+              f.write(json.dumps({"id": i, "method": method, "params": {}}) + "\n")
+              f.flush()
+              return json.loads(f.readline())
+
+          opened = False
+          for i in range(60):
+              session = call(i, "session.inspect")
+              names = [d.get("name", "") for d in session.get("result", {}).get("documents", [])]
+              if any("smoke" in n for n in names):
+                  opened = True
+                  break
+              time.sleep(0.5)
+          print("open documents:", names)
+          if not opened:
+              sys.exit("::error::the design handed over by Launch Services did not open (application:openURLs:)")
+          # Keep it running for a while: events reach the app's event handlers (the 0.1.0 dry run
+          # aborted in the first seconds).
+          time.sleep(10)
+          if not alive():
+              sys.exit("::error::GenHa crashed after opening the design")
+          print("state:", call(1000, "ui.state").get("result"))
+          print("GenHa started, opened the design and kept running")
+          EOF
+          pkill -f "GenHa.app/Contents/MacOS/genha" || true
+
       - name: Summary
         if: always()
         shell: bash
