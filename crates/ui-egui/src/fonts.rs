@@ -253,6 +253,25 @@ pub fn add_fonts(app: &mut App) {
     }
 }
 
+/// Adds the font file at `path` (kept for next time); the outcome goes to the status bar.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn add_font_file(app: &mut App, path: &std::path::Path) {
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "font.ttf".into());
+    let added = match std::fs::metadata(path) {
+        Ok(m) if m.len() <= genha_text::MAX_FONT_FILE as u64 => std::fs::read(path)
+            .map_err(|e| e.to_string())
+            .and_then(|b| genha_engine::cmd::fonts::add_font_bytes(&mut app.session, &name, b, true).map_err(|e| e.to_string())),
+        _ => Err(genha_i18n::tr!("{name} is too large or can't be read", name = name)),
+    };
+    match added {
+        Ok((_, families)) => {
+            app.refresh_fonts();
+            app.set_status(genha_i18n::tr!("Added {fonts}", fonts = if families.is_empty() { name } else { families.join(", ") }));
+        }
+        Err(e) => app.set_status(e),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

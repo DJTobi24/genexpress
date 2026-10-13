@@ -28,17 +28,17 @@ everything runs on your own computer (desktop on Windows, macOS and Linux, or in
 
 ## What it can do
 
-- **Start fast:** 35 size presets or a custom size, 121 templates in 6 categories, or open a picture as a design.
-- **Edit:** multi-page designs (pages of any size); move, resize and rotate with smart guides (snapping, equal spacing, distance hints); groups, layers, lock/hide, align & distribute; copy/paste of objects and styles; undo/redo; version history; Data Recovery after a crash; recent designs.
+- **Start fast:** a home screen with one search over templates, sizes, quick actions and your designs; start tiles to open a file, pick a size (35 presets or a custom size), edit a photo, make a video or a presentation; 121 templates in 6 categories.
+- **Edit:** multi-page designs (pages of any size); move, resize and rotate with smart guides (snapping, equal spacing, distance hints); groups, layers, lock/hide, align & distribute; copy/paste of objects and styles; undo/redo; version history; Data Recovery after a crash; My designs with project folders and recent designs.
 - **Text:** edited in place on the canvas, with real typography (kerning, ligatures, Arabic, Hebrew, Indic scripts, font fallback for mixed text); format single words; 25 text styles; shadow, outline and highlight effects; curved text.
 - **Content:** charts (bar, line, area, pie, donut, progress — several series, stacked, axis titles), tables with merged and styled cells, shapes and 114 original icons, QR codes, collages, 40 palettes, brand kits.
 - **Pictures:** crop, fit, crop to shape, corners, borders, adjustments, 14 filters; **remove, blur or change the background** — with an AI model that finds the subject on busy photos (U²-Net, Apache-2.0, downloaded once on request, runs locally) or a fast colour-based method.
 - **Smart resize:** re-lay out a design for another format, or add a resized copy.
 - **Motion:** animations for any object or text, "animate all" with a stagger, playback on the canvas, present mode.
 - **Export:** PNG (also transparent, 2×), JPEG, SVG, **vector PDF** with real, searchable text, **print PDF** (300 dpi, bleed, crop marks, optional CMYK), **MP4 video** (our own pure-Rust H.264 encoder), animated GIF and PNG. Native `.genha` files.
-- **Quick actions** (file in, file out): remove / blur / change background, resize, convert, trim, black & white, pixelate.
+- **Quick actions** (file in, file out): remove / blur / change background, resize, convert, trim, black & white, pixelate; a QR code or a photo collage in one step.
 - **Languages:** English and German, switched live; text in any script shows correctly.
-- **Automation:** every action is one of 163 commands, reachable from the UI, the command line, a JSON control channel and an **MCP server for AI assistants** — anything a user can do, an agent can do.
+- **Automation:** every action is one of 181 commands, reachable from the UI, the command line, a JSON control channel and an **MCP server for AI assistants** — anything a user can do, an agent can do.
 
 | Home screen | Auf Deutsch |
 |---|---|
@@ -107,7 +107,7 @@ video timeline with audio, and more UI languages.
 | Templates / size presets / icons / palettes | 121 / 35 / 114 / 40 |
 | Commands (UI = CLI = MCP) | COMMANDS |
 | Tests | TESTS |
-| Code | ~53k lines of Rust |
+| Code | ~57k lines of Rust |
 
 - [ROADMAP.md](ROADMAP.md) — stage, numbers, what's next and the progress log.
 - [docs/target-app-parity.md](docs/target-app-parity.md) — feature-by-feature comparison with the target app.

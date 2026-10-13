@@ -1,6 +1,6 @@
 # Target-app parity
 
-> **Last updated:** 2026-10-13 · **Change:** minor (text shaping, text edited on the canvas, vector PDF, multi-series charts and richer tables, formatting part of a text box, MP4 video export, German UI, AI background removal, text that shrinks to fit its box) · **Target:** Adobe Express (web, desktop and mobile), feature set as publicly documented in October 2026
+> **Last updated:** 2026-10-13 · **Change:** minor (home screen with My designs and project folders, text shaping, text edited on the canvas, vector PDF, multi-series charts and richer tables, formatting part of a text box, MP4 video export, German UI, AI background removal, text that shrinks to fit its box) · **Target:** Adobe Express (web, desktop and mobile), feature set as publicly documented in October 2026
 
 The feature inventory of the target app, compiled from **public sources only** (help pages, product
 and pricing pages, press releases, developer docs; URLs per area below), in our own words, feature
@@ -42,6 +42,9 @@ Sources: https://helpx.adobe.com/express/web/organize-your-designs/arrange-layer
 | Version history | ✅ | kept in the file: `version.save/list/restore/copy/rename/delete`; automatic version on save (20 kept), bookmarks kept |
 | Comments, @mentions, review/approval | ⬜ | M7 (needs a sync service) |
 | Real-time co-editing, share links | ⬜ | M7 (optional self-hostable server) |
+| Home / start page | 🟡 | M2.24: navigation rail (Create, Home, My designs, Templates, Brand, project folders, Settings); greeting by time of day (optional name, `settings.set`), five start tiles (open a file — drop zone, new design — size picker with presets by category and a custom size, edit a photo, create a video — story/square/wide with an animated title or an animated template, create a presentation — blank 16:9 or a deck template), recent designs with thumbnails and "edited … ago", quick actions with illustrations, a template row with category chips; works at 1000 px (rows scroll sideways). Designed from the owner's description; no account, no cloud |
+| Your stuff: projects / folders | 🟡 | M2.24: My designs keeps every design made or opened (`design.*`: list with folder, search and sort, open, rename, duplicate, move, remove, sync); designs never saved to a file are kept as copies in the data folder (desktop) or IndexedDB (browser), so they are not lost; project folders with colours and order (`folder.*`), drag a card onto a folder; delete with confirmation. Not yet: shared folders, multi-select, trash/restore |
+| Search everything | 🟡 | M2.24: one search over templates (name, tags, category), size presets, quick actions and your designs, in English and German (`home.search`), results grouped under the field, Enter opens the first; the Templates page has its own search and chips. No stock content to search (by design) |
 
 ## 2. Templates and content
 
@@ -182,6 +185,7 @@ Source: https://www.adobe.com/accessibility/compliance/adobe-express-android-202
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-13 | minor | Home screen, My designs with project folders, one search (M2.24) |
 | 2026-10-13 | minor | Text that shrinks to fit its box (M3.3) |
 | 2026-10-13 | minor | German UI, language setting, UI fonts for every script (M5.2) |
 | 2026-10-13 | minor | Formatting part of a text box (style runs, M3.2) |

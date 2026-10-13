@@ -58,9 +58,14 @@ impl eframe::App for Shell {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
             self.title = title;
         }
-        // Ask before closing with unsaved changes.
+        // Designs kept by GenHa get their last changes in My designs; ask before closing with
+        // unsaved changes.
+        let closing = ctx.input(|i| i.viewport().close_requested());
+        if closing {
+            self.app.sync_library();
+        }
         let dirty = self.app.session.docs.iter().any(|d| d.dirty);
-        if ctx.input(|i| i.viewport().close_requested()) && dirty && !self.allow_close {
+        if closing && dirty && !self.allow_close {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.confirm_close = true;
         }

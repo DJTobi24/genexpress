@@ -15,6 +15,16 @@ pub fn pick_open(filters: &[(&str, &[&str])]) -> Option<PathBuf> {
     d.pick_file()
 }
 
+/// Several files at once (none when cancelled).
+#[cfg(not(target_arch = "wasm32"))]
+pub fn pick_many(filters: &[(&str, &[&str])]) -> Option<Vec<PathBuf>> {
+    let mut d = rfd::FileDialog::new();
+    for (name, exts) in filters {
+        d = d.add_filter(*name, exts);
+    }
+    d.pick_files()
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 pub fn pick_save(default_name: &str, filter: (&str, &[&str])) -> Option<PathBuf> {
     rfd::FileDialog::new().set_file_name(default_name).add_filter(filter.0, filter.1).save_file()

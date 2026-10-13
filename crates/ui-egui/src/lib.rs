@@ -1,23 +1,29 @@
 //! The GenHa user interface (layer L6), built on egui.
 //!
 //! The UI is thin: it reads engine state and acts through [`App::run`], which executes engine
-//! commands. Two screens: [`home`] (start a design from a size, a template or a picture; quick
-//! actions) and the editor ([`editor`], [`canvas`], [`properties`]), plus present mode ([`motion`]).
+//! commands. Two screens: [`home`] (a navigation rail with Home — search, start tiles, recent
+//! designs, quick actions, templates — My designs with project folders ([`designs`]), Templates,
+//! Brand and Settings ([`pages`]), and its pop-ups ([`popups`])) and the editor ([`editor`],
+//! [`canvas`], [`properties`]), plus present mode ([`motion`]).
 //!
 //! Every string the UI shows is English in the code and translated where it is shown
 //! (`genha_i18n::tr`, `tr!`, `tr_n!`; catalogues in `crates/i18n/po`). The language is the
 //! session's `ui.setLanguage` preference, applied at the start of every frame.
 #![forbid(unsafe_code)]
 
+mod art;
 pub mod canvas;
 mod clipboard;
 pub mod control;
+pub mod designs;
 pub mod editor;
 pub mod fonts;
 pub mod home;
 mod io;
 pub mod models;
 pub mod motion;
+pub mod pages;
+pub mod popups;
 pub mod properties;
 pub mod textedit;
 pub mod theme;
@@ -92,8 +98,10 @@ impl Default for View {
 pub struct AppOptions {
     /// Files to open at start.
     pub open: Vec<std::path::PathBuf>,
+    /// Dark mode by default (the desktop's `--dark`, the browser's preference); the dark mode
+    /// chosen in Settings wins.
     pub dark: Option<bool>,
-    /// Where the app keeps recent designs, Data Recovery copies and added fonts (none, and no
+    /// Where the app keeps My designs, Data Recovery copies and added fonts (none, and no
     /// `store`: none of them is kept).
     pub data_dir: Option<std::path::PathBuf>,
     /// Keep them here instead of in `data_dir` (the browser: IndexedDB).
@@ -132,10 +140,12 @@ pub struct App {
     last_recovery: f64,
     /// The designs (recovery id, revision, unsaved) when copies were last written.
     recovery_state: Vec<(u64, u64, bool)>,
-    /// Recently opened or saved designs, newest first (`recent.*`).
-    pub recent: Vec<genha_engine::cmd::recent::RecentEntry>,
-    /// Bumped when [`App::recent`] is reloaded (thumbnails are drawn again).
-    pub recent_rev: u64,
+    /// My designs and the project folders, as last read (`design.*`, `folder.*`).
+    pub library: genha_engine::cmd::designs::Library,
+    /// The session's `library_rev` when [`App::library`] was read.
+    library_seen: Option<u64>,
+    /// The session's dark mode setting as last applied (`settings.set {dark}` switches live).
+    dark_seen: Option<bool>,
     /// Copies of designs from a session that ended unexpectedly: (key, title).
     pub recovered: Vec<(String, String)>,
     /// Text to put on the system clipboard next frame (after copying objects).
@@ -165,7 +175,11 @@ impl App {
         if let Some(i) = opts.instance {
             session.instance = i;
         }
+        // The browser's clock for the times My designs and versions record.
+        #[cfg(target_arch = "wasm32")]
+        genha_engine::set_clock(|| web::now().max(0.0) as u64);
         genha_engine::cmd::edit::load_preferences(&mut session);
+        let dark = session.dark.or(opts.dark).unwrap_or(false);
         genha_i18n::set_language(session.language.resolve());
         // Fonts the user added before.
         let added = genha_engine::cmd::fonts::load_stored_fonts(&mut session);
@@ -180,7 +194,7 @@ impl App {
             left_tab: LeftTab::Templates,
             view: View::default(),
             thumbs: Thumbs::default(),
-            dark: opts.dark.unwrap_or(false),
+            dark,
             status: None,
             home: home::HomeState::default(),
             editor: editor::EditorState::default(),
@@ -192,13 +206,15 @@ impl App {
             theme_applied: None,
             last_recovery: now(),
             recovery_state: vec![],
-            recent: vec![],
-            recent_rev: 0,
+            library: Default::default(),
+            library_seen: None,
+            dark_seen: None,
             recovered: vec![],
             clip_out: None,
             ui_fonts: fonts::UiFonts::default(),
         };
-        app.refresh_recent();
+        app.dark_seen = app.session.dark;
+        app.refresh_library();
         if let Ok(list) = app.session.execute("recovery.list", &json!({})) {
             app.recovered = list
                 .as_array()
@@ -221,10 +237,28 @@ impl App {
         &self.font_families
     }
 
-    /// Reloads the recent designs (after opening or saving).
-    pub fn refresh_recent(&mut self) {
-        self.recent = genha_engine::cmd::recent::entries(&self.session);
-        self.recent_rev += 1;
+    /// Reloads My designs (when the session's changed).
+    pub fn refresh_library(&mut self) {
+        if self.library_seen != Some(self.session.library_rev) {
+            self.library = genha_engine::cmd::designs::library(&self.session);
+            self.library_seen = Some(self.session.library_rev);
+        }
+    }
+
+    /// Writes the changes of open designs to My designs (`design.sync`).
+    pub fn sync_library(&mut self) {
+        if self.session.store.is_some()
+            && let Err(e) = self.session.execute("design.sync", &json!({}))
+        {
+            self.set_status(error_text(&e));
+        }
+        self.refresh_library();
+    }
+
+    /// Back to the home screen; open designs' changes reach My designs first.
+    pub fn go_home(&mut self) {
+        self.sync_library();
+        self.screen = Screen::Home;
     }
 
     /// Reloads the font families (after fonts were added).
@@ -248,16 +282,18 @@ impl App {
         }
         match self.session.execute(id, params) {
             Ok(v) => {
-                if id.starts_with("file.") || id.starts_with("recent.") {
-                    self.refresh_recent();
-                }
+                self.refresh_library();
                 if id.starts_with("font.") {
                     self.refresh_fonts();
                 }
                 if matches!(id, "edit.copy" | "edit.cut") {
                     clipboard::copied(self);
                 }
-                if id.starts_with("file.") || id.starts_with("template.") || id.starts_with("recent.") || id == "document.switch" {
+                if id.starts_with("file.")
+                    || id.starts_with("template.")
+                    || id.starts_with("recent.")
+                    || matches!(id, "document.switch" | "design.open" | "recovery.open" | "version.copy")
+                {
                     self.view.fit_pending = true;
                     if !self.session.docs.is_empty() {
                         self.screen = Screen::Editor;
@@ -294,6 +330,10 @@ impl App {
             self.set_status(genha_i18n::tr!("Data Recovery: {error}", error = error_text(&e)));
             return;
         }
+        // Designs kept by GenHa get their changes in My designs too.
+        if let Err(e) = self.session.execute("design.sync", &json!({})) {
+            self.set_status(error_text(&e));
+        }
         self.recovery_state = state;
     }
 
@@ -317,6 +357,14 @@ impl App {
         // The language can change at any time (`ui.setLanguage` from the UI, the control channel…).
         genha_i18n::set_language(self.session.language.resolve());
         fonts::update_ui_fonts(self, &ctx);
+        // Dark mode chosen through `settings.set` (Settings, the control channel) applies at once.
+        if self.session.dark != self.dark_seen {
+            self.dark_seen = self.session.dark;
+            if let Some(d) = self.session.dark {
+                self.dark = d;
+            }
+        }
+        self.refresh_library();
         if self.theme_applied != Some(self.dark) {
             theme::apply(&ctx, self.dark);
             self.theme_applied = Some(self.dark);
@@ -355,20 +403,7 @@ impl App {
                 let is_picture = genha_effects::OutputFormat::from_extension(ext).is_some() || ext.eq_ignore_ascii_case("svg");
                 let is_font = fonts::FONT_FILES.1.iter().any(|f| ext.eq_ignore_ascii_case(f));
                 if is_font {
-                    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "font.ttf".into());
-                    let added = match std::fs::metadata(&path) {
-                        Ok(m) if m.len() <= genha_text::MAX_FONT_FILE as u64 => std::fs::read(&path)
-                            .map_err(|e| e.to_string())
-                            .and_then(|b| genha_engine::cmd::fonts::add_font_bytes(&mut self.session, &name, b, true).map_err(|e| e.to_string())),
-                        _ => Err(genha_i18n::tr!("{name} is too large or can't be read", name = name)),
-                    };
-                    match added {
-                        Ok((_, families)) => {
-                            self.refresh_fonts();
-                            self.set_status(genha_i18n::tr!("Added {fonts}", fonts = if families.is_empty() { name } else { families.join(", ") }));
-                        }
-                        Err(e) => self.set_status(e),
-                    }
+                    fonts::add_font_file(self, &path);
                 } else if is_picture && self.screen == Screen::Editor {
                     self.run("image.place", &json!({"path": p}));
                 } else {

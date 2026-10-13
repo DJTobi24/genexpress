@@ -313,7 +313,8 @@ fn ui_set_language(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(ok(json!({"lang": s.language.id(), "resolved": s.language.resolve().code(), "available": available})))
 }
 
-/// Reads the preferences kept in the session's store (smart guides on or off, the language, network use).
+/// Reads the preferences kept in the session's store (smart guides on or off, the language, network
+/// use, the greeting's name, dark mode).
 pub fn load_preferences(s: &mut Session) {
     if let Some(v) = s.store.as_ref().and_then(|st| st.read(SNAPPING_KEY)) {
         s.snapping = v.as_slice() != b"off";
@@ -323,6 +324,9 @@ pub fn load_preferences(s: &mut Session) {
         s.language = std::str::from_utf8(&v).ok().and_then(genha_i18n::Setting::parse).unwrap_or_default();
     }
     super::models::load_preferences(s);
+    super::home::load_preferences(s);
+    // Recent designs kept by older versions move into My designs.
+    super::designs::migrate(s);
 }
 
 fn batch(s: &mut Session, p: &Value) -> Result<Value> {

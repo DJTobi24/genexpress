@@ -256,10 +256,10 @@ fn recovery_and_recent_designs_through_a_store() {
     let mut next =
         english(App::new(Arc::new(genha_text::FontBook::new()), AppOptions { store, instance: Some("run2".into()), ..Default::default() }));
     assert_eq!(next.recovered.len(), 1);
-    assert_eq!(next.recent.len(), 1);
+    assert_eq!(crate::home::recent_designs(&next).len(), 1);
     let ctx = egui::Context::default();
     run_frames(&mut next, &ctx, 3);
-    let id = next.recent[0].id.clone();
+    let id = crate::home::recent_designs(&next)[0].id.clone();
     next.run("recent.open", &json!({"id": id}));
     assert_eq!(next.screen, Screen::Editor);
     // Copying objects puts their text on the system clipboard.
@@ -305,4 +305,108 @@ fn video_export_runs_beside_the_editor() {
     }
     assert!(app.status.as_ref().is_some_and(|(m, _)| m.contains("cancelled")), "{:?}", app.status);
     assert!(!path.exists());
+}
+
+/// Frames at `width` × 900; the texts drawn in the last one. Fails on "Internal error".
+fn frames_at(app: &mut App, ctx: &egui::Context, width: f32, n: usize) -> Vec<String> {
+    fn collect(shape: &egui::Shape, texts: &mut Vec<String>) {
+        match shape {
+            egui::Shape::Text(t) => texts.push(t.galley.text().to_string()),
+            egui::Shape::Vec(v) => v.iter().for_each(|s| collect(s, texts)),
+            _ => {}
+        }
+    }
+    let mut texts = vec![];
+    for _ in 0..n {
+        let input = egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 900.0))), ..Default::default() };
+        let mut out = ctx.run_ui(input, |ui| app.ui(ui));
+        out.textures_delta.clear();
+        texts.clear();
+        out.shapes.iter().for_each(|c| collect(&c.shape, &mut texts));
+    }
+    assert!(app.status.as_ref().is_none_or(|(m, _)| !m.contains("Internal error")), "{:?}", app.status);
+    texts
+}
+
+/// An app keeping My designs in memory, with three designs from templates and two folders, back
+/// on the home screen.
+fn app_with_designs() -> App {
+    let store = Box::new(genha_engine::store::MemStore::default());
+    let mut app = english(App::new(Arc::new(genha_text::FontBook::new()), AppOptions { store: Some(store), ..Default::default() }));
+    for t in genha_templates::catalog().iter().take(3) {
+        app.run("template.use", &json!({"id": t.id}));
+    }
+    let work = app.run("folder.create", &json!({"name": "Summer fair", "color": "#e8a317"})).unwrap()["id"].as_str().unwrap().to_string();
+    app.run("folder.create", &json!({"name": "Bakery"}));
+    let first = app.library.designs[0].id.clone();
+    app.run("design.move", &json!({"ids": [first], "folder": work}));
+    app.go_home();
+    app
+}
+
+#[test]
+fn home_screen_pages_and_popups_draw() {
+    let ctx = egui::Context::default();
+    let mut app = app_with_designs();
+    assert_eq!(app.screen, Screen::Home);
+    let texts = frames_at(&mut app, &ctx, 1440.0, 4);
+    for want in ["What would you like to start with?", "Open a file", "Create a presentation", "Recent designs", "Quick actions", "Summer fair"] {
+        assert!(texts.iter().any(|t| t == want), "{want} not on the home page: {texts:?}");
+    }
+    assert_eq!(crate::home::recent_designs(&app).len(), 3);
+    // My designs with a folder open: its one design.
+    app.home.page = crate::home::Page::Designs;
+    app.home.folder = genha_engine::cmd::designs::FolderFilter::Folder(app.library.folders[0].id.clone());
+    let texts = frames_at(&mut app, &ctx, 1440.0, 3);
+    assert!(texts.iter().any(|t| t == "1 design"), "{texts:?}");
+    // Every page, the search results, each pop-up, at a narrow width too.
+    for width in [1440.0, 1000.0] {
+        for page in crate::home::Page::ALL {
+            crate::home::go(&mut app, page);
+            frames_at(&mut app, &ctx, width, 2);
+        }
+        app.home.page = crate::home::Page::Home;
+        app.home.search = "poster".into();
+        app.home.search_open = true;
+        let texts = frames_at(&mut app, &ctx, width, 3);
+        assert!(texts.iter().any(|t| t == "Templates") && texts.iter().any(|t| t == "Sizes"), "{texts:?}");
+        app.home.search_open = false;
+        for modal in [
+            crate::popups::Modal::SizePicker { query: String::new(), palette: None },
+            crate::popups::Modal::Video,
+            crate::popups::Modal::Presentation,
+            crate::popups::Modal::Qr { text: String::new() },
+            crate::popups::Modal::NewFolder { name: String::new(), color: 0 },
+        ] {
+            app.home.modal = Some(modal.clone());
+            frames_at(&mut app, &ctx, width, 2);
+            assert_eq!(app.home.modal.as_ref(), Some(&modal), "the pop-up stays open");
+        }
+        app.home.modal = None;
+    }
+    app.dark = true;
+    frames_at(&mut app, &ctx, 1440.0, 2);
+}
+
+#[test]
+fn designs_start_in_the_folder_shown_and_the_greeting_has_the_name() {
+    let ctx = egui::Context::default();
+    let mut app = app_with_designs();
+    // A design made from My designs with a folder open goes into that folder.
+    let folder = app.library.folders[1].id.clone();
+    app.home.page = crate::home::Page::Designs;
+    app.home.folder = genha_engine::cmd::designs::FolderFilter::Folder(folder.clone());
+    assert!(crate::home::create(&mut app, json!({"preset": "logo"}), None));
+    assert_eq!(app.screen, Screen::Editor);
+    app.refresh_library();
+    assert_eq!(app.library.count(&folder), 1);
+    app.go_home();
+    assert_eq!(app.library.designs.len(), 4);
+    // Settings: the greeting's name.
+    app.run("settings.set", &json!({"name": "Ada"}));
+    app.home.page = crate::home::Page::Home;
+    let texts = frames_at(&mut app, &ctx, 1440.0, 2);
+    assert!(texts.iter().any(|t| t.starts_with("Good ") && t.ends_with(", Ada")), "{texts:?}");
+    assert_eq!(crate::home::ago(1_000_000.0, 1_000_000 - 6 * 86_400), "6 days ago");
+    assert_eq!(crate::home::ago(100.0, 0), "");
 }

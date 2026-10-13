@@ -72,6 +72,16 @@ impl From<genha_effects::EffectError> for EngineError {
 
 pub type Result<T> = std::result::Result<T, EngineError>;
 
+/// The host's clock (seconds since 1970), for hosts where `SystemTime` is unavailable.
+pub(crate) static CLOCK: std::sync::OnceLock<fn() -> u64> = std::sync::OnceLock::new();
+
+/// Sets the clock the engine uses for times it records (versions, My designs): the browser's.
+/// The first call wins; the desktop needs none (the system clock is used).
+pub fn set_clock(clock: fn() -> u64) {
+    // Already set (a second app instance in one page): the same clock either way.
+    let _ = CLOCK.set(clock);
+}
+
 /// One undo step: the state before an edit.
 #[derive(Clone, Debug)]
 pub struct HistoryEntry {
@@ -110,8 +120,12 @@ pub struct DocState {
     pub revision: u64,
     /// Names this document's Data Recovery copy (unique in the process).
     pub recovery_id: u64,
-    /// Its entry in the recent designs (`recent.*`), once it has one.
-    pub recent_id: Option<String>,
+    /// Its entry in My designs (`design.*`, also listed by `recent.*`), once it has one.
+    pub library_id: Option<String>,
+    /// The content last written to My designs (its copy and thumbnail), to tell whether it changed.
+    pub library_synced: Option<Arc<Document>>,
+    /// Removed from My designs while open: not added again (until `design.add`).
+    pub library_removed: bool,
 }
 
 impl DocState {
@@ -127,7 +141,9 @@ impl DocState {
             dirty: false,
             revision: 0,
             recovery_id,
-            recent_id: None,
+            library_id: None,
+            library_synced: None,
+            library_removed: false,
         }
     }
 
@@ -172,6 +188,10 @@ pub struct Session {
     /// The user interface's language (`ui.setLanguage`): the system's, or a fixed one. Kept in
     /// the store between runs.
     pub language: genha_i18n::Setting,
+    /// The name the home screen greets (`settings.set {name}`; empty: none). Kept in the store.
+    pub user_name: String,
+    /// Dark mode as last chosen (`settings.set {dark}`; none: the host's default). Kept in the store.
+    pub dark: Option<bool>,
     /// The preview of a gesture in progress.
     pub preview: Option<Preview>,
     /// The text box being edited in place (`text.beginEdit` … `text.endEdit`).
@@ -184,9 +204,12 @@ pub struct Session {
     merge_key: Option<String>,
     /// Fonts for text layout and exports (shared with the UI).
     pub fonts: Arc<genha_text::FontBook>,
-    /// Where Data Recovery copies, recent designs and added fonts are kept ([`store`]); none: the
-    /// `recovery.*` and `recent.*` commands are off and added fonts last until the app quits.
+    /// Where Data Recovery copies, My designs (with the recent designs) and added fonts are kept
+    /// ([`store`]); none: the `recovery.*`, `design.*`, `folder.*` and `recent.*` commands are off
+    /// and added fonts last until the app quits.
     pub store: Option<Box<dyn store::Store>>,
+    /// Bumped whenever My designs changes (hosts reload their list when it moves).
+    pub library_rev: u64,
     /// Where downloaded models are kept (`models/…`) when not in [`Session::store`]: the CLI keeps
     /// them in the app's data folder without using its recent designs or recovery copies.
     pub models: Option<Box<dyn store::Store>>,
@@ -214,6 +237,8 @@ impl Session {
             tools: ToolState::default(),
             snapping: true,
             language: genha_i18n::Setting::System,
+            user_name: String::new(),
+            dark: None,
             preview: None,
             text_editing: None,
             straight: std::sync::Mutex::new(None),
@@ -221,6 +246,7 @@ impl Session {
             merge_key: None,
             fonts: Arc::new(genha_text::FontBook::new()),
             store: None,
+            library_rev: 0,
             models: None,
             network: true,
             instance: default_instance(),
@@ -268,7 +294,17 @@ impl Session {
         self.merge_key = None;
         cmd::textedit::check(self);
         match result {
-            Ok(r) => r,
+            Ok(r) => {
+                // Designs created or opened by any command go into My designs (a failure there is
+                // logged: the command itself succeeded).
+                if r.is_ok()
+                    && self.store.is_some()
+                    && let Err(msg) = guard::catch_panic(|| cmd::designs::adopt(self))
+                {
+                    log::error!("My designs: {msg}");
+                }
+                r
+            }
             Err(msg) => {
                 self.active = saved_active;
                 if let (Some(state), Some(slot)) = (saved, self.docs.get_mut(saved_active)) {

@@ -26,8 +26,12 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
     ]
 }
 
-/// Seconds since 1970 (0 in the browser, where `SystemTime` is unavailable).
+/// Seconds since 1970: the host's clock when it set one ([`crate::set_clock`]: the browser,
+/// where `SystemTime` is unavailable), else the system's (0 in the browser without one).
 pub fn now_secs() -> u64 {
+    if let Some(clock) = crate::CLOCK.get() {
+        return clock();
+    }
     #[cfg(not(target_arch = "wasm32"))]
     {
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)

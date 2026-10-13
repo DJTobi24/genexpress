@@ -290,10 +290,31 @@ The native `.genha` format is gzip-compressed JSON with a `{"format", "version",
 header, pictures embedded as base64, saved atomically, refused with a clear message when it comes from
 a newer version, and repaired on open (ids, sizes, missing pictures) because files are untrusted.
 
-What the app keeps between runs (Data Recovery copies, recent designs with thumbnails, fonts the
-user added) goes through `genha_engine::store::Store`, a small key-value trait: a folder on the
+What the app keeps between runs (Data Recovery copies, My designs with thumbnails, fonts the
+user added, settings) goes through `genha_engine::store::Store`, a small key-value trait: a folder on the
 desktop (`DirStore`, the per-user data folder), IndexedDB in the browser (`genha_ui_egui` ›
-`web::IdbStore`). The `recovery.*`, `recent.*` and `font.*` commands only see the trait.
+`web::IdbStore`). The `recovery.*`, `design.*`, `folder.*`, `recent.*`, `settings.*` and `font.*`
+commands only see the trait.
+
+## My designs and the home screen
+
+`genha_engine::cmd::designs` keeps every design made or opened in a library: `designs/index.json`
+(entries with title, file path or none, page size, created/edited/opened times, project folder;
+folders with name, colour and order), `designs/<id>.genha` copies of designs that live only in the
+app (every design in the browser) and `designs/<id>.png` thumbnails. After every successful command
+`Session::execute` adds open designs that are not in it yet; saving records the file (and drops the
+copy); `design.sync` (run by the app with Data Recovery, when going home and when quitting, and by
+`file.close`) writes the copies of designs whose content changed (an `Arc` pointer comparison, so
+cheap). Ids from parameters are only compared with ids from the index, and the index is sanitised on
+read (store-key-safe ids, known folders, capped counts and names; a damaged index is rebuilt from the
+copies). Recent designs (`recent.*`) are the library's designs opened or changed last; the older
+`recent/…` list is migrated once. `home.search` searches templates, sizes, quick actions
+(`cmd::home::QUICK_ACTIONS`) and designs in English and the UI's language.
+
+The home screen (`genha_ui_egui` › `home`, `designs`, `pages`, `popups`, `art`) is a navigation rail
+(Create, Home, My designs, Templates, Brand, project folders, Settings) beside its pages. Its icons
+are GenHa's library icons rendered once in white and tinted, or simple shapes; tile and quick-action
+illustrations are drawn in code from `Tokens` colours (`tiles`, `art_paper`, `art_shadow`).
 
 ## Translations
 
