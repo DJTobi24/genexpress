@@ -14,7 +14,7 @@ Every known shortfall, most valuable first. Pick work from the top unless the us
 | 6 | Smart resize: reflow text boxes to the new width, re-layout grids | Layout | stacked elements now move as blocks; boxes keep their scaled widths |
 | 7 | Background removal for busy photos (ML model, optional download) | Pictures | colour-based flood fill today |
 | 8 | Rotated objects do not snap while resizing (their distances still show); no ruler guides placed by hand; no rotation snapping without Shift | Editor | M2.19: smart guides while resizing (edges, centre, same width/height, equal gaps; Shift, Alt, several objects), distance and equal-spacing hints, Alt-hover distances, Ctrl/Cmd to skip snapping, `view.snapping` |
-| 9 | Charts with several data series, axis titles; tables with merged cells and per-cell styles | Documents | single-series charts (7 kinds) and tables landed |
+| 9 | Picking table cells on the canvas (the panel's grid picks ranges today); formulas in tables; scatter/combo charts and a secondary axis; cell borders per cell | Documents | M5.1: several series per chart (grouped/stacked bars, lines, stacked areas), axis titles, gridlines, legend position, number/currency formats, min/max; tables with merged cells, per-cell styles, column widths and row heights, outer/inner lines |
 | 10 | Version history across devices (sync) | Editor | local version history, recent files and Data Recovery landed |
 | 11 | MP4 export, timeline with scenes, audio | Video | animations, playback, present mode and GIF/animated PNG export landed (`crates/motion`); MP4 needs a pure-Rust encoder |
 | 12 | PDF import; text inside imported SVGs | Formats | SVG shapes, gradients and borders import (`genha_svg::import`) |

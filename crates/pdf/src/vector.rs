@@ -848,7 +848,7 @@ impl Writer<'_> {
                     for line in &tp.lines {
                         let gl = genha_text::layout_glyphs(self.fonts, &line.text, &style, f64::INFINITY);
                         let Some(gline) = gl.lines.first() else { continue };
-                        let shift = Affine::translate((line.x - gline.x, line.baseline - gline.baseline));
+                        let shift = tp.transform * Affine::translate((line.x - gline.x, line.baseline - gline.baseline));
                         self.transformed(s, shift, |wr, s| {
                             let texts = cluster_texts(gline, &line.text, style.uppercase);
                             wr.glyph_run(s, &gline.glyphs, &texts, gline.baseline, gl.font_size, &fill);

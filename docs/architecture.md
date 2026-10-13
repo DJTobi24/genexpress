@@ -1,6 +1,6 @@
 # Architecture
 
-> **Last updated:** 2026-10-13 · **Change:** minor (text editing on the canvas, vector PDF)
+> **Last updated:** 2026-10-13 · **Change:** minor (text editing on the canvas, vector PDF, multi-series charts and merged table cells)
 
 How GenHa is built. Day-to-day rules (clean-room, never crash, quality gates) are in
 [`AGENTS.md`](../AGENTS.md) and [development.md](development.md). The layout deliberately mirrors the
@@ -37,8 +37,10 @@ Document ─ title, brand kit, assets (pictures stored once, shared by id)
          ├─ Shape  ─ rect/ellipse/triangle/polygon/star/line/path, fill, border, shadow
          ├─ Text   ─ text, style (family, size, weight, colour, align, spacing…), effect (shadow/outline/highlight), curve
          ├─ Image  ─ asset, crop, fit, corner radius, crop-to-shape, adjustments, filter, border
-         ├─ Chart  ─ kind (bar/horizontal-bar/line/area/pie/donut/progress), labelled values, colours, labels/values/legend
-         ├─ Table  ─ rows of cell text, header row, fills, grid lines, padding, alignment, column widths
+         ├─ Chart  ─ kind (bar/horizontal-bar/line/area/pie/donut/progress), categories + series (name, values, colour),
+         │           stacked, axis titles, gridlines, legend position, number format, min/max, colours
+         ├─ Table  ─ rows of cell text, header row, fills, lines (all/outer/inner/rows), padding, alignment,
+         │           column widths, row heights, merged cells (ranges), per-cell styles
          └─ Group  ─ children (page coordinates)
 ```
 

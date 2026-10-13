@@ -429,7 +429,17 @@ fn paste_style(s: &mut Session, p: &Value) -> Result<Value> {
             }
             ElementKind::Chart(c) => {
                 if let Some(from) = &st.chart {
-                    *c = ChartEl { kind: c.kind, data: std::mem::take(&mut c.data), max: c.max, ..from.clone() };
+                    // The look moves over; the data, its scale and the titles stay.
+                    *c = ChartEl {
+                        kind: c.kind,
+                        categories: std::mem::take(&mut c.categories),
+                        series: std::mem::take(&mut c.series),
+                        min: c.min,
+                        max: c.max,
+                        x_title: std::mem::take(&mut c.x_title),
+                        y_title: std::mem::take(&mut c.y_title),
+                        ..from.clone()
+                    };
                 } else if let Some(col) = st.fill.as_ref().and_then(Fill::primary_color) {
                     c.colors = vec![col];
                 }
@@ -437,9 +447,15 @@ fn paste_style(s: &mut Session, p: &Value) -> Result<Value> {
             }
             ElementKind::Table(t) => {
                 if let Some(from) = &st.table {
-                    let rows = std::mem::take(&mut t.rows);
-                    let widths = std::mem::take(&mut t.column_widths);
-                    *t = TableEl { rows, column_widths: widths, ..from.clone() };
+                    // The look moves over; the cells, their sizes, merges and own styles stay.
+                    *t = TableEl {
+                        rows: std::mem::take(&mut t.rows),
+                        column_widths: std::mem::take(&mut t.column_widths),
+                        row_heights: std::mem::take(&mut t.row_heights),
+                        merges: std::mem::take(&mut t.merges),
+                        cell_styles: std::mem::take(&mut t.cell_styles),
+                        ..from.clone()
+                    };
                 } else if let Some(col) = st.fill.as_ref().and_then(Fill::primary_color) {
                     t.header_fill = col;
                     t.header_text = col.readable_text();

@@ -31,7 +31,8 @@ use vello_cpu::{Pixmap, RenderContext, Resources};
 
 pub use curve::{curved_text_path, curved_text_size};
 pub use datavis::{
-    CHART_PALETTE, Prim, Scene, TableGeometry, TextLine, TextPrim, chart_colors, chart_scene, format_number, table_geometry, table_scene,
+    CHART_PALETTE, Prim, Scene, TableGeometry, TextLine, TextPrim, chart_colors, chart_scene, format_decimals, format_number, series_color,
+    table_fit_columns, table_geometry, table_scene, value_text,
 };
 pub use paint::{MAX_PATH_DATA, MAX_STROKE_WIDTH, linear_points, radial_radius, shape_path};
 pub use synth::{SYNTHETIC_BOLD_EM, SYNTHETIC_SLANT, Synthetic, layout_text, slant_about, synthetic};

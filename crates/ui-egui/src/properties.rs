@@ -465,7 +465,7 @@ fn element_props(ui: &mut egui::Ui, t: &Tokens, el: &Element, brand: &[genha_col
             });
         }
         ElementKind::Chart(c) => data_props::chart(ui, t, id, c, brand, acts),
-        ElementKind::Table(tb) => data_props::table(ui, t, id, tb, brand, acts),
+        ElementKind::Table(tb) => data_props::table(ui, t, id, tb, el.frame.width, brand, acts),
         ElementKind::Group(g) => {
             ui.label(format!("Group of {} objects", g.children.len()));
             if ui.button("Ungroup").clicked() {
