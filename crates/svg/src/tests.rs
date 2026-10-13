@@ -125,6 +125,7 @@ fn text_is_escaped_and_laid_out() {
             effect: TextEffect::Shadow { color: Color::BLACK, offset_x: 2.0, offset_y: 2.0, blur: 3.0 },
             curve: 0.0,
             spans: vec![],
+            fit: Default::default(),
         }),
     );
     let svg = export_page(&d, 0, fonts(), &SvgOptions::default()).unwrap();
@@ -157,7 +158,7 @@ fn text_effects() {
         push(
             &mut d,
             Frame::new(0.0, 0.0, 300.0, 50.0),
-            ElementKind::Text(TextEl { text: "Hi".into(), style: TextStyle::default(), effect, curve: 0.0, spans: vec![] }),
+            ElementKind::Text(TextEl { text: "Hi".into(), style: TextStyle::default(), effect, curve: 0.0, spans: vec![], fit: Default::default() }),
         );
     }
     let svg = export_page(&d, 0, &FontBook::new(), &SvgOptions::default()).unwrap();
@@ -297,5 +298,48 @@ fn style_runs_become_nested_tspans_or_coloured_paths() {
     check_tags(&paths);
     if !fonts().is_empty() {
         assert!(paths.contains(r##"fill="#ff0000""##) && paths.contains(r##"fill="#1b1b2f""##), "{paths}");
+    }
+}
+
+/// The value of attribute `name` in the first tag of `s` that has it.
+fn attr<'a>(s: &'a str, name: &str) -> Option<&'a str> {
+    let at = s.find(&format!(" {name}=\""))? + name.len() + 3;
+    s.get(at..).and_then(|r| r.split('"').next())
+}
+
+#[test]
+fn shrunk_text_is_written_at_its_fitted_size_and_place() {
+    let mut d = Document::new("Fit", 700.0, 300.0);
+    let style = TextStyle { font_size: 120.0, bold: true, color: Color::BLACK, align: genha_doc::TextAlign::Left, ..TextStyle::default() };
+    let mut t = TextEl::new("Grand opening", style);
+    t.fit = genha_doc::TextFit::Shrink;
+    let frame = Frame::new(40.0, 60.0, 600.0, 160.0);
+    push(&mut d, frame, ElementKind::Text(t.clone()));
+    let fonts = fonts();
+    let fit = genha_render::text_fit(fonts, &t, frame.width, frame.height);
+    assert!(fit.fits && fit.scale < 1.0, "{fit:?}");
+    let fitted = genha_render::fitted_text(fonts, &t, frame.width, frame.height);
+    // As text: in the fitted size, on the fitted baseline.
+    let svg = export_page(&d, 0, fonts, &SvgOptions::default()).unwrap();
+    check_tags(&svg);
+    let size: f64 = attr(&svg, "font-size").unwrap().parse().unwrap();
+    assert!((size - 120.0 * fit.scale).abs() < 0.001, "{size} vs {}", 120.0 * fit.scale);
+    let (layout, _) = genha_render::layout_text_el(fonts, &fitted, frame.width);
+    let tspan = &svg[svg.find("<tspan").unwrap()..];
+    let y: f64 = attr(tspan, "y").unwrap().parse().unwrap();
+    assert!((y - layout.lines[0].baseline).abs() < 0.001, "{y} vs {}", layout.lines[0].baseline);
+    // As outlines: the fitted letters, where the renderer draws them.
+    if fonts.is_empty() {
+        return;
+    }
+    let svg = export_page(&d, 0, fonts, &SvgOptions { text_as_paths: true }).unwrap();
+    let g = &svg[svg.find("<g transform=\"matrix(").unwrap()..];
+    let m: Vec<f64> =
+        attr(g, "transform").unwrap().trim_start_matches("matrix(").trim_end_matches(')').split(' ').map(|v| v.parse().unwrap()).collect();
+    let path = kurbo::BezPath::from_svg(attr(g, "d").unwrap()).unwrap();
+    let got = kurbo::Shape::bounding_box(&path) + kurbo::Vec2::new(m[4], m[5]);
+    let want = kurbo::Shape::bounding_box(&layout.lines[0].path) + kurbo::Vec2::new(frame.x, frame.y);
+    for (a, b) in [(got.x0, want.x0), (got.y0, want.y0), (got.x1, want.x1), (got.y1, want.y1)] {
+        assert!((a - b).abs() < 0.01, "written {got:?}, laid out {want:?}");
     }
 }

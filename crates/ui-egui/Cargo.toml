@@ -33,6 +33,11 @@ genha-video = { workspace = true }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rfd = { workspace = true }
 arboard = { workspace = true }
+jiff = { workspace = true }
+
+# Windows names its time zones differently: jiff maps them with a bundled time zone database.
+[target.'cfg(windows)'.dependencies]
+jiff = { workspace = true, features = ["tzdb-bundle-platform"] }
 
 # The browser: file pickers, downloads, the clock, IndexedDB, the clipboard, installed fonts
 # (src/web.rs).

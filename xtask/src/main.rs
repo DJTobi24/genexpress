@@ -1,8 +1,10 @@
 //! Build tooling: `cargo xtask <command>`.
 
+mod bundle;
 mod checks;
 mod layers;
 mod web;
+mod zip;
 
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
@@ -19,7 +21,22 @@ commands:
               (clippy -D warnings)
   web [--ml]  build the web app into dist/web (wasm release build + wasm-bindgen; installs
               wasm-bindgen-cli at the version in Cargo.lock when missing); --ml adds the AI
-              background removal runtime (about 11 MB more)";
+              background removal runtime (about 11 MB more)
+  icon [--out DIR]
+              write the app icon (drawn in code by genha-brand) as PNG files, genha.ico and
+              GenHa.icns into DIR (default dist/icon)
+  bundle macos [--native] [--sign IDENTITY] [--notary-profile NAME] [--keychain PATH] [--no-dmg]
+              (on macOS) GenHa.app and GenHa-<version>-macos.dmg in dist/: a universal binary
+              (--native: this Mac's architecture only), signed with IDENTITY (\"Developer ID
+              Application: …\"; hardened runtime) or ad hoc, notarized and stapled with a
+              `xcrun notarytool store-credentials` profile (docs/release.md)
+  bundle linux
+              GenHa-<version>-linux-<arch>.tar.gz: binaries, .desktop file, icons, MIME type
+  bundle windows
+              (on Windows) GenHa-<version>-windows-<arch>.zip: genha.exe and genha-cli.exe
+  bundle web [--ml]
+              `web`, then GenHa-<version>-web.zip
+  version     print the app's version (from Cargo.toml)";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -30,6 +47,9 @@ fn main() -> ExitCode {
         Some("cleanroom") => checks::cleanroom(&root()),
         Some("wasm") => wasm(),
         Some("web") => web::build(&root(), args.iter().any(|a| a == "--ml")),
+        Some("icon") => bundle::icon(args.get(1..).unwrap_or_default()),
+        Some("bundle") => bundle::main(args.get(1..).unwrap_or_default()),
+        Some("version") => bundle::version().map(|v| println!("{v}")),
         Some("-h" | "--help" | "help") | None => {
             println!("{USAGE}");
             Ok(())

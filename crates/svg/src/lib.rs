@@ -334,6 +334,7 @@ impl Writer<'_> {
     }
 
     fn text(&mut self, t: &TextEl, w: f64, h: f64, local: Affine) {
+        let t = &*genha_render::fitted_text(self.fonts, t, w, h);
         let (layout, straight) = genha_render::layout_text_el(self.fonts, t, w);
         let curved = curved_text_groups(self.fonts, t, w, h);
         let groups = curved.as_ref().unwrap_or(&straight);

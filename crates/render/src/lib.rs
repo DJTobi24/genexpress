@@ -6,6 +6,7 @@
 //! shape's drop shadow is blurred with a vello_cpu filter layer (a plain offset copy when the blur
 //! is tiny). Text is laid out by `genha-text` and drawn as glyph outlines, with its shadow,
 //! outline or highlight effect; curved text has its glyphs placed along an arc ([`curved_text_path`]).
+//! Text that shrinks to fit its box is drawn at the scale [`text_fit`] finds.
 //! Charts and tables become [`Scene`]s of paths and text ([`chart_scene`], [`table_scene`]), shared
 //! with the SVG writer. Pictures are decoded, cropped and adjusted by `genha-effects`,
 //! fitted into the frame and clipped to it (or to their mask shape); a picture that is missing or
@@ -29,7 +30,7 @@ use vello_common::filter_effects::{EdgeMode, Filter, FilterPrimitive};
 use vello_cpu::peniko;
 use vello_cpu::{Pixmap, RenderContext, Resources};
 
-pub use curve::{curved_text_groups, curved_text_path, curved_text_size};
+pub use curve::{curved_text_groups, curved_text_path, curved_text_size, fitted_text, page_with_fitted_text, text_fit};
 pub use datavis::{
     CHART_PALETTE, Prim, Scene, TableGeometry, TextLine, TextPrim, chart_colors, chart_scene, format_decimals, format_number, series_color,
     table_fit_columns, table_geometry, table_scene, value_text,
@@ -405,6 +406,7 @@ impl Draw<'_> {
     }
 
     fn text(&mut self, ctx: &mut RenderContext, t: &TextEl, frame: &Frame, local: Affine) {
+        let t = &*fitted_text(self.fonts, t, frame.width, frame.height);
         let (layout, straight) = layout_text_el(self.fonts, t, frame.width);
         let curved = curved_text_groups(self.fonts, t, frame.width, frame.height);
         let groups = curved.as_ref().unwrap_or(&straight);

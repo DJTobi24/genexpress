@@ -133,6 +133,8 @@ impl Face {
 #[derive(Clone, Default)]
 pub struct FontBook {
     faces: Vec<Arc<Face>>,
+    /// Scales found by [`crate::fit_scale`], shared by clones; a new one when faces are added.
+    pub(crate) fits: Arc<crate::fit::FitCache>,
 }
 
 impl std::fmt::Debug for FontBook {
@@ -188,6 +190,7 @@ impl FontBook {
         }
         let n = faces.len();
         self.faces.extend(faces.into_iter().map(Arc::new));
+        self.fits = Arc::default();
         Ok(n)
     }
 
@@ -202,6 +205,7 @@ impl FontBook {
         if let Ok(faces) = parse_faces(&data, &source) {
             let room = MAX_FACES.saturating_sub(self.faces.len());
             self.faces.extend(faces.into_iter().take(room).map(Arc::new));
+            self.fits = Arc::default();
         }
     }
 

@@ -196,7 +196,11 @@ fn text_add(s: &mut Session, p: &Value) -> Result<Value> {
     let width = f64_or(p, "width", page.0 * 0.8);
     let h = text_height(s, &text, &style, width);
     let frame = frame_params(p, page, width, h);
-    let el = Element::new(genha_doc::NodeId(0), frame, ElementKind::Text(TextEl { text, style, effect, curve: 0.0, spans: vec![] }));
+    let el = Element::new(
+        genha_doc::NodeId(0),
+        frame,
+        ElementKind::Text(TextEl { text, style, effect, curve: 0.0, spans: vec![], fit: Default::default() }),
+    );
     add_element(s, "Add Text", el)
 }
 

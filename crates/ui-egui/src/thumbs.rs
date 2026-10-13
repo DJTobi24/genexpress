@@ -37,6 +37,19 @@ impl Thumbs {
         Some(tex)
     }
 
+    /// [`Thumbs::get`] without the frame's budget, for small textures every frame needs (icons).
+    pub fn get_now(&mut self, ctx: &egui::Context, key: &str, stamp: u64, make: impl FnOnce() -> Option<Raster>) -> Option<egui::TextureHandle> {
+        if let Some((s, t)) = self.map.get(key)
+            && *s == stamp
+        {
+            return Some(t.clone());
+        }
+        let raster = make()?;
+        let tex = ctx.load_texture(key, to_color_image(&raster), egui::TextureOptions::LINEAR);
+        self.map.insert(key.to_string(), (stamp, tex.clone()));
+        Some(tex)
+    }
+
     pub fn forget_prefix(&mut self, prefix: &str) {
         self.map.retain(|k, _| !k.starts_with(prefix));
     }

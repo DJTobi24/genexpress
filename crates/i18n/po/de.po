@@ -2,7 +2,8 @@
 #
 # Keys (msgid) are the English strings in the code; a missing or empty msgstr shows in English.
 # Style: neutral and concise, no "du"/"Sie" (infinitives and nouns: "Bild hochladen",
-# "Hintergrund entfernen"). Placeholders such as {n} or {path} stay as they are; a trailing space
+# "Hintergrund entfernen"; one exception by the owner's wish: the home screen's headline "Womit
+# möchtest du anfangen?"). Placeholders such as {n} or {path} stay as they are; a trailing space
 # in the English (field prefixes such as "Size ") is kept. Section labels in capitals stay in
 # capitals. Checks: `cargo test -p genha-i18n` (well-formed) and `cargo test -p genha-ui-egui
 # every_ui_string` (complete, nothing unused).
@@ -594,6 +595,18 @@ msgstr "Zeilenhöhe"
 msgid "Letter spacing"
 msgstr "Zeichenabstand"
 
+msgid "Shrink text to fit"
+msgstr "Text an Rahmen anpassen"
+
+msgid "When the text does not fit its box, set it smaller (down to 40%) instead of growing the box"
+msgstr "Passt der Text nicht in seinen Rahmen, wird er kleiner gesetzt (bis auf 40 %), statt den Rahmen zu vergrößern"
+
+msgid "Shown at {percent}% to fit"
+msgstr "Auf {percent} % verkleinert, damit er passt"
+
+msgid "Too long to fit, even at {percent}%"
+msgstr "Passt auch mit {percent} % nicht"
+
 msgid "EFFECT"
 msgstr "EFFEKT"
 
@@ -1048,23 +1061,8 @@ msgstr "Mindesthöhe "
 
 # Home screen
 
-msgid "Design anything — open source, made in Rust."
-msgstr "Alles gestalten – quelloffen, gebaut mit Rust."
-
-msgid "Light mode"
-msgstr "Heller Modus"
-
-msgid "Dark mode"
-msgstr "Dunkler Modus"
-
 msgid "Open…"
 msgstr "Öffnen…"
-
-msgid "What do you want to create?"
-msgstr "Was soll gestaltet werden?"
-
-msgid "Search sizes and templates"
-msgstr "Größen und Vorlagen suchen"
 
 msgid "All"
 msgstr "Alle"
@@ -1078,20 +1076,11 @@ msgstr "Erstellen"
 msgid "Custom design"
 msgstr "Eigenes Design"
 
-msgid "Start from a template"
-msgstr "Mit einer Vorlage beginnen"
-
 msgid "No templates match."
 msgstr "Keine passenden Vorlagen."
 
 msgid "Quick actions"
 msgstr "Schnellaktionen"
-
-msgid "One click, file in, file out — nothing leaves your computer."
-msgstr "Ein Klick, Datei rein, Datei raus – nichts verlässt diesen Computer."
-
-msgid "Open designs"
-msgstr "Geöffnete Designs"
 
 msgid "Recovered designs"
 msgstr "Wiederhergestellte Designs"
@@ -1150,9 +1139,6 @@ msgstr "In WebP umwandeln"
 msgid "Any picture to WebP"
 msgstr "Beliebiges Bild in WebP"
 
-msgid "Cut out the subject of a photo with a plain backdrop"
-msgstr "Das Motiv eines Fotos vor einfarbigem Hintergrund freistellen"
-
 msgid "Keep the subject sharp, blur what is behind"
 msgstr "Das Motiv scharf lassen, den Hintergrund weichzeichnen"
 
@@ -1178,12 +1164,6 @@ msgid "Turn a photo black and white"
 msgstr "Ein Foto in Schwarzweiß umwandeln"
 
 # Default names of designs, pages and brand colours; more sizes; filter names (context)
-
-msgid "Fewer sizes"
-msgstr "Weniger Größen"
-
-msgid "More sizes…"
-msgstr "Mehr Größen…"
 
 msgid "Page {n}"
 msgstr "Seite {n}"
@@ -2530,3 +2510,382 @@ msgstr "Hintergrundentfernung abgebrochen"
 
 msgid "Background removal stopped unexpectedly"
 msgstr "Die Hintergrundentfernung wurde unerwartet beendet"
+
+# Home screen, My designs and project folders (M2.24). The headline asks with "du" (the owner's
+# wish for this one line); everything else keeps the neutral style.
+
+msgid "What would you like to start with?"
+msgstr "Womit möchtest du anfangen?"
+
+msgid "Good morning"
+msgstr "Guten Morgen"
+
+msgid "Good afternoon"
+msgstr "Guten Tag"
+
+msgid "Good evening"
+msgstr "Guten Abend"
+
+msgid "Good morning, {name}"
+msgstr "Guten Morgen, {name}"
+
+msgid "Good afternoon, {name}"
+msgstr "Guten Tag, {name}"
+
+msgid "Good evening, {name}"
+msgstr "Guten Abend, {name}"
+
+msgid "Search templates, sizes, quick actions and your designs"
+msgstr "Vorlagen, Größen, Schnellaktionen und eigene Designs durchsuchen"
+
+msgid "Open a file"
+msgstr "Datei öffnen"
+
+msgid "New design"
+msgstr "Neues Design"
+
+msgid "Edit a photo"
+msgstr "Foto bearbeiten"
+
+msgid "Create a video"
+msgstr "Video erstellen"
+
+msgid "Create a presentation"
+msgstr "Präsentation erstellen"
+
+msgid "Drop a file here or click to browse"
+msgstr "Datei hier ablegen oder zum Auswählen klicken"
+
+msgid "Pick a size or type your own"
+msgstr "Größe wählen oder eigene eingeben"
+
+msgid "Open a picture with the picture tools"
+msgstr "Bild mit den Bildwerkzeugen öffnen"
+
+msgid "A story, square or wide video with motion"
+msgstr "Video im Story-, Quadrat- oder Breitformat mit Animation"
+
+msgid "16:9 slides, blank or from a template"
+msgstr "Folien in 16:9, leer oder aus einer Vorlage"
+
+msgid "Designs, pictures and fonts"
+msgstr "Designs, Bilder und Schriften"
+
+msgid "See all"
+msgstr "Alle anzeigen"
+
+msgid "Show fewer"
+msgstr "Weniger anzeigen"
+
+msgid "Cut out the subject of a photo"
+msgstr "Motiv eines Fotos freistellen"
+
+msgid "A design with a QR code for a link or text"
+msgstr "Design mit QR-Code für einen Link oder Text"
+
+msgid "Photo collage"
+msgstr "Fotocollage"
+
+msgid "Pictures arranged in a grid"
+msgstr "Bilder im Raster angeordnet"
+
+msgid "Presentations"
+msgstr "Präsentationen"
+
+msgid "Presentation"
+msgstr "Präsentation"
+
+msgid "Projects"
+msgstr "Projekte"
+
+msgid "No folders yet"
+msgstr "Noch keine Ordner"
+
+msgid "New folder"
+msgstr "Neuer Ordner"
+
+msgid "My designs"
+msgstr "Meine Designs"
+
+msgid "Settings"
+msgstr "Einstellungen"
+
+msgid "All designs"
+msgstr "Alle Designs"
+
+msgid "Not in a folder"
+msgstr "Ohne Ordner"
+
+msgid "Every design you make or open, kept in this browser."
+msgstr "Alle erstellten und geöffneten Designs, in diesem Browser gespeichert."
+
+msgid "Every design you make or open. Designs not saved to a file are kept in GenHa's data folder."
+msgstr "Alle erstellten und geöffneten Designs. Designs ohne eigene Datei liegen im Datenordner von GenHa."
+
+msgid "Search your designs"
+msgstr "Eigene Designs durchsuchen"
+
+msgid "Folder"
+msgstr "Ordner"
+
+msgid "Sort by"
+msgstr "Sortieren nach"
+
+msgid "Last edited"
+msgstr "Zuletzt bearbeitet"
+
+msgid "Last opened"
+msgstr "Zuletzt geöffnet"
+
+msgid "Newest"
+msgstr "Neueste"
+
+msgid "Name"
+msgstr "Name"
+
+msgid "Edited {when}"
+msgstr "Bearbeitet {when}"
+
+msgid "Kept in GenHa"
+msgstr "In GenHa gespeichert"
+
+msgid "Rename…"
+msgstr "Umbenennen …"
+
+msgid "Move to folder"
+msgstr "In Ordner verschieben"
+
+msgid "No folder"
+msgstr "Kein Ordner"
+
+msgid "Delete…"
+msgstr "Löschen …"
+
+msgid "Remove from My designs…"
+msgstr "Aus „Meine Designs“ entfernen …"
+
+msgid "Duplicated {title}"
+msgstr "{title} dupliziert"
+
+msgid "Colour…"
+msgstr "Farbe …"
+
+msgid "Delete folder…"
+msgstr "Ordner löschen …"
+
+msgid "Nothing here yet"
+msgstr "Noch nichts hier"
+
+msgid "Designs you make or open show up here. Drag them onto a folder to sort them."
+msgstr "Erstellte und geöffnete Designs erscheinen hier. Zum Sortieren auf einen Ordner ziehen."
+
+msgid "No designs match your search"
+msgstr "Keine Designs gefunden"
+
+msgid "Try other words, or look in all designs."
+msgstr "Andere Suchbegriffe versuchen oder in allen Designs suchen."
+
+msgid "Create a new design"
+msgstr "Neues Design erstellen"
+
+msgid "Pick a size; you can change it later with Resize."
+msgstr "Größe wählen; sie lässt sich später mit „Größe ändern“ anpassen."
+
+msgid "Search sizes"
+msgstr "Größen suchen"
+
+msgid "No sizes match. Type your own above."
+msgstr "Keine passenden Größen. Oben eine eigene eingeben."
+
+msgid "A blank video with an animated title, or an animated template."
+msgstr "Leeres Video mit animiertem Titel oder eine animierte Vorlage."
+
+msgid "Story 9:16"
+msgstr "Story 9:16"
+
+msgid "Square 1:1"
+msgstr "Quadrat 1:1"
+
+msgid "Wide 16:9"
+msgstr "Breit 16:9"
+
+msgid "Animated templates"
+msgstr "Animierte Vorlagen"
+
+msgid "Your video title"
+msgstr "Titel des Videos"
+
+msgid "16:9 slides: start blank or from a deck."
+msgstr "Folien in 16:9: leer beginnen oder mit einer Vorlage."
+
+msgid "Blank presentation"
+msgstr "Leere Präsentation"
+
+msgid "Presentation templates"
+msgstr "Präsentationsvorlagen"
+
+msgid "A square design with a QR code for a link or a text."
+msgstr "Quadratisches Design mit QR-Code für einen Link oder Text."
+
+msgid "Create design"
+msgstr "Design erstellen"
+
+msgid "Rename design"
+msgstr "Design umbenennen"
+
+msgid "Rename folder"
+msgstr "Ordner umbenennen"
+
+msgid "Delete this design?"
+msgstr "Dieses Design löschen?"
+
+msgid "“{title}” is kept only in GenHa. Deleting it can't be undone."
+msgstr "„{title}“ gibt es nur in GenHa. Das Löschen lässt sich nicht rückgängig machen."
+
+msgid "Remove from My designs?"
+msgstr "Aus „Meine Designs“ entfernen?"
+
+msgid "“{title}” is removed from the list. Its file stays where it is."
+msgstr "„{title}“ wird aus der Liste entfernt. Die Datei bleibt, wo sie ist."
+
+msgid "No colour"
+msgstr "Keine Farbe"
+
+msgid "Colour"
+msgstr "Farbe"
+
+msgid "Keep the designs of one project together."
+msgstr "Designs eines Projekts zusammenhalten."
+
+msgid "Folder name"
+msgstr "Ordnername"
+
+msgid "Create folder"
+msgstr "Ordner erstellen"
+
+msgid "Colour of “{name}”"
+msgstr "Farbe von „{name}“"
+
+msgid "Done"
+msgstr "Fertig"
+
+msgid "Delete the folder “{name}”?"
+msgstr "Ordner „{name}“ löschen?"
+
+msgid "The folder is empty."
+msgstr "Der Ordner ist leer."
+
+msgid "Its {n} design stays in My designs, outside any folder."
+msgid_plural "Its {n} designs stay in My designs, outside any folder."
+msgstr[0] "Sein {n} Design bleibt in „Meine Designs“, ohne Ordner."
+msgstr[1] "Seine {n} Designs bleiben in „Meine Designs“, ohne Ordner."
+
+msgid "Also delete the designs in it (files saved elsewhere are kept)"
+msgstr "Auch die Designs darin löschen (anderswo gespeicherte Dateien bleiben)"
+
+msgid "Delete folder"
+msgstr "Ordner löschen"
+
+msgid "Your designs"
+msgstr "Eigene Designs"
+
+msgid "All matching templates"
+msgstr "Alle passenden Vorlagen"
+
+msgid "Sizes"
+msgstr "Größen"
+
+msgid "Enter opens the first result"
+msgstr "Eingabetaste öffnet das erste Ergebnis"
+
+msgid "Nothing found for “{query}”"
+msgstr "Nichts gefunden für „{query}“"
+
+msgid "A design's brand kit holds its colours, fonts and logos (Brand in the editor). Start a design with one of these palettes as its brand colours:"
+msgstr "Das Markenkit eines Designs enthält seine Farben, Schriften und Logos (Marke im Editor). Ein Design mit einer dieser Paletten als Markenfarben beginnen:"
+
+msgid "New design with these brand colours"
+msgstr "Neues Design mit diesen Markenfarben"
+
+msgid "Kept on this computer between runs. GenHa needs no account."
+msgstr "Bleibt auf diesem Computer gespeichert. GenHa braucht kein Konto."
+
+msgid "Your name"
+msgstr "Name"
+
+msgid "The home page greets you with it."
+msgstr "Für die Begrüßung auf der Startseite."
+
+msgid "Your name (optional)"
+msgstr "Name (optional)"
+
+msgid "Appearance"
+msgstr "Darstellung"
+
+msgid "Language"
+msgstr "Sprache"
+
+msgid "Network"
+msgstr "Netzwerk"
+
+msgid "Allow GenHa to use the network"
+msgstr "GenHa darf das Netzwerk nutzen"
+
+msgid "Only to download the optional background removal model when you ask for it."
+msgstr "Nur zum Herunterladen des optionalen Modells zum Entfernen von Hintergründen, wenn es angefordert wird."
+
+msgid "Editor"
+msgstr "Editor"
+
+msgid "Smart guides: snap while moving and resizing"
+msgstr "Intelligente Hilfslinien: beim Verschieben und Skalieren einrasten"
+
+msgid "Your data"
+msgstr "Daten"
+
+msgid "My designs, Data Recovery copies and added fonts are kept in {place}."
+msgstr "„Meine Designs“, Wiederherstellungskopien und hinzugefügte Schriften liegen in {place}."
+
+msgid "My designs, Data Recovery copies and added fonts are kept in this browser's storage."
+msgstr "„Meine Designs“, Wiederherstellungskopien und hinzugefügte Schriften liegen im Speicher dieses Browsers."
+
+msgid "Nothing is kept between runs in this window."
+msgstr "In diesem Fenster wird nichts zwischen Sitzungen gespeichert."
+
+msgid "{title} (copy)"
+msgstr "{title} (Kopie)"
+
+msgid "{n} design"
+msgid_plural "{n} designs"
+msgstr[0] "{n} Design"
+msgstr[1] "{n} Designs"
+
+msgid "{n} minute ago"
+msgid_plural "{n} minutes ago"
+msgstr[0] "vor {n} Minute"
+msgstr[1] "vor {n} Minuten"
+
+msgid "{n} hour ago"
+msgid_plural "{n} hours ago"
+msgstr[0] "vor {n} Stunde"
+msgstr[1] "vor {n} Stunden"
+
+msgid "{n} week ago"
+msgid_plural "{n} weeks ago"
+msgstr[0] "vor {n} Woche"
+msgstr[1] "vor {n} Wochen"
+
+msgid "{n} month ago"
+msgid_plural "{n} months ago"
+msgstr[0] "vor {n} Monat"
+msgstr[1] "vor {n} Monaten"
+
+msgid "{n} year ago"
+msgid_plural "{n} years ago"
+msgstr[0] "vor {n} Jahr"
+msgstr[1] "vor {n} Jahren"
+
+msgid "{n} original template, made in code — free to use and change."
+msgid_plural "{n} original templates, made in code — free to use and change."
+msgstr[0] "{n} eigene Vorlage, im Code erstellt – frei nutzbar und veränderbar."
+msgstr[1] "{n} eigene Vorlagen, im Code erstellt – frei nutzbar und veränderbar."

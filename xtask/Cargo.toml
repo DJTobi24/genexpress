@@ -7,6 +7,10 @@ publish = false
 
 [dependencies]
 serde_json = { workspace = true }
+# The app icon, drawn in code (`cargo xtask icon`, `cargo xtask bundle`).
+genha-brand = { workspace = true }
+# Zip archives of the Windows and web downloads.
+flate2 = { workspace = true }
 
 [lints]
 workspace = true

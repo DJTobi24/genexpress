@@ -46,10 +46,13 @@ fn file_new(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(ok(json!({"document": index, "width": w, "height": h})))
 }
 
-/// Opens document bytes (a `.genha` file, or a picture), as from a file or a drop. A design
-/// (not a picture) goes into the recent designs.
+/// Opens document bytes (a `.genha` file, or a picture), as from a file or a drop. It goes into
+/// My designs (and the recent designs).
 pub fn open_bytes(s: &mut Session, name: &str, bytes: &[u8]) -> Result<Value> {
-    open_impl(s, name, bytes, None)
+    let r = open_impl(s, name, bytes, None)?;
+    // Not through `Session::execute`, which adds new designs after commands.
+    super::designs::adopt(s);
+    Ok(r)
 }
 
 /// [`open_bytes`] for a design read from `path` (kept as the design's file).
@@ -90,7 +93,7 @@ fn open_impl(s: &mut Session, name: &str, bytes: &[u8], path: Option<std::path::
     if let Some(d) = s.docs.get_mut(index) {
         d.path = path;
     }
-    super::recent::remember(s, index);
+    super::designs::record(s, index, super::designs::Why::Opened);
     Ok(ok(json!({"document": index, "repaired": notes})))
 }
 
@@ -102,7 +105,7 @@ pub fn design_bytes(s: &mut Session) -> Result<Vec<u8>> {
     let active = s.active;
     super::recovery::forget(s, active);
     s.doc_mut()?.dirty = false;
-    super::recent::remember(s, active);
+    super::designs::record(s, active, super::designs::Why::Saved);
     Ok(bytes)
 }
 
@@ -156,7 +159,7 @@ fn save_to(s: &mut Session, path: &std::path::Path, compress: bool) -> Result<Va
     let d = s.doc_mut()?;
     d.path = Some(path.to_path_buf());
     d.dirty = false;
-    super::recent::remember(s, active);
+    super::designs::record(s, active, super::designs::Why::Saved);
     Ok(ok(json!({"path": path.display().to_string(), "bytes": bytes.len()})))
 }
 
@@ -170,6 +173,8 @@ fn file_close(s: &mut Session, p: &Value) -> Result<Value> {
     if i >= s.docs.len() {
         return Err(bad("file.close", format!("no document {i}")));
     }
+    // A design kept by GenHa keeps its last state in My designs.
+    super::designs::sync_one(s, i);
     super::recovery::forget(s, i);
     s.docs.remove(i);
     if s.active >= s.docs.len() {

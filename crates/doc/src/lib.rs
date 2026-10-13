@@ -27,7 +27,7 @@ pub use brand::{BrandColor, BrandKit};
 pub use data::{ChartEl, ChartKind, ChartPoint, ChartSeries, LegendPosition, MAX_CELL_CHARS, MAX_CHART_POINTS, MAX_CHART_SERIES, ValueFormat};
 pub use element::{
     Adjustments, Animation, AnimationKind, CropRect, Element, ElementKind, Fill, GradientStop, GroupEl, ImageEl, LoopKind, MAX_CURVE, Shadow,
-    ShapeEl, ShapeKind, StrokeStyle, TextAlign, TextEffect, TextEl, TextStyle,
+    ShapeEl, ShapeKind, StrokeStyle, TextAlign, TextEffect, TextEl, TextFit, TextStyle,
 };
 pub use genha_color::Color;
 pub use genha_geom::{Fit, Frame};

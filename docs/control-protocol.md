@@ -17,7 +17,9 @@ Errors: `{"id": 1, "ok": false, "error": "…"}`.
 | `document.inspect` | `{all_pages?}` | pages, objects, selection, brand kit |
 | `session.inspect` | `{}` | open documents, active tool |
 | `ui.render` | `{page?, scale?, path?}` | the page as PNG: written to `path`, else `{png_base64}` |
-| `ui.state` | `{}` | screen, zoom, left tab, status, `playing`, `presenting` (page index or null) |
+| `ui.state` | `{}` | screen, zoom, left tab, status, `playing`, `presenting` (page index or null), `home_page`, `home_modal`, `search` (when its results show) |
+| `ui.home` | `{page?: home\|designs\|templates\|brand\|settings, folder?: folder id \| "unfiled", search?: text, modal?: size\|video\|presentation\|qr\|new-folder\|none}` | the home screen (open designs' changes reach My designs first): a page, a project folder in My designs, the search with its results, or a pop-up |
+| `ui.window` | `{width, height}` | resizes the window (points), e.g. to check narrow layouts |
 | `ui.play` | `{stop?}` | plays the current page's animations on the canvas (or stops) |
 | `ui.present` | `{page?, stop?}` | present mode (full window, animations playing) at `page`; `stop` leaves it |
 

@@ -14,5 +14,12 @@ genha-mcp = { workspace = true }
 genha-segment = { workspace = true }
 serde_json = { workspace = true }
 
+[build-dependencies]
+genha-brand = { workspace = true }
+
+# Windows: the icon and version information in the executable (build.rs; MIT).
+[target.'cfg(windows)'.build-dependencies]
+embed-resource = "3"
+
 [lints]
 workspace = true

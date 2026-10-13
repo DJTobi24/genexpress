@@ -12,6 +12,7 @@ pub enum Class {
 
 /// Package names without the `genha-` prefix.
 pub const TABLE: &[(&str, Class)] = &[
+    ("brand", Class::Layer(0)),
     ("geom", Class::Layer(0)),
     ("color", Class::Layer(0)),
     ("i18n", Class::Layer(0)),

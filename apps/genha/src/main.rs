@@ -1,6 +1,12 @@
 //! The GenHa desktop app.
 //!
 //! `genha [--control PORT] [--dark] [FILE…]`
+// A release build on Windows is a GUI program: no console window opens with it (`genha-cli` is
+// the console program).
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+#[cfg(target_os = "macos")]
+mod macos;
 
 use std::sync::Arc;
 
@@ -19,9 +25,29 @@ struct Shell {
     allow_close: bool,
 }
 
+impl Shell {
+    /// Opens the files the system handed over while running (macOS: Finder, the Dock).
+    #[cfg(target_os = "macos")]
+    fn open_from_system(&mut self) {
+        let paths = macos::take_opened();
+        if paths.is_empty() {
+            return;
+        }
+        for p in paths {
+            self.app.run("file.open", &serde_json::json!({"path": p.display().to_string()}));
+        }
+        if !self.app.session.docs.is_empty() {
+            self.app.screen = genha_ui_egui::Screen::Editor;
+            self.app.view.fit_pending = true;
+        }
+    }
+}
+
 impl eframe::App for Shell {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        #[cfg(target_os = "macos")]
+        self.open_from_system();
         self.app.ui(ui);
         // Window title follows the design.
         let title = match self.app.session.active() {
@@ -32,9 +58,14 @@ impl eframe::App for Shell {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
             self.title = title;
         }
-        // Ask before closing with unsaved changes.
+        // Designs kept by GenHa get their last changes in My designs; ask before closing with
+        // unsaved changes.
+        let closing = ctx.input(|i| i.viewport().close_requested());
+        if closing {
+            self.app.sync_library();
+        }
         let dirty = self.app.session.docs.iter().any(|d| d.dirty);
-        if ctx.input(|i| i.viewport().close_requested()) && dirty && !self.allow_close {
+        if closing && dirty && !self.allow_close {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.confirm_close = true;
         }
@@ -77,10 +108,15 @@ fn main() -> std::process::ExitCode {
                 println!("{USAGE}");
                 return std::process::ExitCode::SUCCESS;
             }
+            // macOS adds a process serial number when an app is started from Finder on old
+            // systems; it is not a file.
+            a if a.starts_with("-psn_") => {}
             f => opts.open.push(f.into()),
         }
     }
-    // Recent designs, Data Recovery copies, added fonts and downloaded models.
+    // Recent designs, Data Recovery copies, added fonts and downloaded models. The folder comes
+    // from the environment (HOME, APPDATA, XDG_DATA_HOME), never from the working directory, so it
+    // is the same when the app starts from Finder, Explorer, a menu or a terminal.
     opts.data_dir = genha_engine::store::user_data_dir();
     // The system's fonts, or built-in fallback faces when there are none.
     let fonts = Arc::new(genha_ui_egui::fonts::system_or_fallback());
@@ -90,31 +126,68 @@ fn main() -> std::process::ExitCode {
             .with_title("GenHa")
             .with_inner_size([1440.0, 900.0])
             .with_min_inner_size([960.0, 600.0])
-            .with_drag_and_drop(true),
+            .with_drag_and_drop(true)
+            .with_icon(Arc::new(window_icon()))
+            // Wayland and X11 match the window with the installed `.desktop` file by this id.
+            .with_app_id(genha_brand::APP_ID),
         ..Default::default()
     };
-    let result = eframe::run_native(
-        "GenHa",
-        native,
-        Box::new(move |cc| {
-            let mut app = App::new(fonts, opts);
-            if let Some(port) = port {
-                match ControlServer::start(port, cc.egui_ctx.clone()) {
-                    Ok(c) => {
-                        log::info!("control channel on 127.0.0.1:{port}");
-                        app.control = Some(c);
-                    }
-                    Err(e) => log::error!("control channel: could not bind 127.0.0.1:{port}: {e}"),
+    let creator: eframe::AppCreator<'_> = Box::new(move |cc| {
+        #[cfg(target_os = "macos")]
+        macos::set_context(&cc.egui_ctx);
+        let mut app = App::new(fonts, opts);
+        if let Some(port) = port {
+            match ControlServer::start(port, cc.egui_ctx.clone()) {
+                Ok(c) => {
+                    log::info!("control channel on 127.0.0.1:{port}");
+                    app.control = Some(c);
                 }
+                Err(e) => log::error!("control channel: could not bind 127.0.0.1:{port}: {e}"),
             }
-            Ok(Box::new(Shell { app, title: String::new(), confirm_close: false, allow_close: false }))
-        }),
-    );
-    match result {
+        }
+        Ok(Box::new(Shell { app, title: String::new(), confirm_close: false, allow_close: false }))
+    });
+    match run(native, creator) {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("GenHa could not start: {e}");
             std::process::ExitCode::FAILURE
         }
+    }
+}
+
+/// The app icon for the window (and, on macOS, the Dock), drawn by `genha_brand`.
+fn window_icon() -> egui::IconData {
+    const SIZE: u32 = 256;
+    egui::IconData { rgba: genha_brand::rgba(SIZE, genha_brand::Style::native()), width: SIZE, height: SIZE }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn run(native: eframe::NativeOptions, creator: eframe::AppCreator<'_>) -> Result<(), String> {
+    eframe::run_native(genha_brand::APP_NAME, native, creator).map_err(|e| e.to_string())
+}
+
+/// macOS: what `eframe::run_native` does, with GenHa's application delegate installed between
+/// creating the event loop and running it (files opened from Finder, see `macos.rs`).
+#[cfg(target_os = "macos")]
+fn run(native: eframe::NativeOptions, creator: eframe::AppCreator<'_>) -> Result<(), String> {
+    let event_loop = winit::event_loop::EventLoop::<eframe::UserEvent>::with_user_event().build().map_err(|e| e.to_string())?;
+    let _delegate = macos::install();
+    let mut app = eframe::create_native(genha_brand::APP_NAME, native, creator, &event_loop);
+    event_loop.run_app(&mut app).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn brand_extensions_match_the_file_format() {
+        assert_eq!(genha_brand::EXTENSION, genha_format::EXTENSION);
+        assert_eq!(genha_brand::LEGACY_EXTENSION, genha_format::LEGACY_EXTENSION);
+    }
+
+    #[test]
+    fn window_icon_is_square_rgba() {
+        let icon = super::window_icon();
+        assert_eq!(icon.rgba.len(), (icon.width * icon.height * 4) as usize);
     }
 }

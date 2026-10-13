@@ -19,7 +19,7 @@ that nothing below L6 depends on a UI toolkit (egui, eframe, winit, rfd). Table:
 
 | Layer | Crates | Role |
 |---|---|---|
-| L0 | `geom`, `color`, `i18n` | frames (position, size, rotation), fitting, snapping, shape outlines (on `kurbo`); sRGB colours as hex, HSL, WCAG contrast, harmonies; the UI's translations (gettext PO catalogues compiled in, `tr`/`tr!`/`tr_n!`, the language per thread) |
+| L0 | `geom`, `color`, `i18n`, `brand` | frames (position, size, rotation), fitting, snapping, shape outlines (on `kurbo`); sRGB colours as hex, HSL, WCAG contrast, harmonies; the UI's translations (gettext PO catalogues compiled in, `tr`/`tr!`/`tr_n!`, the language per thread); the app name and id and the app icon drawn in code (PNG, `.ico`, `.icns`) |
 | L1 | `doc` | the document model: designs with pages of any size, elements (shapes, text, pictures, groups), brand kit, embedded assets, page-size presets; pure data + serde |
 | L2 | `text`, `effects`, `layout`, `templates`, `motion` | font discovery and text layout to outlines (`skrifa`); picture decoding, adjustments, filters and quick actions (background removal, resize, convert…); smart resize (re-layout of text, rows and grids), align/distribute, collages, snapping guides; templates, shapes/icons, text styles, palettes and QR codes generated in code; animations evaluated at a time (`page_at`) |
 | L3 | `render`, `svg`, `pdf`, `video`, `format` | page → pixels (`vello_cpu`) and PNG/JPEG; SVG export; vector PDF export (`krilla`: embedded font subsets, pictures, print boxes); MP4 video (an H.264 encoder and MP4 writer of our own, pure Rust); the native `.genha` format (versioned, compressed JSON) |
@@ -135,7 +135,18 @@ renderer, SVG and PDF writers paint each run in its colour with its synthetic bo
 4. **Placement:** each line is reordered for display (UAX #9 L1/L2) and drawn with `skrifa`
    outlines. `layout_glyphs` also reports per glyph its glyph id, face (`FontBook::face_data` gives
    the font bytes, for exporters that embed fonts), source byte offset (`cluster`, for carets) and
-   direction; lines carry their source byte range. Charts and tables are
+   direction; lines carry their source byte range.
+
+**Text that shrinks to fit** (`TextEl::fit = TextFit::Shrink`): the stored sizes never change.
+`genha_text::fit_scale` finds, by bisection on the scale (each step re-breaks lines; shaping is
+cached), the largest scale in `min_fit_scale..=1` (40% of the size, at least 6 px) at which all the
+box's sizes multiplied together give lines no taller than the box and no word broken (when some
+scale avoids that); results are cached in the `FontBook`. `genha_render::text_fit` / `fitted_text`
+add curved text (measured along its arc) and are what the renderer, the SVG and PDF writers, the
+canvas text editor (caret map), `text.inspect` and the properties panel use, so every output agrees;
+smart resize lays shrinking text out at its fitted size and puts the stored sizes back afterwards.
+
+Charts and tables are
 turned into a `Scene` of filled/stroked paths and laid-out text by `genha_render::{chart_scene,
 table_scene}`, which both the rasterizer and the SVG writer draw, so they agree.
 
@@ -279,10 +290,31 @@ The native `.genha` format is gzip-compressed JSON with a `{"format", "version",
 header, pictures embedded as base64, saved atomically, refused with a clear message when it comes from
 a newer version, and repaired on open (ids, sizes, missing pictures) because files are untrusted.
 
-What the app keeps between runs (Data Recovery copies, recent designs with thumbnails, fonts the
-user added) goes through `genha_engine::store::Store`, a small key-value trait: a folder on the
+What the app keeps between runs (Data Recovery copies, My designs with thumbnails, fonts the
+user added, settings) goes through `genha_engine::store::Store`, a small key-value trait: a folder on the
 desktop (`DirStore`, the per-user data folder), IndexedDB in the browser (`genha_ui_egui` ›
-`web::IdbStore`). The `recovery.*`, `recent.*` and `font.*` commands only see the trait.
+`web::IdbStore`). The `recovery.*`, `design.*`, `folder.*`, `recent.*`, `settings.*` and `font.*`
+commands only see the trait.
+
+## My designs and the home screen
+
+`genha_engine::cmd::designs` keeps every design made or opened in a library: `designs/index.json`
+(entries with title, file path or none, page size, created/edited/opened times, project folder;
+folders with name, colour and order), `designs/<id>.genha` copies of designs that live only in the
+app (every design in the browser) and `designs/<id>.png` thumbnails. After every successful command
+`Session::execute` adds open designs that are not in it yet; saving records the file (and drops the
+copy); `design.sync` (run by the app with Data Recovery, when going home and when quitting, and by
+`file.close`) writes the copies of designs whose content changed (an `Arc` pointer comparison, so
+cheap). Ids from parameters are only compared with ids from the index, and the index is sanitised on
+read (store-key-safe ids, known folders, capped counts and names; a damaged index is rebuilt from the
+copies). Recent designs (`recent.*`) are the library's designs opened or changed last; the older
+`recent/…` list is migrated once. `home.search` searches templates, sizes, quick actions
+(`cmd::home::QUICK_ACTIONS`) and designs in English and the UI's language.
+
+The home screen (`genha_ui_egui` › `home`, `designs`, `pages`, `popups`, `art`) is a navigation rail
+(Create, Home, My designs, Templates, Brand, project folders, Settings) beside its pages. Its icons
+are GenHa's library icons rendered once in white and tinted, or simple shapes; tile and quick-action
+illustrations are drawn in code from `Tokens` colours (`tiles`, `art_paper`, `art_shadow`).
 
 ## Translations
 

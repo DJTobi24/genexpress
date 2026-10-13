@@ -90,7 +90,10 @@ pub(crate) fn handle(app: &mut App, ctx: &egui::Context, method: &str, params: &
             let cmd = params.get("command").and_then(Value::as_str).ok_or("missing `command`")?;
             let p = params.get("params").cloned().unwrap_or(json!({}));
             let r = app.session.execute(cmd, &p).map_err(|e| e.to_string());
-            if r.is_ok() && !app.session.docs.is_empty() {
+            // Commands that change or open a design show the editor; queries, settings and My
+            // designs' commands leave the screen as it is.
+            let shows_design = genha_engine::find_command(cmd).is_some_and(|s| s.edits) && !cmd.starts_with("ui.") && !cmd.starts_with("settings.");
+            if r.is_ok() && shows_design && !app.session.docs.is_empty() {
                 app.screen = crate::Screen::Editor;
                 if cmd.starts_with("file.") || cmd.starts_with("template.") || cmd.starts_with("page.") {
                     app.view.fit_pending = true;
@@ -117,6 +120,9 @@ pub(crate) fn handle(app: &mut App, ctx: &egui::Context, method: &str, params: &
         }
         "ui.state" => Ok(json!({
             "screen": match app.screen { crate::Screen::Home => "home", crate::Screen::Editor => "editor" },
+            "home_page": app.home.page.id(),
+            "home_modal": app.home.modal.as_ref().map(|m| m.id()),
+            "search": if app.home.search_open { Some(app.home.search.clone()) } else { None },
             "zoom": app.view.zoom,
             "left_tab": app.left_tab.label(),
             "status": app.status.as_ref().map(|s| s.0.clone()),
@@ -148,9 +154,46 @@ pub(crate) fn handle(app: &mut App, ctx: &egui::Context, method: &str, params: &
             Ok(json!({"presenting": app.motion.present.as_ref().map(|p| p.page)}))
         }
         "ui.home" => {
-            app.screen = crate::Screen::Home;
-            Ok(json!({}))
+            if app.screen != crate::Screen::Home {
+                app.go_home();
+            }
+            if let Some(page) = params.get("page").and_then(Value::as_str) {
+                let page = crate::home::Page::parse(page).ok_or("unknown page (home, designs, templates, brand, settings)")?;
+                crate::home::go(app, page);
+            }
+            match params.get("folder") {
+                Some(Value::String(id)) if id == "unfiled" => app.home.folder = genha_engine::cmd::designs::FolderFilter::Unfiled,
+                Some(Value::String(id)) => {
+                    app.library.folder(id).ok_or("no such folder (see folder.list)")?;
+                    app.home.page = crate::home::Page::Designs;
+                    app.home.folder = genha_engine::cmd::designs::FolderFilter::Folder(id.clone());
+                }
+                _ => {}
+            }
+            if let Some(q) = params.get("search").and_then(Value::as_str) {
+                app.home.page = crate::home::Page::Home;
+                app.home.search = q.chars().take(200).collect();
+                app.home.search_open = !q.is_empty();
+            }
+            match params.get("modal").and_then(Value::as_str) {
+                None => {}
+                Some("none") => app.home.modal = None,
+                Some("size") => crate::popups::open_size_picker(app, None),
+                Some("video") => app.home.modal = Some(crate::popups::Modal::Video),
+                Some("presentation") => app.home.modal = Some(crate::popups::Modal::Presentation),
+                Some("qr") => app.home.modal = Some(crate::popups::Modal::Qr { text: String::new() }),
+                Some("new-folder") => app.home.modal = Some(crate::popups::Modal::NewFolder { name: String::new(), color: 0 }),
+                Some(_) => return Err("unknown modal (size, video, presentation, qr, new-folder, none)".into()),
+            }
+            Ok(json!({"page": app.home.page.id(), "modal": app.home.modal.as_ref().map(|m| m.id())}))
         }
+        "ui.window" => {
+            let size = |k: &str| params.get(k).and_then(Value::as_f64).filter(|v| v.is_finite()).map(|v| v.clamp(320.0, 8192.0) as f32);
+            let (Some(w), Some(h)) = (size("width"), size("height")) else { return Err("missing `width` and `height`".into()) };
+            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(w, h)));
+            Ok(json!({"width": w, "height": h}))
+        }
+
         other => Err(format!("unknown method `{other}`")),
     }
 }

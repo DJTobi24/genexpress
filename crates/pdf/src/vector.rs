@@ -628,6 +628,7 @@ impl Writer<'_> {
 
     fn text(&mut self, s: &mut Surface, el: &Element, t: &TextEl, frame: &Frame, local: Affine, outer: Affine) {
         let (w, h) = (frame.width, frame.height);
+        let t = &*genha_render::fitted_text(self.fonts, t, w, h);
         let layout = genha_text::layout_el(self.fonts, t, w);
         let curved = curved_text_groups(self.fonts, t, w, h);
         // The letters' outlines (with underlines), as the renderer fills them: for effects, and
@@ -644,7 +645,7 @@ impl Writer<'_> {
                 let bounds = outlines.bounding_box().union(Rect::new(0.0, 0.0, w.max(0.0), layout.height));
                 let mut sil = el.clone();
                 sil.opacity = 1.0;
-                let mut silhouette = TextEl { effect: TextEffect::None, ..t.clone() };
+                let mut silhouette = TextEl { effect: TextEffect::None, fit: genha_doc::TextFit::None, ..t.clone() };
                 silhouette.set_style_all(&SpanStyle { color: Some(color.with_alpha(255)), ..SpanStyle::default() });
                 sil.kind = ElementKind::Text(silhouette);
                 // The copy is outlines, so the text is found once when searching.

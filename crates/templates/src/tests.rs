@@ -388,55 +388,43 @@ fn each_element(doc: &Document, mut f: impl FnMut(usize, &Element)) {
     }
 }
 
+/// A font book with only DejaVu (a "Sans" face much wider than Inter, the templates' design font),
+/// or None when DejaVu is not installed.
+fn dejavu_only() -> Option<genha_text::FontBook> {
+    let dirs = ["/usr/share/fonts/truetype/dejavu", "/usr/share/fonts/dejavu", "/usr/share/fonts/TTF", "/usr/local/share/fonts"];
+    let mut book = genha_text::FontBook::new();
+    for dir in dirs {
+        let Ok(rd) = std::fs::read_dir(dir) else { continue };
+        for f in rd.flatten() {
+            let name = f.file_name().to_string_lossy().to_string();
+            if name.starts_with("DejaVu") && name.ends_with(".ttf") && !name.contains("Mono") && !name.contains("Condensed") {
+                let _ = book.add_font(std::fs::read(f.path()).unwrap());
+            }
+        }
+    }
+    book.has_family("DejaVu Sans").then_some(book)
+}
+
+/// The text boxes of every template fit their boxes: with no fonts (approximate metrics), with the
+/// system's fonts (Inter on CI) and with only DejaVu Sans, a much wider "Sans" face. Boxes that do
+/// not shrink to fit must hold their lines as set; boxes that shrink must fit at the scale found
+/// (no overflow, no word broken, bent text on as many arcs as it has lines).
 #[test]
 fn text_fits_its_box_with_and_without_fonts() {
     let system = genha_text::FontBook::system();
-    let books = [("no fonts", genha_text::FontBook::new()), ("system fonts", system)];
+    let mut books = vec![("no fonts", genha_text::FontBook::new()), ("system fonts", system)];
+    match dejavu_only() {
+        Some(b) => books.push(("DejaVu only", b)),
+        None => eprintln!("DejaVu Sans not installed: the wide-font case is skipped"),
+    }
     let mut problems = vec![];
+    let mut shrunk = vec![0usize; books.len()];
     for (info, doc) in all_docs() {
-        for (book_name, book) in &books {
+        for (bi, (book_name, book)) in books.iter().enumerate() {
             each_element(&doc, |page, e| {
                 let f = e.frame;
-                match &e.kind {
-                    ElementKind::Text(t) if t.curve_degrees().abs() >= 0.5 => {
-                        // Bent text is laid out in lines first: it must not wrap either.
-                        let lines = genha_text::layout_el(book, t, f.width).lines.len();
-                        if lines > t.text.lines().count().max(1) {
-                            problems.push(format!("{} p{page} {} ({book_name}): curved text wraps into {lines} lines", info.id, e.name));
-                        }
-                        if let Some((w, h)) = genha_render::curved_text_size(book, t, f.width)
-                            && (w > f.width + 2.0 || h > f.height + 2.0)
-                        {
-                            problems.push(format!(
-                                "{} p{page} {} ({book_name}): curved text needs {w:.0}×{h:.0}, has {:.0}×{:.0}",
-                                info.id, e.name, f.width, f.height
-                            ));
-                        }
-                    }
-                    ElementKind::Text(t) => {
-                        let l = genha_text::layout_el(book, t, f.width);
-                        let lines = t.text.lines().count().max(1);
-                        if l.lines.len() > lines || l.height > f.height + 1.0 {
-                            problems.push(format!(
-                                "{} p{page} {} ({book_name}): {} lines, {:.0} px tall in a {:.0} × {:.0} box",
-                                info.id,
-                                e.name,
-                                l.lines.len(),
-                                l.height,
-                                f.width,
-                                f.height
-                            ));
-                        }
-                        for line in &l.lines {
-                            if line.width > f.width + 1.0 {
-                                problems.push(format!(
-                                    "{} p{page} {} ({book_name}): `{}` is {:.0} px wide in {:.0}",
-                                    info.id, e.name, line.text, line.width, f.width
-                                ));
-                            }
-                        }
-                    }
-                    ElementKind::Table(t) => {
+                let ElementKind::Text(t0) = &e.kind else {
+                    if let ElementKind::Table(t) = &e.kind {
                         let g = genha_render::table_geometry(book, t, f.width, f.height);
                         if g.natural_height > f.height + 1.0 {
                             problems.push(format!(
@@ -445,10 +433,74 @@ fn text_fits_its_box_with_and_without_fonts() {
                             ));
                         }
                     }
-                    _ => {}
+                    return;
+                };
+                let fit = genha_render::text_fit(book, t0, f.width, f.height);
+                if !fit.fits {
+                    problems.push(format!("{} p{page} {} ({book_name}): does not fit even at {:.0}%", info.id, e.name, fit.scale * 100.0));
+                }
+                if fit.scale < 1.0
+                    && let Some(n) = shrunk.get_mut(bi)
+                {
+                    *n += 1;
+                }
+                let t = &*t0.scaled(fit.scale);
+                let shrinks = t.fit == genha_doc::TextFit::Shrink;
+                if t.curve_degrees().abs() >= 0.5 {
+                    // Bent text is laid out in lines first: it must not wrap either.
+                    let lines = genha_text::layout_el(book, t, f.width).lines.len();
+                    if lines > t.text.lines().count().max(1) {
+                        problems.push(format!("{} p{page} {} ({book_name}): curved text wraps into {lines} lines", info.id, e.name));
+                    }
+                    if let Some((w, h)) = genha_render::curved_text_size(book, t, f.width)
+                        && (w > f.width + 2.0 || h > f.height + 2.0)
+                    {
+                        problems.push(format!(
+                            "{} p{page} {} ({book_name}): curved text needs {w:.0}×{h:.0}, has {:.0}×{:.0}",
+                            info.id, e.name, f.width, f.height
+                        ));
+                    }
+                    return;
+                }
+                let l = genha_text::layout_el(book, t, f.width);
+                let lines = t.text.lines().count().max(1);
+                if (!shrinks && l.lines.len() > lines) || l.height > f.height + 1.0 {
+                    problems.push(format!(
+                        "{} p{page} {} ({book_name}): {} lines, {:.0} px tall in a {:.0} × {:.0} box (scale {:.2})",
+                        info.id,
+                        e.name,
+                        l.lines.len(),
+                        l.height,
+                        f.width,
+                        f.height,
+                        fit.scale
+                    ));
+                }
+                for line in &l.lines {
+                    if line.width > f.width + 1.0 {
+                        problems.push(format!(
+                            "{} p{page} {} ({book_name}): `{}` is {:.0} px wide in {:.0}",
+                            info.id, e.name, line.text, line.width, f.width
+                        ));
+                    }
+                }
+                // No word broken between letters: every line ends after a space, before a newline
+                // or at the end of the text.
+                if shrinks {
+                    for line in &l.lines {
+                        let end = line.range.end;
+                        let before = t.text.get(..end).unwrap_or("");
+                        let after = t.text.get(end..).unwrap_or("");
+                        if !(after.is_empty() || before.ends_with(char::is_whitespace) || after.starts_with('\n')) {
+                            problems.push(format!("{} p{page} {} ({book_name}): a word is broken after `{}`", info.id, e.name, line.text));
+                        }
+                    }
                 }
             });
         }
+    }
+    for ((name, _), n) in books.iter().zip(&shrunk) {
+        eprintln!("{name}: {n} text boxes shrunk to fit");
     }
     assert!(problems.is_empty(), "{} problems:\n{}", problems.len(), problems.join("\n"));
 }

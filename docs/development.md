@@ -14,9 +14,12 @@ faces of the `epaint_default_fonts` crate (the CLI and tests then lay text out w
 metrics but draw nothing).
 
 Templates are designed for **Inter** as the "Sans" / "Display" face (the first choice of
-`genha_text::SANS_FALLBACKS`). The template tests check that text fits its box with the system's
-fonts and with none; install Inter for them (`sudo apt-get install fonts-inter` on Debian/Ubuntu,
-as CI does), otherwise a wider fallback such as DejaVu Sans makes some headlines wrap.
+`genha_text::SANS_FALLBACKS`). Their headings and short blocks shrink to fit their box
+(`TextFit::Shrink`, see `genha_text::fit_scale`), so with a wider "Sans" (DejaVu Sans when Inter is
+missing, other system fonts on Windows and macOS) they are set smaller instead of wrapping past it.
+The template tests check that text fits its box with the system's fonts, with none, and with only
+DejaVu Sans (when installed); with Inter installed (`sudo apt-get install fonts-inter` on
+Debian/Ubuntu, as CI does) nothing shrinks and the templates look as designed.
 
 ## Web
 
@@ -66,6 +69,15 @@ In the browser:
 Check the browser code with `cargo clippy -p genha-ui-egui -p genha-web --target
 wasm32-unknown-unknown -- -D warnings` (`cargo xtask wasm`, part of `cargo xtask ci`, does this).
 Hosting notes: [`packaging/web/README.md`](../packaging/web/README.md).
+
+## Releases and installers
+
+`cargo xtask bundle macos|linux|windows|web` makes the downloads in `dist/` (a universal, signed
+and notarized `GenHa.app` + DMG on macOS; a zip on Windows; a tar.gz with `.desktop` entry, icons
+and MIME type on Linux; a zip of the web app), `cargo xtask icon` writes the app icon (drawn in
+code, `crates/brand`) as PNG, `.ico` and `.icns`. Pushing a tag `v<version>` runs
+`.github/workflows/release.yml`, which builds all four and publishes a GitHub Release. Signing,
+notarization, GitHub secrets and troubleshooting: [release.md](release.md).
 
 ## Quality gates
 

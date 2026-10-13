@@ -294,11 +294,18 @@ fn every_command_survives_junk_params() {
         json!({"csv": "\"\n,,\"\"\t", "rows": [[1, {"a": 2}], null], "series": [{"values": [1e308, null, "x"]}], "categories": 5}),
         json!({"series": [{"name": 5, "values": [], "color": "red"}], "categories": [null, {}, 3], "legend": 3, "min": "a", "max": {}, "decimals": 99}),
         json!({"legend": "right", "stacked": true, "min": 1e300, "max": -1e300, "value_format": "currency", "currency": "€€€€€€€€€€€€"}),
+        // Text that shrinks to fit: unknown modes, and boxes and sizes that leave no room.
+        json!({"fit": "SHRINK", "width": 1e-300, "height": -1, "font_size": 1e308}),
+        json!({"fit": ["none"], "degrees": f64::MAX}),
+        json!({"fit": "shrink", "width": 0.0001, "height": 0.0001, "text": "x".repeat(5000)}),
     ];
     let mut s = session();
     s.execute("shape.add", &json!({})).unwrap();
+    s.execute("text.add", &json!({"text": "Shrinks to fit"})).unwrap();
+    s.execute("text.setFit", &json!({"fit": "shrink"})).unwrap();
     s.execute("text.add", &json!({})).unwrap();
     s.execute("text.setCurve", &json!({"degrees": 90})).unwrap();
+    s.execute("text.setFit", &json!({"fit": "shrink"})).unwrap();
     s.execute("chart.add", &json!({"kind": "pie"})).unwrap();
     s.execute("chart.add", &json!({"csv": "x,a,b\n1,2,3\n4,5,6", "stacked": true})).unwrap();
     s.execute("table.add", &json!({})).unwrap();
@@ -642,22 +649,25 @@ fn recent_designs_in_the_browser_keep_a_copy() {
     let id = list[0]["id"].as_str().unwrap().to_string();
     let png = crate::cmd::recent::thumbnail(&s, &id).unwrap();
     assert_eq!(&png[1..4], b"PNG");
-    // Downloading it again keeps one entry; opening the same file again too.
+    // Downloading it again keeps one entry; opening the downloaded file is a design of its own.
     crate::cmd::file::design_bytes(&mut s).unwrap();
-    crate::cmd::file::open_bytes(&mut s, "Poster.genha", &bytes).unwrap();
     assert_eq!(s.execute("recent.list", &json!({})).unwrap().as_array().unwrap().len(), 1);
+    crate::cmd::file::open_bytes(&mut s, "Poster.genha", &bytes).unwrap();
+    assert_eq!(s.execute("recent.list", &json!({})).unwrap().as_array().unwrap().len(), 2);
     // Opening the entry brings the design back.
     s.execute("file.close", &json!({})).unwrap();
     s.execute("file.close", &json!({})).unwrap();
     s.execute("recent.open", &json!({"id": id})).unwrap();
     assert_eq!(s.doc().unwrap().doc.title, "Poster");
-    // Pictures opened as designs are not recent designs (until saved).
+    // Pictures opened as designs are new designs too.
     let png = genha_render::encode_png(&genha_render::Raster { width: 2, height: 2, rgba: vec![255; 16] }).unwrap();
     crate::cmd::file::open_bytes(&mut s, "a.png", &png).unwrap();
-    assert_eq!(s.execute("recent.list", &json!({})).unwrap().as_array().unwrap().len(), 1);
+    assert_eq!(s.execute("recent.list", &json!({})).unwrap().as_array().unwrap().len(), 3);
+    // Taken off the recent designs, it stays in My designs.
     s.execute("recent.remove", &json!({"id": id})).unwrap();
-    assert!(s.execute("recent.list", &json!({})).unwrap().as_array().unwrap().is_empty());
-    assert!(s.store.as_ref().unwrap().list("recent").iter().all(|(k, _)| k == "recent/list.json"));
+    let recent = s.execute("recent.list", &json!({})).unwrap();
+    assert!(recent.as_array().unwrap().iter().all(|e| e["id"] != id.as_str()));
+    assert_eq!(s.execute("design.list", &json!({})).unwrap()["total"], 3);
     assert!(s.execute("recent.open", &json!({"id": "nope"})).is_err());
 }
 
@@ -677,12 +687,223 @@ fn recent_designs_on_the_desktop_point_at_files() {
     assert_eq!(list.as_array().unwrap().len(), 2);
     assert_eq!(list[0]["path"], path.display().to_string());
     assert!(!root.join("recent.json").exists());
+    // A design saved to a file keeps no copy in the data folder.
+    let id = list[0]["id"].as_str().unwrap().to_string();
+    assert!(!root.join("designs").join(format!("{id}.genha")).exists());
     s.execute("file.close", &json!({})).unwrap();
-    let id = list[0]["id"].as_str().unwrap();
     s.execute("recent.open", &json!({"id": id})).unwrap();
     assert_eq!(s.doc().unwrap().path.as_deref(), Some(path.as_path()));
     assert_eq!(s.execute("recent.list", &json!({})).unwrap().as_array().unwrap().len(), 2);
+    // Renaming it in My designs renames the open design (saved with it).
+    s.execute("design.rename", &json!({"id": id, "title": "Renamed"})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.title, "Renamed");
+    s.execute("file.close", &json!({})).unwrap();
+    // Closed: the title in the file changes.
+    s.execute("design.rename", &json!({"id": id, "title": "On disk"})).unwrap();
+    let (doc, _) = genha_format::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(doc.title, "On disk");
+    // Removing it from My designs keeps the file.
+    s.execute("design.remove", &json!({"ids": [id]})).unwrap();
+    assert!(path.exists());
     std::fs::remove_dir_all(&root).unwrap();
+}
+
+/// A session keeping My designs in memory, with `n` designs made from templates.
+fn library_session(n: usize) -> Session {
+    let mut s = Session::new();
+    s.store = Some(Box::new(crate::store::MemStore::default()));
+    for t in genha_templates::catalog().iter().take(n) {
+        s.execute("template.use", &json!({"id": t.id})).unwrap();
+    }
+    s
+}
+
+fn design_ids(s: &mut Session, params: Value) -> Vec<String> {
+    let list = s.execute("design.list", &params).unwrap();
+    list["designs"].as_array().unwrap().iter().map(|d| d["id"].as_str().unwrap().to_string()).collect()
+}
+
+#[test]
+fn new_designs_go_into_my_designs_and_stay() {
+    let mut s = library_session(2);
+    s.execute("file.new", &json!({"preset": "logo", "title": "Logo draft"})).unwrap();
+    let list = s.execute("design.list", &json!({})).unwrap();
+    assert_eq!(list["total"], 3);
+    let id = s.doc().unwrap().library_id.clone().unwrap();
+    let mine = list["designs"].as_array().unwrap().iter().find(|d| d["id"] == id.as_str()).unwrap().clone();
+    assert!(mine["stored"].as_bool().unwrap() && mine["open"].as_bool().unwrap());
+    assert!(mine["thumbnail"].is_string());
+    assert_eq!((mine["width"].as_f64(), mine["height"].as_f64()), (Some(500.0), Some(500.0)));
+    // Changes reach the copy with design.sync (and when the design is closed).
+    s.execute("text.add", &json!({"text": "Kept"})).unwrap();
+    assert_eq!(s.execute("design.sync", &json!({})).unwrap()["updated"], 1);
+    assert_eq!(s.execute("design.sync", &json!({})).unwrap()["updated"], 0);
+    s.execute("text.add", &json!({"text": "Also kept"})).unwrap();
+    s.execute("file.close", &json!({})).unwrap();
+    // The next run (same store) opens it with both texts.
+    let store = s.store.take();
+    let mut s2 = Session::new();
+    s2.store = store;
+    s2.execute("design.open", &json!({"id": id})).unwrap();
+    let texts: Vec<String> = s2.doc().unwrap().doc.pages[0]
+        .elements
+        .iter()
+        .filter_map(|e| match &e.kind {
+            genha_doc::ElementKind::Text(t) => Some(t.text.clone()),
+            _ => None,
+        })
+        .collect();
+    assert!(texts.contains(&"Kept".to_string()) && texts.contains(&"Also kept".to_string()), "{texts:?}");
+    // Opening it again switches to it.
+    s2.execute("file.new", &json!({})).unwrap();
+    let r = s2.execute("design.open", &json!({"id": id})).unwrap();
+    assert_eq!(r["already_open"], true);
+    assert_eq!(s2.active, 0);
+    // Without a store there is no My designs.
+    let mut bare = session();
+    assert!(bare.execute("design.list", &json!({})).unwrap()["designs"].as_array().unwrap().is_empty());
+    assert!(bare.execute("folder.create", &json!({"name": "x"})).is_err());
+}
+
+#[test]
+fn folders_organise_designs() {
+    let mut s = library_session(4);
+    let ids = design_ids(&mut s, json!({}));
+    let work = s.execute("folder.create", &json!({"name": "  Work  ", "color": "#3366ff"})).unwrap()["id"].as_str().unwrap().to_string();
+    let party = s.execute("folder.create", &json!({"name": "Party"})).unwrap()["id"].as_str().unwrap().to_string();
+    assert!(s.execute("folder.create", &json!({"name": "   "})).is_err());
+    assert!(s.execute("folder.create", &json!({"name": "x", "color": "not a colour"})).is_err());
+    let folders = s.execute("folder.list", &json!({})).unwrap();
+    assert_eq!(folders[0]["name"], "Work");
+    assert_eq!(folders[0]["color"], "#3366ff");
+    s.execute("design.move", &json!({"ids": [ids[0], ids[1]], "folder": work})).unwrap();
+    s.execute("design.move", &json!({"id": ids[2], "folder": party})).unwrap();
+    assert!(s.execute("design.move", &json!({"ids": [ids[3]], "folder": "nope"})).is_err());
+    assert!(s.execute("design.move", &json!({"ids": ["nope"], "folder": work})).is_err());
+    assert_eq!(design_ids(&mut s, json!({"folder": work})).len(), 2);
+    assert_eq!(design_ids(&mut s, json!({"folder": "unfiled"})), vec![ids[3].clone()]);
+    assert_eq!(s.execute("folder.list", &json!({})).unwrap()[0]["count"], 2);
+    // Rename, colour, order.
+    s.execute("folder.rename", &json!({"id": party, "name": "Birthday"})).unwrap();
+    s.execute("folder.setColor", &json!({"id": party, "color": null})).unwrap();
+    s.execute("folder.move", &json!({"id": party, "index": 0})).unwrap();
+    let folders = s.execute("folder.list", &json!({})).unwrap();
+    assert_eq!(folders[0]["name"], "Birthday");
+    assert!(folders[0]["color"].is_null());
+    // Deleting a folder keeps its designs (out of the folder) unless told otherwise.
+    s.execute("folder.delete", &json!({"id": work})).unwrap();
+    assert_eq!(design_ids(&mut s, json!({"folder": "unfiled"})).len(), 3);
+    s.execute("folder.delete", &json!({"id": party, "keep_designs": false})).unwrap();
+    assert_eq!(s.execute("design.list", &json!({})).unwrap()["total"], 3);
+    assert!(s.execute("folder.list", &json!({})).unwrap().as_array().unwrap().is_empty());
+    // A removed open design is not added again (until design.add).
+    assert!(!s.docs.iter().any(|d| d.library_id.as_deref() == Some(ids[2].as_str())));
+    let removed = s.docs.iter().position(|d| d.library_removed).unwrap();
+    s.execute("design.sync", &json!({})).unwrap();
+    assert_eq!(s.execute("design.list", &json!({})).unwrap()["total"], 3);
+    s.active = removed;
+    s.execute("design.add", &json!({})).unwrap();
+    assert_eq!(s.execute("design.list", &json!({})).unwrap()["total"], 4);
+}
+
+#[test]
+fn designs_are_renamed_duplicated_searched_and_sorted() {
+    let mut s = library_session(3);
+    let ids = design_ids(&mut s, json!({}));
+    s.execute("design.rename", &json!({"id": ids[1], "title": "Zebra crossing"})).unwrap();
+    assert!(s.execute("design.rename", &json!({"id": ids[1], "title": " "})).is_err());
+    assert_eq!(s.docs.iter().filter(|d| d.doc.title == "Zebra crossing").count(), 1);
+    let copy = s.execute("design.duplicate", &json!({"id": ids[1]})).unwrap()["id"].as_str().unwrap().to_string();
+    let list = s.execute("design.list", &json!({"query": "zebra", "sort": "name"})).unwrap();
+    assert_eq!(list["total"], 2);
+    assert_eq!(list["designs"][1]["title"], "Zebra crossing (copy)");
+    assert_eq!(list["designs"][1]["id"], copy.as_str());
+    assert!(s.execute("design.list", &json!({"sort": "sideways"})).is_err());
+    assert!(s.execute("design.list", &json!({"folder": "nope"})).is_err());
+    // The copy opens on its own.
+    s.execute("design.open", &json!({"id": copy})).unwrap();
+    assert_eq!(s.doc().unwrap().doc.title, "Zebra crossing (copy)");
+    // One search over designs, templates, sizes and quick actions.
+    let r = s.execute("home.search", &json!({"query": "zebra"})).unwrap();
+    assert_eq!(r["designs"].as_array().unwrap().len(), 2);
+    let r = s.execute("home.search", &json!({"query": "instagram story"})).unwrap();
+    assert!(r["sizes"].as_array().unwrap().iter().any(|p| p["id"] == "instagram-story"));
+    assert!(!r["templates"].as_array().unwrap().is_empty());
+    let r = s.execute("home.search", &json!({"query": "background"})).unwrap();
+    assert!(r["actions"].as_array().unwrap().iter().any(|a| a["id"] == "remove-background"));
+    let r = s.execute("home.search", &json!({"query": "qr"})).unwrap();
+    assert!(r["actions"].as_array().unwrap().iter().any(|a| a["id"] == "qr-code"));
+    assert!(s.execute("home.search", &json!({})).is_err());
+    // Removing a copy kept by GenHa deletes it.
+    let r = s.execute("design.remove", &json!({"ids": [copy]})).unwrap();
+    assert_eq!(r["deleted"], 1);
+    assert!(s.store.as_ref().unwrap().list("designs").iter().all(|(k, _)| !k.contains(&copy)));
+}
+
+#[test]
+fn settings_keep_the_name_and_dark_mode() {
+    let mut s = Session::new();
+    s.store = Some(Box::new(crate::store::MemStore::default()));
+    let r = s.execute("settings.set", &json!({"name": "  Ada\u{7}  ", "dark": true})).unwrap();
+    assert_eq!(r["name"], "Ada");
+    assert_eq!(r["dark"], true);
+    assert!(s.execute("settings.set", &json!({"dark": "yes"})).is_err());
+    assert!(s.execute("settings.set", &json!({"name": 5})).is_err());
+    let store = s.store.take();
+    let mut s2 = Session::new();
+    s2.store = store;
+    crate::cmd::edit::load_preferences(&mut s2);
+    assert_eq!(s2.user_name, "Ada");
+    assert_eq!(s2.dark, Some(true));
+    s2.execute("settings.set", &json!({"name": null, "dark": null})).unwrap();
+    let r = s2.execute("settings.get", &json!({})).unwrap();
+    assert_eq!(r["name"], "");
+    assert!(r["dark"].is_null());
+}
+
+#[test]
+fn a_damaged_index_still_lists_the_kept_designs() {
+    let mut s = library_session(2);
+    s.execute("folder.create", &json!({"name": "Lost on damage"})).unwrap();
+    s.store.as_mut().unwrap().write("designs/index.json", b"{not json").unwrap();
+    let list = s.execute("design.list", &json!({})).unwrap();
+    assert_eq!(list["total"], 2);
+    // Store keys from a hand-edited index are checked.
+    let evil = json!({"designs": [{"id": "../../etc/passwd", "title": "x"}, {"id": "ok-1", "title": "y", "folder": "../x"}], "folders": [{"id": "a/b", "name": "z"}]});
+    s.store.as_mut().unwrap().write("designs/index.json", evil.to_string().as_bytes()).unwrap();
+    let list = s.execute("design.list", &json!({})).unwrap();
+    assert_eq!(list["total"], 1);
+    assert!(list["designs"][0]["folder"].is_null());
+    assert!(list["folders"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn library_commands_survive_junk_params() {
+    let junk = [
+        json!(null),
+        json!({}),
+        json!({"id": 5, "ids": "x", "folder": 3, "name": [], "title": {}, "color": "#zz", "index": -1, "sort": 1, "query": 7}),
+        json!({"id": "../../x", "ids": ["../a", null, 1], "folder": "../..", "name": "\u{0}\u{202e}", "title": "x".repeat(10_000)}),
+        json!({"id": "", "ids": [], "folder": null, "name": "n", "title": "t", "color": null, "index": 1e20, "limit": 0, "keep_designs": "no"}),
+        json!({"query": "ä ö ü 中文 \u{0}", "limit": 1e300, "dark": 2, "lang": []}),
+    ];
+    let mut s = library_session(2);
+    let ids = design_ids(&mut s, json!({}));
+    let folder = s.execute("folder.create", &json!({"name": "F"})).unwrap()["id"].as_str().unwrap().to_string();
+    let real = json!({"id": ids[0], "ids": [ids[1]], "folder": folder, "name": "N", "title": "T", "query": "t"});
+    let prefixes = ["design.", "folder.", "recent.", "home.", "settings."];
+    for spec in command_specs().iter().filter(|c| prefixes.iter().any(|p| c.id.starts_with(p))) {
+        for j in junk.iter().chain([&real]) {
+            let r = s.execute(spec.id, j);
+            assert!(!matches!(r, Err(EngineError::Internal { .. })), "{} panicked on {j}", spec.id);
+            if s.docs.is_empty() {
+                s.execute("file.new", &json!({})).unwrap();
+            }
+        }
+    }
+    // Every key written is a safe store key.
+    let keys: Vec<String> = s.store.as_ref().unwrap().list("designs").into_iter().map(|(k, _)| k).collect();
+    assert!(keys.iter().all(|k| crate::store::valid_key(k)));
 }
 
 #[test]
@@ -769,7 +990,7 @@ fn charts_from_commands() {
     // Pie colours come from the brand; data as a list; the summary shows it.
     let p = id(&s.execute("chart.add", &json!({"kind": "pie", "data": [{"label": "a", "value": 1}, ["b", 2]]})).unwrap());
     assert!(chart_of(&s, p).colors.len() >= 4);
-    let summary = inspect::element_summary(s.doc().unwrap().doc.element(NodeId(p)).unwrap());
+    let summary = inspect::element_summary(s.doc().unwrap().doc.element(NodeId(p)).unwrap(), &s.fonts);
     assert_eq!(summary["chart"], "pie");
     assert_eq!(summary["data"][1]["value"], 2.0);
     // A ring is a square progress chart.
@@ -823,7 +1044,7 @@ fn tables_from_commands() {
     let big = id(&s.execute("table.add", &json!({"rows": [["x", "y"], ["1", "2"], ["3"]], "header": false})).unwrap());
     let (table, _) = table_of(&s, big);
     assert!(!table.header_row && table.rows[2].len() == 2);
-    assert_eq!(inspect::element_summary(s.doc().unwrap().doc.element(NodeId(big)).unwrap())["size"], json!([3, 2]));
+    assert_eq!(inspect::element_summary(s.doc().unwrap().doc.element(NodeId(big)).unwrap(), &s.fonts)["size"], json!([3, 2]));
 }
 
 #[test]
@@ -869,7 +1090,7 @@ fn charts_with_several_series() {
     s.execute("chart.setStyle", &json!({"min": 50})).unwrap();
     assert_eq!(chart_of(&s, c).min, None);
     // The summary shows the series; files keep them.
-    let summary = inspect::element_summary(s.doc().unwrap().doc.element(NodeId(c)).unwrap());
+    let summary = inspect::element_summary(s.doc().unwrap().doc.element(NodeId(c)).unwrap(), &s.fonts);
     assert_eq!(summary["series"][0]["name"], "X", "the one-series form keeps the first name");
     let bytes = genha_format::to_bytes(&s.doc().unwrap().doc, true).unwrap();
     let (back, notes) = genha_format::from_bytes(&bytes).unwrap();
@@ -970,4 +1191,67 @@ fn text_curve_command() {
     assert!(s.execute("text.setCurve", &json!({"degrees": "a lot"})).is_err());
     let shape = id(&s.execute("shape.add", &json!({})).unwrap());
     assert!(s.execute("text.setCurve", &json!({"ids": [shape], "degrees": 90})).is_err());
+}
+
+#[test]
+fn text_set_fit_shrinks_text_to_its_box() {
+    // No fonts: 0.55 em per character. "Grand opening" at 120 px is 858 px wide: in a 600 × 160
+    // box it wraps into two lines (288 px) unless it shrinks.
+    let mut s = session();
+    let tid = id(&s.execute("text.add", &json!({"text": "Grand opening", "width": 600, "style": {"font_size": 120, "align": "left"}})).unwrap());
+    let el = |s: &Session| s.doc().unwrap().doc.element(NodeId(tid)).unwrap().clone();
+    // New text keeps its size.
+    let ElementKind::Text(t) = &el(&s).kind else { panic!() };
+    assert_eq!(t.fit, genha_doc::TextFit::None);
+    assert_eq!(s.execute("text.inspect", &json!({"id": tid})).unwrap()["fit"]["fit"], "none");
+    s.execute("text.setFit", &json!({"ids": [tid], "fit": "shrink"})).unwrap();
+    s.execute("object.setFrame", &json!({"ids": [tid], "height": 160})).unwrap();
+    let e = el(&s);
+    assert_eq!(e.frame.height, 160.0);
+    let ElementKind::Text(t) = &e.kind else { panic!() };
+    assert_eq!(t.fit, genha_doc::TextFit::Shrink);
+    assert_eq!(t.style.font_size, 120.0, "the stored size is kept");
+    let fit = s.execute("text.inspect", &json!({"id": tid})).unwrap()["fit"].clone();
+    assert_eq!(fit["fit"], "shrink");
+    assert_eq!(fit["fits"], true);
+    let scale = fit["scale"].as_f64().unwrap();
+    assert!(scale < 0.7 && scale > 0.69, "{fit}");
+    let summary = inspect::element_summary(&e, &s.fonts);
+    assert_eq!(summary["fit"]["scale"], fit["scale"]);
+    // Editing the text keeps the box (the text shrinks further instead).
+    s.execute("text.setText", &json!({"id": tid, "text": "Grand opening weekend"})).unwrap();
+    assert_eq!(el(&s).frame.height, 160.0);
+    let more = s.execute("text.inspect", &json!({"id": tid})).unwrap()["fit"]["scale"].as_f64().unwrap();
+    assert!(more < scale, "{more} vs {scale}");
+    // Turned off: full size again, and the box grows to hold it.
+    s.execute("text.setFit", &json!({"ids": [tid], "fit": "none"})).unwrap();
+    assert!(el(&s).frame.height > 160.0);
+    assert!(s.execute("text.setFit", &json!({"ids": [tid], "fit": "squash"})).is_err());
+    assert!(s.execute("text.setFit", &json!({"ids": [tid]})).is_err());
+    // Undo brings the shrinking box back.
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert_eq!(el(&s).frame.height, 160.0);
+}
+
+#[test]
+fn typewriter_text_that_shrinks_keeps_the_whole_text_size() {
+    let mut s = session();
+    let tid = id(&s.execute("text.add", &json!({"text": "Grand opening", "width": 600, "style": {"font_size": 120}})).unwrap());
+    s.execute("text.setFit", &json!({"ids": [tid], "fit": "shrink"})).unwrap();
+    s.execute("object.setFrame", &json!({"ids": [tid], "height": 160})).unwrap();
+    s.execute("animation.set", &json!({"ids": [tid], "kind": "typewriter", "duration": 2.0})).unwrap();
+    let scale = s.execute("text.inspect", &json!({"id": tid})).unwrap()["fit"]["scale"].as_f64().unwrap();
+    assert!(scale < 1.0);
+    let d = s.doc().unwrap();
+    let page = genha_render::page_with_fitted_text(&d.doc.pages[d.page], &s.fonts);
+    // A few letters in: set in the size the whole text is shown at, not their own.
+    let posed = genha_motion::page_at(&page, 0.5);
+    let ElementKind::Text(t) = &posed.find(NodeId(tid)).unwrap().kind else { panic!() };
+    assert!(t.text.chars().count() < 13);
+    assert_eq!(t.fit, genha_doc::TextFit::None);
+    assert!((t.style.font_size - 120.0 * scale).abs() < 0.2, "{} vs {}", t.style.font_size, 120.0 * scale);
+    // Exported frames render.
+    let path = std::env::temp_dir().join(format!("genha-fit-frame-{}.png", std::process::id()));
+    s.execute("export.frame", &json!({"path": path.to_string_lossy(), "t": 0.5})).unwrap();
+    let _ = std::fs::remove_file(path);
 }

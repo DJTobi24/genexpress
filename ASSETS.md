@@ -26,10 +26,11 @@ them in the user's data folder (`models/`). See docs/architecture.md › Backgro
 | Path | Author | Source | Licence | Notes |
 |---|---|---|---|---|
 | docs/images/editor.png | GenHa contributors | screenshot of GenHa | MIT OR Apache-2.0 | the app showing an original template; rendered with system fonts (Inter, OFL) |
-| docs/images/home.png | GenHa contributors | screenshot of GenHa | MIT OR Apache-2.0 | home screen |
+| docs/images/home.png | GenHa contributors | screenshot of GenHa | MIT OR Apache-2.0 | home screen (1440×900; sample designs made from GenHa's own templates) |
 | docs/images/web.png | GenHa contributors | screenshot of GenHa in Chromium (web build) | MIT OR Apache-2.0 | the web app showing an original template; text in the built-in fallback face Ubuntu Light (Ubuntu Font Licence 1.0, from the `epaint_default_fonts` crate) |
-| docs/images/home-de.png | GenHa contributors | screenshot of GenHa | MIT OR Apache-2.0 | home screen with the German UI |
+| docs/images/home-de.png | GenHa contributors | screenshot of GenHa | MIT OR Apache-2.0 | home screen with the German UI (1440×900; sample designs made from GenHa's own templates) |
 | docs/images/edit-text.gif | GenHa contributors | screen recording of GenHa (Xvfb, ffmpeg) | MIT OR Apache-2.0 | editing an original template's headline on the canvas |
 | docs/images/smart-resize.gif | GenHa contributors | screen recording of GenHa (Xvfb, ffmpeg) | MIT OR Apache-2.0 | smart resize of an original template to a story and a landscape page |
 | docs/images/animation.gif | GenHa contributors | screen recording of GenHa (Xvfb, ffmpeg) | MIT OR Apache-2.0 | an original animated template playing on the canvas |
 | docs/images/templates.jpg | GenHa contributors | rendered by `genha-cli` | MIT OR Apache-2.0 | 18 of GenHa's original templates; text in system fonts (Inter and others, OFL) |
+| docs/images/icon.png | GenHa contributors | drawn in code by `crates/brand` (`cargo xtask icon`, `genha-256.png`) | MIT OR Apache-2.0 | the GenHa app icon (original: rounded violet tile, warm circle, white rounded square), 256 px, for the README; the app and the installers draw it from code |
