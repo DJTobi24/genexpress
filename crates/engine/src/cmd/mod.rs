@@ -15,6 +15,7 @@ pub mod page;
 pub mod query;
 pub mod recent;
 pub mod recovery;
+pub mod richtext;
 pub mod style;
 pub mod textedit;
 pub mod versions;
@@ -119,6 +120,7 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(object::specs());
         v.extend(style::specs());
         v.extend(textedit::specs());
+        v.extend(richtext::specs());
         v.extend(brand::specs());
         v.extend(export::specs());
         v.extend(motion::specs());

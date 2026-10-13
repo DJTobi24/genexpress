@@ -25,6 +25,9 @@ log = { workspace = true }
 
 epaint_default_fonts = { workspace = true }
 
+[dev-dependencies]
+genha-video = { workspace = true }
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rfd = { workspace = true }
 arboard = { workspace = true }

@@ -42,6 +42,15 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
         cmd!("select.none", "Deselect", ["Edit"], Some("Escape"), "{}", has_doc, select_none),
         cmd!("tool.set", "Choose Tool", [], None, "{tool: select|rect|ellipse|line|text|hand}", always, tool_set),
         cmd!(
+            query "view.snapping",
+            "Smart Guides",
+            ["View"],
+            None,
+            "{on?: bool} — snap moved and resized objects to the page, other objects, equal gaps and matching sizes (toggles without `on`; hold Ctrl/Cmd while dragging to skip snapping once)",
+            always,
+            view_snapping
+        ),
+        cmd!(
             "command.batch",
             "Run Commands",
             [],
@@ -254,6 +263,32 @@ fn tool_set(s: &mut Session, p: &Value) -> Result<Value> {
     s.tools.set_tool(t);
     s.preview = None;
     Ok(ok(json!({"tool": id})))
+}
+
+/// Where the smart guides preference is kept.
+const SNAPPING_KEY: &str = "settings/snapping";
+
+fn view_snapping(s: &mut Session, p: &Value) -> Result<Value> {
+    let on = match p.get("on") {
+        None | Some(Value::Null) => !s.snapping,
+        Some(v) => v.as_bool().ok_or_else(|| bad("view.snapping", "`on` must be true or false"))?,
+    };
+    s.snapping = on;
+    s.preview = None;
+    if let Some(store) = s.store.as_mut() {
+        // Losing the preference only means it is back on next run: not worth failing the toggle.
+        if let Err(e) = store.write(SNAPPING_KEY, if on { b"on" } else { b"off" }) {
+            s.post(format!("Could not keep the smart guides setting: {e}"));
+        }
+    }
+    Ok(ok(json!({"on": on})))
+}
+
+/// Reads the preferences kept in the session's store (smart guides on or off).
+pub fn load_preferences(s: &mut Session) {
+    if let Some(v) = s.store.as_ref().and_then(|st| st.read(SNAPPING_KEY)) {
+        s.snapping = v.as_slice() != b"off";
+    }
 }
 
 fn batch(s: &mut Session, p: &Value) -> Result<Value> {

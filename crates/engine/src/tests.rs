@@ -216,15 +216,67 @@ fn tools_reduce_to_commands() {
 }
 
 #[test]
+fn smart_guides_preference_and_temporary_off() {
+    use genha_tools::{PointerEvent, PointerKind};
+    let mut s = session(); // 1080 × 1080
+    s.store = Some(Box::new(crate::store::MemStore::default()));
+    let id = id(&s.execute("shape.add", &json!({"x": 100, "y": 100, "width": 200, "height": 100})).unwrap());
+    s.execute("select.set", &json!({"ids": [id]})).unwrap();
+    let ev = |kind, x, y| PointerEvent { kind, pos: genha_geom::Point::new(x, y), shift: false, alt: false };
+    let x_after_drag = |s: &mut Session, snap: bool| {
+        // Dragged 337 px right: the centre lands 3 px short of the page centre (540).
+        s.tool_event_with(ev(PointerKind::Down, 150.0, 150.0), 1.0, (&[], &[]), snap).unwrap();
+        s.tool_event_with(ev(PointerKind::Move, 487.0, 150.0), 1.0, (&[], &[]), snap).unwrap();
+        let shown = s.preview.as_ref().map(|p| (p.guides_x.clone(), p.measures.len())).unwrap();
+        s.tool_event_with(ev(PointerKind::Up, 487.0, 150.0), 1.0, (&[], &[]), snap).unwrap();
+        let x = s.doc().unwrap().doc.pages[0].elements[0].frame.x;
+        s.execute("edit.undo", &json!({})).unwrap();
+        s.execute("select.set", &json!({"ids": [id]})).unwrap();
+        (x, shown)
+    };
+    let (x, (guides, measures)) = x_after_drag(&mut s, true);
+    assert_eq!((x, guides), (440.0, vec![540.0]));
+    assert!(measures >= 4, "distances to the page edges");
+    // Held Ctrl/Cmd: no snapping, distances still shown.
+    let (x, (guides, measures)) = x_after_drag(&mut s, false);
+    assert_eq!((x, guides.len()), (437.0, 0));
+    assert!(measures >= 4);
+    // The preference turns it off (and is kept in the store).
+    assert_eq!(s.execute("view.snapping", &json!({})).unwrap()["on"], false);
+    assert_eq!(x_after_drag(&mut s, true).0, 437.0);
+    let mut next = Session::new();
+    next.store = s.store.take();
+    crate::cmd::edit::load_preferences(&mut next);
+    assert!(!next.snapping);
+    assert_eq!(next.execute("view.snapping", &json!({"on": true})).unwrap()["on"], true);
+    assert!(next.execute("view.snapping", &json!({"on": "yes"})).is_err());
+}
+
+#[test]
 fn every_command_survives_junk_params() {
     // Untrusted params never panic (the guard would turn a panic into Internal: that's a bug too).
-    let junk = [json!(null), json!({}), json!({"ids": [999999]}), json!({"x": "a", "index": -1, "color": 5}), json!([1, 2])];
+    let junk = [
+        json!(null),
+        json!({}),
+        json!({"ids": [999999]}),
+        json!({"x": "a", "index": -1, "color": 5}),
+        json!([1, 2]),
+        // Charts and tables: huge or wrong ranges, broken data and styles.
+        json!({"row": 1e20, "col": -1, "rows": 999999, "cols": "x", "width": -5, "height": 1e308, "auto": "yes"}),
+        json!({"row": 0, "col": 0, "rows": 100, "cols": 30, "fill": "#zz", "font_size": 1e308, "bold": 2, "align": 5, "clear": true}),
+        json!({"row": 2, "col": 1, "cols": 2, "width": 1e300, "height": 0}),
+        json!({"csv": "\"\n,,\"\"\t", "rows": [[1, {"a": 2}], null], "series": [{"values": [1e308, null, "x"]}], "categories": 5}),
+        json!({"series": [{"name": 5, "values": [], "color": "red"}], "categories": [null, {}, 3], "legend": 3, "min": "a", "max": {}, "decimals": 99}),
+        json!({"legend": "right", "stacked": true, "min": 1e300, "max": -1e300, "value_format": "currency", "currency": "€€€€€€€€€€€€"}),
+    ];
     let mut s = session();
     s.execute("shape.add", &json!({})).unwrap();
     s.execute("text.add", &json!({})).unwrap();
     s.execute("text.setCurve", &json!({"degrees": 90})).unwrap();
     s.execute("chart.add", &json!({"kind": "pie"})).unwrap();
+    s.execute("chart.add", &json!({"csv": "x,a,b\n1,2,3\n4,5,6", "stacked": true})).unwrap();
     s.execute("table.add", &json!({})).unwrap();
+    s.execute("table.mergeCells", &json!({"row": 1, "col": 0, "rows": 2, "cols": 2})).unwrap();
     for spec in command_specs() {
         if ["file.open", "file.save", "file.saveAs"].contains(&spec.id) {
             continue;
@@ -234,6 +286,44 @@ fn every_command_survives_junk_params() {
             assert!(!matches!(r, Err(EngineError::Internal { .. })), "{} panicked on {j}", spec.id);
             if s.docs.is_empty() {
                 s.execute("file.new", &json!({})).unwrap();
+            }
+        }
+    }
+}
+
+#[test]
+fn text_commands_survive_junk_while_editing_formatted_text() {
+    let junk = [
+        json!(null),
+        json!({}),
+        json!({"range": [9_999_999, 2], "bold": true}),
+        json!({"range": "x", "font_size": 1e308}),
+        json!({"range": [0, 3], "font_size": f64::MAX, "color": "#zz"}),
+        json!({"insert": "\u{0}\r\n\u{202e}é", "range": [3, 1]}),
+        json!({"text": "x".repeat(300), "selection": [1000, 0]}),
+        json!({"selection": [5, 5], "font_family": "\u{0}"}),
+        json!({"ids": [999999], "range": [0, 1]}),
+        json!({"id": "x", "underline": "yes"}),
+    ];
+    let mut s = session();
+    let id = s.execute("text.add", &json!({"text": "Héllo wörld\nאב 中文"})).unwrap()["id"].as_u64().unwrap();
+    s.execute("text.setStyle", &json!({"ids": [id], "range": [0, 5], "bold": true, "color": "#ff0000", "font_size": 90})).unwrap();
+    s.execute("text.setStyle", &json!({"ids": [id], "range": [3, 9], "italic": true, "strikethrough": true})).unwrap();
+    for spec in command_specs().iter().filter(|c| c.id.starts_with("text.") || c.id.starts_with("style.")) {
+        for j in &junk {
+            if s.text_editing.is_none() {
+                let _ = s.execute("text.beginEdit", &json!({"id": id, "selection": [2, 7]}));
+            }
+            let r = s.execute(spec.id, j);
+            assert!(!matches!(r, Err(EngineError::Internal { .. })), "{} panicked on {j}", spec.id);
+            if let Ok(d) = s.doc()
+                && let Ok(el) = d.doc.element(genha_doc::NodeId(id))
+                && let ElementKind::Text(t) = &el.kind
+            {
+                assert!(t.spans_normalized(), "{} left bad spans on {j}: {:?}", spec.id, t.spans);
+            }
+            if s.docs.is_empty() {
+                return;
             }
         }
     }
@@ -628,10 +718,10 @@ fn charts_from_commands() {
     let c = id(&s.execute("chart.add", &json!({})).unwrap());
     let chart = chart_of(&s, c);
     assert_eq!(chart.kind, genha_doc::ChartKind::Bar);
-    assert!(!chart.data.is_empty());
+    assert!(!chart.categories.is_empty() && chart.series.len() == 1);
     assert_eq!(chart.colors, vec![s.doc().unwrap().doc.brand.colors[0].color]);
     s.execute("chart.setData", &json!({"data": "Mon: 3, Tue: 5, Wed: 8"})).unwrap();
-    assert_eq!(chart_of(&s, c).data.len(), 3);
+    assert_eq!(chart_of(&s, c).points().len(), 3);
     s.execute("chart.setKind", &json!({"kind": "donut"})).unwrap();
     let chart = chart_of(&s, c);
     assert_eq!((chart.kind, chart.value_format, chart.show_legend), (genha_doc::ChartKind::Donut, genha_doc::ValueFormat::Percent, true));
@@ -657,7 +747,7 @@ fn charts_from_commands() {
     s.execute("style.copy", &json!({"id": c})).unwrap();
     s.execute("style.paste", &json!({"ids": [p]})).unwrap();
     let pasted = chart_of(&s, p);
-    assert_eq!((pasted.kind, pasted.data.len(), pasted.show_values), (genha_doc::ChartKind::Pie, 2, false));
+    assert_eq!((pasted.kind, pasted.categories.len(), pasted.show_values), (genha_doc::ChartKind::Pie, 2, false));
     // Saved and opened again.
     let bytes = genha_format::to_bytes(&s.doc().unwrap().doc, true).unwrap();
     let (back, notes) = genha_format::from_bytes(&bytes).unwrap();
@@ -701,6 +791,134 @@ fn tables_from_commands() {
     let (table, _) = table_of(&s, big);
     assert!(!table.header_row && table.rows[2].len() == 2);
     assert_eq!(inspect::element_summary(s.doc().unwrap().doc.element(NodeId(big)).unwrap())["size"], json!([3, 2]));
+}
+
+#[test]
+fn charts_with_several_series() {
+    let mut s = session();
+    let c = id(&s
+        .execute(
+            "chart.add",
+            &json!({"csv": "Quarter,North,South\nQ1,10,12\nQ2,14,9\nQ3,8,\"1,200\"", "stacked": true, "x_title": "Quarter", "legend": "top"}),
+        )
+        .unwrap());
+    let chart = chart_of(&s, c);
+    assert_eq!(chart.categories, vec!["Q1", "Q2", "Q3"]);
+    assert_eq!(chart.series.iter().map(|x| x.name.as_str()).collect::<Vec<_>>(), ["North", "South"]);
+    assert_eq!(chart.value(1, 2), 1200.0);
+    assert!(chart.stacked && chart.show_legend && chart.legend_position == genha_doc::LegendPosition::Top && chart.x_title == "Quarter");
+    assert!(chart.colors.len() > 1, "several series get several colours");
+    // New labels keep the values; new series keep the labels.
+    s.execute("chart.setData", &json!({"categories": ["Jan", "Feb"]})).unwrap();
+    let chart = chart_of(&s, c);
+    assert_eq!((chart.categories.len(), chart.series[0].values.clone()), (2, vec![10.0, 14.0]));
+    s.execute("chart.setData", &json!({"series": [{"name": "A", "values": [1, 2, 3], "color": "#ff0000"}, {"name": "B", "values": [4]}]})).unwrap();
+    let chart = chart_of(&s, c);
+    assert_eq!((chart.categories.clone(), chart.series[1].values.clone()), (vec!["Jan".to_string(), "Feb".into(), "3".into()], vec![4.0, 0.0, 0.0]));
+    assert_eq!(chart.series[0].color, Some(genha_doc::Color::rgb(255, 0, 0)));
+    // Rows of cells, like a pasted table; the simple form makes one series again.
+    s.execute("chart.setData", &json!({"rows": [["", "X", "Y", "Z"], ["a", 1, 2, 3]]})).unwrap();
+    assert_eq!(chart_of(&s, c).series.len(), 3);
+    s.execute("chart.setData", &json!({"data": "a: 1, b: 2"})).unwrap();
+    assert_eq!(chart_of(&s, c).series.len(), 1);
+    assert!(s.execute("chart.setData", &json!({})).is_err());
+    assert!(s.execute("chart.setData", &json!({"csv": "a,b\nc,lots"})).is_err());
+    // Style: number format, axis range, legend off.
+    s.execute("chart.setStyle", &json!({"value_format": "currency", "currency": "€", "decimals": 2, "min": 1, "max": 10, "legend": "none", "gridlines": false, "y_title": "Sales"})).unwrap();
+    let chart = chart_of(&s, c);
+    assert_eq!(
+        (chart.value_format, chart.currency.as_str(), chart.decimals, chart.min, chart.max),
+        (genha_doc::ValueFormat::Currency, "€", Some(2), Some(1.0), Some(10.0))
+    );
+    assert!(!chart.show_legend && !chart.gridlines && chart.y_title == "Sales");
+    assert!(s.execute("chart.setStyle", &json!({"legend": "left"})).is_err());
+    // A minimum over the maximum is dropped.
+    s.execute("chart.setStyle", &json!({"min": 50})).unwrap();
+    assert_eq!(chart_of(&s, c).min, None);
+    // The summary shows the series; files keep them.
+    let summary = inspect::element_summary(s.doc().unwrap().doc.element(NodeId(c)).unwrap());
+    assert_eq!(summary["series"][0]["name"], "X", "the one-series form keeps the first name");
+    let bytes = genha_format::to_bytes(&s.doc().unwrap().doc, true).unwrap();
+    let (back, notes) = genha_format::from_bytes(&bytes).unwrap();
+    assert!(notes.is_empty(), "{notes:?}");
+    assert_eq!(&back, &*s.doc().unwrap().doc);
+}
+
+#[test]
+fn table_merges_styles_and_sizes() {
+    let mut s = session();
+    let t = id(&s.execute("table.add", &json!({"rows": 4, "columns": 3})).unwrap());
+    s.execute("table.setCell", &json!({"row": 1, "col": 1, "text": "wide"})).unwrap();
+    s.execute("table.mergeCells", &json!({"row": 1, "col": 0, "cols": 3})).unwrap();
+    let (table, _) = table_of(&s, t);
+    assert_eq!((table.merges.clone(), table.cell(1, 0)), (vec![genha_doc::CellRange::new(1, 0, 1, 3)], "wide"));
+    // Editing a cell under the merge edits the merge.
+    s.execute("table.setCell", &json!({"row": 1, "col": 2, "text": "merged"})).unwrap();
+    assert_eq!(table_of(&s, t).0.cell(1, 0), "merged");
+    assert!(s.execute("table.mergeCells", &json!({"row": 0, "col": 0})).is_err(), "one cell");
+    assert!(s.execute("table.mergeCells", &json!({"row": 0, "col": 0, "rows": 0})).is_err());
+    assert!(s.execute("table.mergeCells", &json!({"row": 50, "col": 0, "rows": 2})).is_err());
+    // Inserting a column inside the merge widens it; deleting rows keeps it consistent.
+    s.execute("table.insertColumn", &json!({"index": 1})).unwrap();
+    assert_eq!(table_of(&s, t).0.merges, vec![genha_doc::CellRange::new(1, 0, 1, 4)]);
+    s.execute("table.insertRow", &json!({"index": 0})).unwrap();
+    s.execute("table.deleteRow", &json!({"index": 2})).unwrap();
+    assert!(table_of(&s, t).0.merges.is_empty());
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert_eq!(table_of(&s, t).0.merges, vec![genha_doc::CellRange::new(2, 0, 1, 4)]);
+    assert!(s.execute("table.splitCell", &json!({"row": 0, "col": 0})).is_err(), "nothing merged there");
+    s.execute("table.splitCell", &json!({"row": 2, "col": 3})).unwrap();
+    assert!(table_of(&s, t).0.merges.is_empty());
+    // Cell styles for a range; null goes back to the table's look.
+    s.execute(
+        "table.setCellStyle",
+        &json!({"row": 1, "col": 0, "rows": 2, "cols": 2, "fill": "#ff0000", "bold": true, "align": "right", "font_size": 40}),
+    )
+    .unwrap();
+    let (table, h_big) = table_of(&s, t);
+    assert_eq!(table.cell_styles.len(), 4);
+    let st = table.style_at(2, 1).unwrap();
+    assert_eq!(
+        (st.fill, st.bold, st.align, st.font_size),
+        (Some(genha_doc::Color::rgb(255, 0, 0)), Some(true), Some(genha_doc::TextAlign::Right), Some(40.0))
+    );
+    s.execute("table.setCellStyle", &json!({"row": 1, "col": 0, "rows": 2, "cols": 2, "fill": null, "bold": null, "align": null})).unwrap();
+    assert_eq!(table_of(&s, t).0.cell_styles.len(), 4, "the size stays");
+    s.execute("table.setCellStyle", &json!({"row": 0, "col": 0, "rows": 9, "cols": 9, "clear": true})).unwrap();
+    let (table, h) = table_of(&s, t);
+    assert!(table.cell_styles.is_empty());
+    let _ = h_big;
+    assert!(s.execute("table.setCellStyle", &json!({"row": 0, "col": 0})).is_err(), "nothing to change");
+    assert!(s.execute("table.setCellStyle", &json!({"row": 0, "col": 0, "align": "up"})).is_err());
+    // Column widths in pixels; fit to the text; equal again.
+    let w = s.doc().unwrap().doc.element(NodeId(t)).unwrap().frame.width;
+    s.execute("table.setColumnWidth", &json!({"col": 0, "width": w / 2.0})).unwrap();
+    let f = table_of(&s, t).0.fractions();
+    assert!((f[0] - 0.5).abs() < 1e-9 && (f.iter().sum::<f64>() - 1.0).abs() < 1e-9, "{f:?}");
+    s.execute("table.setColumnWidth", &json!({"auto": true})).unwrap();
+    assert_eq!(table_of(&s, t).0.column_widths.len(), 4);
+    s.execute("table.setColumnWidth", &json!({"equal": true})).unwrap();
+    assert!(table_of(&s, t).0.column_widths.is_empty());
+    assert!(s.execute("table.setColumnWidth", &json!({"col": 0})).is_err());
+    assert!(s.execute("table.setColumnWidth", &json!({"col": 9, "width": 10})).is_err());
+    // Row heights: a tall row makes the frame taller; auto again.
+    s.execute("table.setRowHeight", &json!({"row": 1, "height": 300})).unwrap();
+    let (table, h2) = table_of(&s, t);
+    assert!(h2 >= h + 200.0, "{h} {h2}");
+    assert_eq!(table.row_height(1), 300.0);
+    s.execute("table.setRowHeight", &json!({"auto": true})).unwrap();
+    assert!(table_of(&s, t).0.row_heights.is_empty());
+    assert!(s.execute("table.setRowHeight", &json!({"row": 99, "height": 10})).is_err());
+    // Borders: only the outside, in another colour.
+    s.execute("table.setStyle", &json!({"borders": "outer", "outer_border": {"color": "#000000", "width": 3}})).unwrap();
+    let (table, _) = table_of(&s, t);
+    assert_eq!((table.borders, table.outer_border.map(|b| b.width)), (genha_doc::BorderLines::Outer, Some(3.0)));
+    // No lines and no bands survive saving (they used to come back as the defaults).
+    s.execute("table.setStyle", &json!({"alt_row_fill": null, "border": null})).unwrap();
+    let bytes = genha_format::to_bytes(&s.doc().unwrap().doc, true).unwrap();
+    let (back, notes) = genha_format::from_bytes(&bytes).unwrap();
+    assert!(notes.is_empty(), "{notes:?}");
+    assert_eq!(&back, &*s.doc().unwrap().doc);
 }
 
 #[test]

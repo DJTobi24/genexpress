@@ -1,5 +1,6 @@
 //! The canvas: the current page rendered by `genha-render`, with selection handles, snapping
-//! guides and gesture previews drawn on top. Pointer input goes to the engine's tools.
+//! guides, distance hints and gesture previews drawn on top. Pointer input goes to the engine's
+//! tools; the hints are what the tools report (`genha_tools::smart`), this only draws them.
 
 use std::sync::Arc;
 
@@ -7,7 +8,7 @@ use crate::App;
 use crate::theme::Tokens;
 use genha_doc::{Document, ElementKind};
 use genha_geom::{Frame, Point};
-use genha_tools::{Handle, PointerEvent, PointerKind, ToolId};
+use genha_tools::{Handle, Measure, MeasureKind, PointerEvent, PointerKind, ToolId};
 
 #[derive(Default)]
 pub struct CanvasState {
@@ -17,7 +18,13 @@ pub struct CanvasState {
     key: Option<(usize, usize, u32, u32, u64)>,
     pointer_down: bool,
     last_pos: Option<Point>,
+    /// Shift, Alt and snapping (no Ctrl/Cmd) at the last pointer event.
+    last_keys: (bool, bool, bool),
     panning: Option<egui::Pos2>,
+    /// The document drawn last: (stored document, gesture preview, document with the preview
+    /// applied). Reused while neither changes, and kept alive so the texture key (its address)
+    /// cannot be taken by a new document.
+    shown: Option<(Arc<Document>, Option<genha_tools::Preview>, Arc<Document>)>,
     /// Text being edited in place (UI side of the engine's `text_editing`).
     pub text: crate::textedit::TextEditUi,
 }
@@ -36,7 +43,7 @@ pub fn zoom_by(app: &mut App, factor: f32, around: Option<egui::Vec2>) {
 }
 
 pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    let Some(mut display) = app.session.display_document() else { return };
+    let Some(mut display) = display_document(app) else { return };
     let Some(d) = app.session.active() else { return };
     let page_index = d.page;
     let selection = d.selection.clone();
@@ -114,6 +121,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             painter.rect_filled(r, 0, t.selection.gamma_multiply(0.12));
             painter.rect_stroke(r, 0, egui::Stroke::new(1.0, t.selection), egui::StrokeKind::Inside);
         }
+        draw_measures(&painter, &p.measures, &to_screen, t);
         if let Some(f) = p.creating {
             outline(&painter, &f, &to_screen, egui::Stroke::new(1.5, t.selection));
             let c = to_screen(Point::new(f.x + f.width, f.y + f.height));
@@ -125,6 +133,26 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 t.text_dim,
             );
         }
+    }
+
+    // Alt (Option) over another object: the distances from the selection to it (or to the page).
+    let alt = ui.input(|i| i.modifiers.alt);
+    if alt
+        && preview.is_none()
+        && !app.session.tools.is_dragging()
+        && app.session.tools.tool == ToolId::Select
+        && app.session.text_editing.is_none()
+        && !selection.is_empty()
+        && let Some(hp) = resp.hover_pos()
+    {
+        if let Some(h) = hovered.filter(|h| !selection.contains(h))
+            && let Some(el) = page.find(h)
+        {
+            outline(&painter, &el.frame, &to_screen, egui::Stroke::new(1.0, t.measure));
+        }
+        let ms = genha_tools::hover_measures(&display, page_index, &selection, to_page(hp));
+        draw_measures(&painter, &ms, &to_screen, t);
+        ui.ctx().request_repaint();
     }
 
     // Zoom (Ctrl + wheel / pinch) and scroll-to-pan.
@@ -144,6 +172,21 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     if app.session.tools.is_dragging() || app.session.preview.is_some() {
         ui.ctx().request_repaint();
     }
+}
+
+/// The document to draw: the stored one with the gesture preview applied, built once per change.
+fn display_document(app: &mut App) -> Option<Arc<Document>> {
+    let base = app.session.active().map(|d| Arc::clone(&d.doc))?;
+    if app.session.text_editing.is_none()
+        && let Some((b, p, shown)) = &app.canvas.shown
+        && Arc::ptr_eq(b, &base)
+        && *p == app.session.preview
+    {
+        return Some(Arc::clone(shown));
+    }
+    let shown = app.session.display_document()?;
+    app.canvas.shown = Some((base, app.session.preview.clone(), Arc::clone(&shown)));
+    Some(shown)
 }
 
 fn checkerboard(p: &egui::Painter, r: egui::Rect) {
@@ -205,6 +248,47 @@ fn corners(f: &Frame) -> [Point; 4] {
 fn outline(p: &egui::Painter, f: &Frame, to_screen: &impl Fn(Point) -> egui::Pos2, stroke: egui::Stroke) {
     let c = corners(f).map(to_screen);
     p.add(egui::Shape::closed_line(c.to_vec(), stroke));
+}
+
+/// Distance hints, equal-spacing and same-size markers: a line with end ticks and a label.
+fn draw_measures(p: &egui::Painter, measures: &[Measure], to_screen: &impl Fn(Point) -> egui::Pos2, t: &Tokens) {
+    for m in measures {
+        let color = match m.kind {
+            MeasureKind::Distance => t.measure,
+            MeasureKind::EqualSpacing | MeasureKind::SameSize => t.guide,
+        };
+        let horizontal = m.horizontal();
+        let (mut a, mut b) = (to_screen(m.from), to_screen(m.to));
+        if m.kind == MeasureKind::SameSize {
+            // Drawn just outside the object's top (widths) or left (heights) side.
+            let off = if horizontal { egui::vec2(0.0, -8.0) } else { egui::vec2(-8.0, 0.0) };
+            a += off;
+            b += off;
+        }
+        let stroke = egui::Stroke::new(1.0, color);
+        p.line_segment([a, b], stroke);
+        let tick = if horizontal { egui::vec2(0.0, 4.0) } else { egui::vec2(4.0, 0.0) };
+        for e in [a, b] {
+            p.line_segment([e - tick, e + tick], stroke);
+        }
+        if m.kind == MeasureKind::EqualSpacing {
+            // A band across the gap marks it as one of a set of equal gaps.
+            let band = if horizontal { egui::vec2(0.0, 3.0) } else { egui::vec2(3.0, 0.0) };
+            p.rect_filled(egui::Rect::from_two_pos(a - band, b + band), 0, color.gamma_multiply(0.35));
+        }
+        let galley = p.layout_no_wrap(m.label(), egui::FontId::proportional(11.0), egui::Color32::WHITE);
+        let size = galley.size() + egui::vec2(8.0, 4.0);
+        let mid = a + (b - a) / 2.0;
+        // The label sits on the line; a same-size label sits beyond it.
+        let centre = if m.kind == MeasureKind::SameSize {
+            mid + if horizontal { egui::vec2(0.0, -size.y / 2.0 - 4.0) } else { egui::vec2(-size.x / 2.0 - 4.0, 0.0) }
+        } else {
+            mid
+        };
+        let r = egui::Rect::from_center_size(centre, size);
+        p.rect_filled(r, 3, color);
+        p.galley(r.min + egui::vec2(4.0, 2.0), galley, egui::Color32::WHITE);
+    }
 }
 
 fn handles(p: &egui::Painter, f: &Frame, zoom: f32, to_screen: &impl Fn(Point) -> egui::Pos2, t: &Tokens) {
@@ -274,21 +358,26 @@ fn pointer_input(
         }
     }
     let ev = |kind| PointerEvent { kind, pos: to_page(pos), shift: mods.shift, alt: mods.alt };
-    let snap = snap_lines(app, doc, page);
+    // Ctrl (Cmd on macOS) held while dragging skips snapping for the moment.
+    let snap = !mods.command;
+    let keys = (mods.shift, mods.alt, snap);
     let zoom = f64::from(app.view.zoom);
     if pressed && resp.hovered() && area.contains(pos) {
         app.canvas.pointer_down = true;
         app.canvas.last_pos = Some(to_page(pos));
-        send(app, ev(PointerKind::Down), zoom, &snap);
+        app.canvas.last_keys = keys;
+        send(app, ev(PointerKind::Down), zoom, snap);
     } else if app.canvas.pointer_down && down {
         let p = to_page(pos);
-        if app.canvas.last_pos != Some(p) {
+        // Pressing or releasing Shift, Alt or Ctrl/Cmd updates the drag without moving the pointer.
+        if app.canvas.last_pos != Some(p) || app.canvas.last_keys != keys {
             app.canvas.last_pos = Some(p);
-            send(app, ev(PointerKind::Move), zoom, &snap);
+            app.canvas.last_keys = keys;
+            send(app, ev(PointerKind::Move), zoom, snap);
         }
     } else if app.canvas.pointer_down && (released || !down) {
         app.canvas.pointer_down = false;
-        send(app, ev(PointerKind::Up), zoom, &snap);
+        send(app, ev(PointerKind::Up), zoom, snap);
         app.session.preview = None;
         // After drawing a shape or text, go back to selecting (like most design tools).
         if matches!(app.session.tools.tool, ToolId::Rect | ToolId::Ellipse | ToolId::Line | ToolId::Text) {
@@ -297,8 +386,9 @@ fn pointer_input(
     }
 }
 
-fn send(app: &mut App, ev: PointerEvent, zoom: f64, snap: &(Vec<f64>, Vec<f64>)) {
-    match app.session.tool_event(ev, zoom, (&snap.0, &snap.1)) {
+fn send(app: &mut App, ev: PointerEvent, zoom: f64, snap: bool) {
+    // The tool finds the page's and the other objects' guides itself.
+    match app.session.tool_event_with(ev, zoom, (&[], &[]), snap) {
         Ok(out) => {
             if let Some(d) = out.pan {
                 app.view.pan += egui::vec2(d.x as f32, d.y as f32) * app.view.zoom;
@@ -306,14 +396,4 @@ fn send(app: &mut App, ev: PointerEvent, zoom: f64, snap: &(Vec<f64>, Vec<f64>))
         }
         Err(e) => app.set_status(e.to_string()),
     }
-}
-
-fn snap_lines(app: &App, doc: &Document, page: usize) -> (Vec<f64>, Vec<f64>) {
-    if app.session.tools.tool != ToolId::Select {
-        return (vec![], vec![]);
-    }
-    let Some(pg) = doc.pages.get(page) else { return (vec![], vec![]) };
-    let sel = app.session.active().map(|d| d.selection.clone()).unwrap_or_default();
-    let g = genha_layout::snap_guides(pg, &sel);
-    (g.xs, g.ys)
 }

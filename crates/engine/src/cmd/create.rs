@@ -152,6 +152,14 @@ pub(crate) fn text_height(s: &Session, text: &str, style: &TextStyle, width: f64
     genha_text::layout(&s.fonts, text, style, width).height.max(style.font_size)
 }
 
+/// The height a text element (with its style runs) needs in a box `width` wide.
+pub(crate) fn text_el_height(s: &Session, t: &genha_doc::TextEl, width: f64) -> f64 {
+    if t.spans.is_empty() {
+        return text_height(s, &t.text, &t.style, width);
+    }
+    genha_text::layout_el(&s.fonts, t, width).height.max(t.style.font_size)
+}
+
 fn text_add(s: &mut Session, p: &Value) -> Result<Value> {
     let text = str_param(p, "text").unwrap_or("Add your text").to_string();
     if text.len() > 100_000 {
@@ -188,7 +196,7 @@ fn text_add(s: &mut Session, p: &Value) -> Result<Value> {
     let width = f64_or(p, "width", page.0 * 0.8);
     let h = text_height(s, &text, &style, width);
     let frame = frame_params(p, page, width, h);
-    let el = Element::new(genha_doc::NodeId(0), frame, ElementKind::Text(TextEl { text, style, effect, curve: 0.0 }));
+    let el = Element::new(genha_doc::NodeId(0), frame, ElementKind::Text(TextEl { text, style, effect, curve: 0.0, spans: vec![] }));
     add_element(s, "Add Text", el)
 }
 

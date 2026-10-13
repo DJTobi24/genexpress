@@ -15,8 +15,8 @@ jobs:
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - name: System libraries for the desktop app
-        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libgtk-3-dev fonts-dejavu-core
+      - name: System libraries for the desktop app (and FFmpeg, which the video tests decode with)
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libgtk-3-dev fonts-dejavu-core ffmpeg
       - run: cargo xtask ci
 
   web:

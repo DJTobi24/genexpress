@@ -100,6 +100,7 @@ const WASM_CRATES: &[&str] = &[
     "genha-render",
     "genha-svg",
     "genha-pdf",
+    "genha-video",
     "genha-format",
     "genha-tools",
     "genha-engine",

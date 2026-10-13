@@ -414,12 +414,20 @@ fn handle(app: &mut App, a: Arrived) {
 /// `params` and downloaded as `{stem}.{ext}`.
 pub fn export(app: &mut App, cmd: &str, ext: &str, params: &Value, stem: &str) {
     use genha_engine::cmd::export::{Format, page_bytes, pdf_bytes};
+    use genha_engine::cmd::motion::{Animated, animated_bytes, video_bytes};
     let page = app.session.active().map(|d| d.page).unwrap_or(0);
     let bytes = match cmd {
         "export.png" => page_bytes(&app.session, page, Format::Png, params),
         "export.jpeg" => page_bytes(&app.session, page, Format::Jpeg, params),
         "export.svg" => page_bytes(&app.session, page, Format::Svg, params),
         "export.pdf" => pdf_bytes(&app.session, params),
+        "export.gif" => animated_bytes(&app.session, params, Animated::Gif).map(|(b, _)| b),
+        "export.apng" => animated_bytes(&app.session, params, Animated::Apng).map(|(b, _)| b),
+        // In the browser the video is made in place (no threads there): the page waits for it.
+        "export.mp4" => match app.session.doc() {
+            Ok(d) => video_bytes(&d.doc, &app.session.fonts, d.page, params, &mut |_, _| true).map(|(b, _)| b),
+            Err(e) => Err(e),
+        },
         other => {
             app.set_status(format!("{other} is not available in the browser yet"));
             return;
@@ -486,6 +494,7 @@ fn mime(name: &str) -> &'static str {
         "bmp" => "image/bmp",
         "svg" => "image/svg+xml",
         "pdf" => "application/pdf",
+        "mp4" => "video/mp4",
         _ => "application/octet-stream",
     }
 }

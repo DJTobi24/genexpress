@@ -4,14 +4,16 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use super::create::{add_element, frame_params, page_size, text_height};
+use super::create::{add_element, frame_params, page_size, text_el_height};
 use super::{bad, cmd, f64_req, has_doc, has_selection, merge, ok, str_param, targets, usize_param};
 use crate::{CommandSpec, EngineError, Result, Session};
 use genha_doc::{
-    ChartEl, ChartKind, ChartPoint, Color, Element, ElementKind, MAX_CELL_CHARS, MAX_CHART_POINTS, MAX_CURVE, MAX_TABLE_COLS, MAX_TABLE_ROWS, NodeId,
-    TableEl,
+    CellRange, ChartEl, ChartKind, ChartPoint, ChartSeries, Color, Element, ElementKind, LegendPosition, MAX_CELL_CHARS, MAX_CHART_POINTS,
+    MAX_CHART_SERIES, MAX_CURVE, MAX_TABLE_COLS, MAX_TABLE_ROWS, NodeId, TableEl, TextAlign,
 };
 use genha_text::FontBook;
+
+const RANGE_DOC: &str = "row, col (from 0; row 0 is the header), rows?: 1, cols?: 1";
 
 pub(crate) fn specs() -> Vec<CommandSpec> {
     vec![
@@ -20,17 +22,25 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Add Chart",
             ["Insert"],
             None,
-            "{kind?: bar|horizontal-bar|line|area|pie|donut|progress|ring = bar, data?: [{label, value}…] | [[label, value]…] | \"Label: 10, Other: 20\" (one item per line, `;` or `,`), x?, y?, width?, height?, colors?: [#rrggbb…], title?: name} — sample data and brand colours by default; `ring` is a round progress chart",
+            "{kind?: bar|horizontal-bar|line|area|pie|donut|progress|ring = bar, data/csv/rows/categories/series?: as chart.setData, x?, y?, width?, height?, colors?: [#rrggbb…], title?: name, …style fields of chart.setStyle} — sample data and brand colours by default; `ring` is a round progress chart",
             has_doc,
             chart_add
         ),
-        cmd!("chart.setData", "Chart Data", [], None, "{ids?, data: as chart.add}", has_selection, chart_set_data),
+        cmd!(
+            "chart.setData",
+            "Chart Data",
+            [],
+            None,
+            "{ids?, data?: [{label, value}…] | [[label, value]…] | \"Label: 10, Other: 20\" (one series; one item per line, `;` or `,`), csv?: \"…\" (comma- or tab-separated, \"quoted, cells\": first row the series names, first column the labels), rows?: [[cell…]…] (the same, as cells), categories?: [label…], series?: [{name, values: [number…], color?: #rrggbb|null}…]} — categories or series alone keep the other",
+            has_selection,
+            chart_set_data
+        ),
         cmd!(
             "chart.setStyle",
             "Chart Style",
             [],
             None,
-            "{ids?, …partial chart: kind, colors: [#rrggbb…], show_labels, show_values, show_legend, value_format: number|percent, font_family, font_size, text_color, background: Fill JSON, donut_hole: 0–0.9, max: number|null}",
+            "{ids?, …partial chart: kind, stacked, colors: [#rrggbb…], show_labels, show_values, show_legend, legend: none|auto|top|bottom|right, legend_position, gridlines, x_title, y_title, value_format: number|percent|currency, currency: symbol, decimals: 0–6|null, font_family, font_size, text_color, background: Fill JSON, donut_hole: 0–0.9, min: number|null, max: number|null}",
             has_selection,
             chart_set_style
         ),
@@ -40,7 +50,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Add Table",
             ["Insert"],
             None,
-            "{rows?: [[cell…]…] | number of rows = 3, columns?: number = 3, csv?: \"a,b\\nc,d\" (tabs work too), header?: bool = true, x?, y?, width?, height?}",
+            "{rows?: [[cell…]…] | number of rows = 3, columns?: number = 3, csv?: \"a,b\\nc,d\" (tabs work too; \"quoted, cells\"), header?: bool = true, x?, y?, width?, height?}",
             has_doc,
             table_add
         ),
@@ -49,32 +59,109 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Edit Cell",
             [],
             None,
-            "{id?, row, col, text} — rows and columns count from 0 (row 0 is the header)",
+            "{id?, row, col, text} — rows and columns count from 0 (row 0 is the header); a cell under a merge edits the merge's text",
             has_selection,
             table_set_cell
         ),
-        cmd!("table.insertRow", "Insert Row", [], None, "{id?, index?: before this row (default: at the end)}", has_selection, table_insert_row),
-        cmd!("table.deleteRow", "Delete Row", [], None, "{id?, index?: default the last row}", has_selection, table_delete_row),
+        cmd!(
+            "table.insertRow",
+            "Insert Row",
+            [],
+            None,
+            "{id?, index?: before this row (default: at the end)} — merges it falls inside grow",
+            has_selection,
+            table_insert_row
+        ),
+        cmd!(
+            "table.deleteRow",
+            "Delete Row",
+            [],
+            None,
+            "{id?, index?: default the last row} — merges over it shrink",
+            has_selection,
+            table_delete_row
+        ),
         cmd!(
             "table.insertColumn",
             "Insert Column",
             [],
             None,
-            "{id?, index?: before this column (default: at the end)}",
+            "{id?, index?: before this column (default: at the end)} — merges it falls inside grow",
             has_selection,
             table_insert_col
         ),
-        cmd!("table.deleteColumn", "Delete Column", [], None, "{id?, index?: default the last column}", has_selection, table_delete_col),
+        cmd!(
+            "table.deleteColumn",
+            "Delete Column",
+            [],
+            None,
+            "{id?, index?: default the last column} — merges over it shrink",
+            has_selection,
+            table_delete_col
+        ),
         cmd!(
             "table.setStyle",
             "Table Style",
             [],
             None,
-            "{ids?, …partial table: header_row, font_family, font_size, text_color, header_fill, header_text, row_fill, alt_row_fill: #rrggbb|null, border: {color, width}|null, padding, align: left|center|right, column_widths: [fractions]}",
+            "{ids?, …partial table: header_row, font_family, font_size, text_color, header_fill, header_text, row_fill, alt_row_fill: #rrggbb|null, border: {color, width}|null, borders: all|outer|inner|horizontal, outer_border: {color, width}|null (default: as border), padding, align: left|center|right, column_widths: [fractions], row_heights: [px, 0 = fit]}",
             has_selection,
             table_set_style
         ),
-        cmd!("table.setRows", "Table Contents", [], None, "{id?, rows: [[cell…]…] | csv: \"a,b\\nc,d\"}", has_selection, table_set_rows),
+        cmd!(
+            "table.setRows",
+            "Table Contents",
+            [],
+            None,
+            "{id?, rows: [[cell…]…] | csv: \"a,b\\nc,d\"} — merges and cell styles outside the new size go",
+            has_selection,
+            table_set_rows
+        ),
+        cmd!(
+            "table.mergeCells",
+            "Merge Cells",
+            [],
+            None,
+            "{id?, row, col (from 0; row 0 is the header), rows?: 1, cols?: 1} — one cell spanning the range (merges it overlaps are taken in); the texts join in its top-left cell",
+            has_selection,
+            table_merge_cells
+        ),
+        cmd!(
+            "table.splitCell",
+            "Split Cells",
+            [],
+            None,
+            "{id?, row, col, rows?: 1, cols?: 1} — undoes every merge overlapping the range",
+            has_selection,
+            table_split_cells
+        ),
+        cmd!(
+            "table.setCellStyle",
+            "Cell Style",
+            [],
+            None,
+            "{id?, row, col (from 0; row 0 is the header), rows?: 1, cols?: 1, fill?: #rrggbb|null, text_color?: #rrggbb|null, bold?: bool|null, align?: left|center|right|null, font_size?: px|null, clear?: bool} — null (or clear) goes back to the table's look",
+            has_selection,
+            table_set_cell_style
+        ),
+        cmd!(
+            "table.setColumnWidth",
+            "Column Width",
+            [],
+            None,
+            "{id?, col, width: px} — the other columns share the rest of the table's width; {auto: true} fits every column to its text, {equal: true} makes them equal",
+            has_selection,
+            table_set_column_width
+        ),
+        cmd!(
+            "table.setRowHeight",
+            "Row Height",
+            [],
+            None,
+            "{id?, row?: default every row, height: px (0 = fit the text)} — rows still grow to fit their text",
+            has_selection,
+            table_set_row_height
+        ),
         cmd!(
             "text.setCurve",
             "Curve Text",
@@ -119,9 +206,9 @@ pub fn parse_data(v: &Value, cmd: &str) -> Result<Vec<ChartPoint>> {
         }
         _ => return Err(bad(cmd, "`data` must be a list of {label, value} or text like \"A: 10, B: 20\"")),
     };
-    let mut c = ChartEl { data: out, ..ChartEl::default() };
+    let mut c = ChartEl::with_points(out);
     c.sanitize();
-    Ok(c.data)
+    Ok(c.points())
 }
 
 fn number(v: &Value) -> Option<f64> {
@@ -134,7 +221,7 @@ fn number(v: &Value) -> Option<f64> {
 
 /// A number written by a person: `1,200`, `45%`, `$9.99`, `-3`.
 fn parse_number(s: &str) -> Option<f64> {
-    let t: String = s.chars().filter(|c| !matches!(c, ',' | '%' | '$' | '€' | '£' | ' ' | '\u{a0}' | '_')).collect();
+    let t: String = s.chars().filter(|c| !matches!(c, ',' | '%' | '$' | '€' | '£' | '¥' | ' ' | '\u{a0}' | '_')).collect();
     t.parse::<f64>().ok().filter(|f| f.is_finite())
 }
 
@@ -174,37 +261,219 @@ fn parse_data_text(s: &str, cmd: &str) -> Result<Vec<ChartPoint>> {
     Ok(out)
 }
 
+/// The cells of one line of CSV (`sep` `,`) or TSV (`sep` tab): `"quoted, cells"` keep their
+/// separators, `""` inside quotes is a quote.
+fn split_line(line: &str, sep: char) -> Vec<String> {
+    let mut cells = vec![];
+    let mut cur = String::new();
+    let mut quoted = false;
+    let mut chars = line.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '"' if quoted && chars.peek() == Some(&'"') => {
+                cur.push('"');
+                chars.next();
+            }
+            '"' if quoted => quoted = false,
+            '"' if cur.trim().is_empty() => {
+                cur.clear();
+                quoted = true;
+            }
+            c if c == sep && !quoted => cells.push(std::mem::take(&mut cur)),
+            c => cur.push(c),
+        }
+    }
+    cells.push(cur);
+    cells.into_iter().map(|c| c.trim().chars().take(MAX_CELL_CHARS).collect()).collect()
+}
+
+/// Rows of cells from CSV or TSV text (tabs when there are any), blank lines left out.
+fn split_text(csv: &str, max_rows: usize, max_cols: usize) -> Vec<Vec<String>> {
+    let sep = if csv.contains('\t') { '\t' } else { ',' };
+    csv.lines().filter(|l| !l.trim().is_empty()).take(max_rows).map(|l| split_line(l, sep).into_iter().take(max_cols).collect()).collect()
+}
+
+/// Rows of cells from a JSON list of lists.
+fn json_rows(v: &Value, cmd: &str, max_rows: usize, max_cols: usize) -> Result<Vec<Vec<String>>> {
+    let Value::Array(rows) = v else { return Err(bad(cmd, "`rows` must be a list of rows of cells")) };
+    if rows.len() > max_rows {
+        return Err(bad(cmd, format!("at most {max_rows} rows")));
+    }
+    let mut out = vec![];
+    for (i, r) in rows.iter().enumerate() {
+        let Value::Array(cells) = r else { return Err(bad(cmd, format!("rows[{i}] must be a list of cells"))) };
+        if cells.len() > max_cols {
+            return Err(bad(cmd, format!("at most {max_cols} columns")));
+        }
+        out.push(cells.iter().map(cell_text).collect());
+    }
+    Ok(out)
+}
+
 /// Table rows from `rows` (cells) or `csv` text.
 fn parse_rows(p: &Value, cmd: &str) -> Result<Option<Vec<Vec<String>>>> {
     if let Some(csv) = str_param(p, "csv") {
         if csv.len() > 1 << 20 {
             return Err(bad(cmd, "csv text is too long"));
         }
-        let sep = if csv.contains('\t') { '\t' } else { ',' };
-        let rows: Vec<Vec<String>> = csv
-            .lines()
-            .filter(|l| !l.trim().is_empty())
-            .take(MAX_TABLE_ROWS)
-            .map(|l| l.split(sep).take(MAX_TABLE_COLS).map(|c| c.trim().chars().take(MAX_CELL_CHARS).collect()).collect())
-            .collect();
-        return Ok(Some(rows));
+        return Ok(Some(split_text(csv, MAX_TABLE_ROWS, MAX_TABLE_COLS)));
     }
     match p.get("rows") {
-        Some(Value::Array(rows)) => {
-            if rows.len() > MAX_TABLE_ROWS {
-                return Err(bad(cmd, format!("at most {MAX_TABLE_ROWS} rows")));
-            }
-            let mut out = vec![];
-            for (i, r) in rows.iter().enumerate() {
-                let Value::Array(cells) = r else { return Err(bad(cmd, format!("rows[{i}] must be a list of cells"))) };
-                if cells.len() > MAX_TABLE_COLS {
-                    return Err(bad(cmd, format!("at most {MAX_TABLE_COLS} columns")));
-                }
-                out.push(cells.iter().map(cell_text).collect());
-            }
-            Ok(Some(out))
-        }
+        Some(v @ Value::Array(_)) => json_rows(v, cmd, MAX_TABLE_ROWS, MAX_TABLE_COLS).map(Some),
         _ => Ok(None),
+    }
+}
+
+/// A chart's data from a grid of cells: the first column holds the category labels, the other
+/// columns one series each, named by the first row (always: years like `2024` are names too;
+/// empty names become `Series n`).
+fn chart_grid(rows: &[Vec<String>], cmd: &str) -> Result<(Vec<String>, Vec<ChartSeries>)> {
+    let width = rows.iter().map(Vec::len).max().unwrap_or(0);
+    if width < 2 {
+        return Err(bad(cmd, "write the labels in the first column and the values in the next ones"));
+    }
+    let n_series = width - 1;
+    if n_series > MAX_CHART_SERIES {
+        return Err(bad(cmd, format!("at most {MAX_CHART_SERIES} series")));
+    }
+    let (names, body) = match rows.split_first() {
+        Some((h, rest)) => (h.iter().skip(1).cloned().collect::<Vec<_>>(), rest),
+        None => (vec![], rows),
+    };
+    if body.len() > MAX_CHART_POINTS {
+        return Err(bad(cmd, format!("at most {MAX_CHART_POINTS} data points")));
+    }
+    let mut series: Vec<ChartSeries> = (0..n_series)
+        .map(|i| {
+            let name = names.get(i).map(|n| n.trim().to_string()).filter(|n| !n.is_empty()).unwrap_or_else(|| format!("Series {}", i + 1));
+            ChartSeries::new(name, vec![])
+        })
+        .collect();
+    let mut cats = vec![];
+    for (r, row) in body.iter().enumerate() {
+        cats.push(row.first().cloned().unwrap_or_default());
+        for (i, s) in series.iter_mut().enumerate() {
+            let cell = row.get(i + 1).map_or("", |c| c.trim());
+            let v = if cell.is_empty() {
+                0.0
+            } else {
+                parse_number(cell).ok_or_else(|| bad(cmd, format!("row {}, column {}: `{cell}` is not a number", r + 1, i + 2)))?
+            };
+            s.values.push(v);
+        }
+    }
+    Ok((cats, series))
+}
+
+/// Series from a JSON list of `{name, values, color?}`.
+fn json_series(v: &Value, cmd: &str) -> Result<Vec<ChartSeries>> {
+    let Value::Array(items) = v else { return Err(bad(cmd, "`series` must be a list of {name, values}")) };
+    if items.len() > MAX_CHART_SERIES {
+        return Err(bad(cmd, format!("at most {MAX_CHART_SERIES} series")));
+    }
+    items
+        .iter()
+        .enumerate()
+        .map(|(i, it)| {
+            let Value::Object(o) = it else { return Err(bad(cmd, format!("series[{i}] must be {{name, values}}"))) };
+            let name = o.get("name").map(cell_text).unwrap_or_else(|| format!("Series {}", i + 1));
+            let values = match o.get("values") {
+                None | Some(Value::Null) => vec![],
+                Some(Value::Array(vals)) => {
+                    if vals.len() > MAX_CHART_POINTS {
+                        return Err(bad(cmd, format!("at most {MAX_CHART_POINTS} values in a series")));
+                    }
+                    vals.iter()
+                        .enumerate()
+                        .map(|(k, v)| match v {
+                            Value::Null => Ok(0.0),
+                            v => number(v).ok_or_else(|| bad(cmd, format!("series[{i}].values[{k}] is not a number"))),
+                        })
+                        .collect::<Result<Vec<_>>>()?
+                }
+                Some(_) => return Err(bad(cmd, format!("series[{i}].values must be a list of numbers"))),
+            };
+            let color = match o.get("color") {
+                None | Some(Value::Null) => None,
+                Some(Value::String(s)) => Some(Color::parse(s).ok_or_else(|| bad(cmd, format!("series[{i}].color: invalid colour `{s}`")))?),
+                Some(_) => return Err(bad(cmd, format!("series[{i}].color must be a colour like \"#ff8800\""))),
+            };
+            Ok(ChartSeries { name, values, color })
+        })
+        .collect()
+}
+
+/// New chart data from params, applied to a chart by [`ChartData::apply`].
+#[derive(Clone, Default)]
+struct ChartData {
+    /// One series of points (`data`).
+    points: Option<Vec<ChartPoint>>,
+    categories: Option<Vec<String>>,
+    series: Option<Vec<ChartSeries>>,
+}
+
+impl ChartData {
+    fn parse(p: &Value, cmd: &str) -> Result<ChartData> {
+        let mut d = ChartData::default();
+        if let Some(v) = p.get("data").filter(|v| !v.is_null()) {
+            d.points = Some(parse_data(v, cmd)?);
+            return Ok(d);
+        }
+        let grid = match (str_param(p, "csv").or_else(|| str_param(p, "tsv")), p.get("rows")) {
+            (Some(text), _) => {
+                if text.len() > 1 << 20 {
+                    return Err(bad(cmd, "csv text is too long"));
+                }
+                Some(split_text(text, MAX_CHART_POINTS + 2, MAX_CHART_SERIES + 2))
+            }
+            (None, Some(v @ Value::Array(_))) => Some(json_rows(v, cmd, MAX_CHART_POINTS + 1, MAX_CHART_SERIES + 1)?),
+            _ => None,
+        };
+        if let Some(rows) = grid {
+            let (cats, series) = chart_grid(&rows, cmd)?;
+            d.categories = Some(cats);
+            d.series = Some(series);
+            return Ok(d);
+        }
+        match p.get("categories") {
+            None | Some(Value::Null) => {}
+            Some(Value::Array(a)) if a.len() <= MAX_CHART_POINTS => d.categories = Some(a.iter().map(cell_text).collect()),
+            Some(Value::Array(_)) => return Err(bad(cmd, format!("at most {MAX_CHART_POINTS} categories"))),
+            Some(_) => return Err(bad(cmd, "`categories` must be a list of labels")),
+        }
+        if let Some(v) = p.get("series").filter(|v| !v.is_null()) {
+            d.series = Some(json_series(v, cmd)?);
+        }
+        Ok(d)
+    }
+
+    fn is_empty(&self) -> bool {
+        self.points.is_none() && self.categories.is_none() && self.series.is_none()
+    }
+
+    fn apply(&self, c: &mut ChartEl) {
+        if let Some(points) = &self.points {
+            c.set_points(points.clone());
+        }
+        if let Some(cats) = &self.categories {
+            c.categories = cats.clone();
+        }
+        if let Some(series) = &self.series {
+            c.series = series.clone();
+        }
+        if self.categories.is_some() && self.series.is_none() {
+            // New labels for the same values: series keep their values, squared up below.
+            let n = c.categories.len();
+            for s in &mut c.series {
+                s.values.resize(n, 0.0);
+            }
+        } else if self.series.is_some() && self.categories.is_none() {
+            let n = c.series.iter().map(|s| s.values.len()).max().unwrap_or(0);
+            let have = c.categories.len();
+            c.categories.truncate(n);
+            c.categories.extend((have..n).map(|i| format!("{}", i + 1)));
+        }
+        c.sanitize();
     }
 }
 
@@ -283,13 +552,15 @@ fn natural(el: &Element, fonts: &FontBook) -> f64 {
     }
 }
 
-/// Applies `f` to every targeted table, then refits its height.
-fn each_table(s: &mut Session, p: &Value, cmd: &str, label: &str, f: impl Fn(&mut TableEl) -> Result<bool>) -> Result<Value> {
+/// Applies `f` (given the table and its frame's width) to every targeted table, then refits its
+/// height.
+fn each_table_w(s: &mut Session, p: &Value, cmd: &str, label: &str, f: impl Fn(&mut TableEl, f64, &FontBook) -> Result<bool>) -> Result<Value> {
     each(s, p, cmd, label, |el, fonts| {
         let before = natural(el, fonts);
+        let width = el.frame.width;
         let changed = match &mut el.kind {
             ElementKind::Table(t) => {
-                let c = f(t)?;
+                let c = f(t, width, fonts)?;
                 t.sanitize();
                 c
             }
@@ -302,6 +573,11 @@ fn each_table(s: &mut Session, p: &Value, cmd: &str, label: &str, f: impl Fn(&mu
     })
 }
 
+/// Applies `f` to every targeted table, then refits its height.
+fn each_table(s: &mut Session, p: &Value, cmd: &str, label: &str, f: impl Fn(&mut TableEl) -> Result<bool>) -> Result<Value> {
+    each_table_w(s, p, cmd, label, |t, _, _| f(t))
+}
+
 // ---------- charts ----------
 
 fn chart_add(s: &mut Session, p: &Value) -> Result<Value> {
@@ -309,14 +585,15 @@ fn chart_add(s: &mut Session, p: &Value) -> Result<Value> {
     let kind = kind_param(p, cmd)?.unwrap_or(ChartKind::Bar);
     let ring = str_param(p, "kind").is_some_and(|k| matches!(k.trim(), "ring" | "gauge"));
     let mut c = ChartEl::sample(kind);
-    if let Some(d) = p.get("data") {
-        c.data = parse_data(d, cmd)?;
+    let data = ChartData::parse(p, cmd)?;
+    if !data.is_empty() {
+        data.apply(&mut c);
     }
     let brand = s.doc()?.doc.brand.clone();
     let primary = brand.color(0, Color::rgb(0x5b, 0x3c, 0xf5));
     c.colors = match colors_param(p, cmd)? {
         Some(cols) => cols,
-        None if matches!(kind, ChartKind::Pie | ChartKind::Donut) => {
+        None if matches!(kind, ChartKind::Pie | ChartKind::Donut) || c.series.len() > 1 => {
             genha_render::chart_colors(&ChartEl::default(), &brand).into_iter().take(8).collect()
         }
         None => vec![primary],
@@ -326,6 +603,20 @@ fn chart_add(s: &mut Session, p: &Value) -> Result<Value> {
     c.font_family = brand.body_font.clone();
     c.font_size = (side * 0.026).round().clamp(10.0, 200.0);
     c.text_color = brand.color(2, Color::rgb(0x1b, 0x1b, 0x2f));
+    if c.series.len() > 1 {
+        // Several series need a key.
+        c.show_legend = true;
+    }
+    // Style fields given with the chart (titles, stacking, legend…).
+    let mut style = style_patch(p, cmd)?;
+    if let Some(o) = style.as_object_mut() {
+        for k in ["x", "y", "width", "height", "title", "colors", "kind", "rows", "csv", "tsv"] {
+            o.remove(k);
+        }
+    }
+    if style.as_object().is_some_and(|o| !o.is_empty()) {
+        c = merge(&c, &style, cmd)?;
+    }
     c.sanitize();
     let (dw, dh) = match kind {
         ChartKind::Progress if ring => (side * 0.4, side * 0.4),
@@ -342,26 +633,58 @@ fn chart_add(s: &mut Session, p: &Value) -> Result<Value> {
 }
 
 fn chart_set_data(s: &mut Session, p: &Value) -> Result<Value> {
-    let data = parse_data(p.get("data").ok_or_else(|| bad("chart.setData", "missing `data`"))?, "chart.setData")?;
-    each(s, p, "chart.setData", "Chart Data", |el, _| match &mut el.kind {
+    let cmd = "chart.setData";
+    let data = ChartData::parse(p, cmd)?;
+    if data.is_empty() {
+        return Err(bad(cmd, "give `data`, `csv`, `rows`, `categories` or `series`"));
+    }
+    each(s, p, cmd, "Chart Data", |el, _| match &mut el.kind {
         ElementKind::Chart(c) => {
-            c.data = data.clone();
+            data.apply(c);
             Ok(true)
         }
         _ => Ok(false),
     })
 }
 
-fn chart_set_style(s: &mut Session, p: &Value) -> Result<Value> {
-    let cmd = "chart.setStyle";
+/// The style fields of `p` as a chart patch: `legend` becomes `show_legend` and
+/// `legend_position`, kinds may use the friendly ids, data keys are left out.
+fn style_patch(p: &Value, cmd: &str) -> Result<Value> {
     let mut patch = patch_of(p);
+    let legend = match p.get("legend") {
+        None | Some(Value::Null) => None,
+        Some(Value::Bool(false)) => Some((false, None)),
+        Some(Value::Bool(true)) => Some((true, None)),
+        Some(Value::String(l)) if l == "none" || l == "off" => Some((false, None)),
+        Some(Value::String(l)) => {
+            let pos = LegendPosition::ALL
+                .into_iter()
+                .find(|x| x.id() == l.trim().to_ascii_lowercase())
+                .ok_or_else(|| bad(cmd, format!("unknown legend place `{l}` (none, auto, top, bottom, right)")))?;
+            Some((true, Some(pos)))
+        }
+        Some(_) => return Err(bad(cmd, "`legend` must be none, auto, top, bottom or right")),
+    };
     if let Some(o) = patch.as_object_mut() {
-        // Data has its own command; kinds may use the friendly ids.
-        o.remove("data");
+        for k in ["data", "categories", "series", "legend"] {
+            o.remove(k);
+        }
         if let Some(k) = kind_param(p, cmd)? {
             o.insert("kind".into(), json!(k));
         }
+        if let Some((show, pos)) = legend {
+            o.insert("show_legend".into(), json!(show));
+            if let Some(pos) = pos {
+                o.insert("legend_position".into(), json!(pos));
+            }
+        }
     }
+    Ok(patch)
+}
+
+fn chart_set_style(s: &mut Session, p: &Value) -> Result<Value> {
+    let cmd = "chart.setStyle";
+    let patch = style_patch(p, cmd)?;
     let _: ChartEl = merge(&ChartEl::default(), &patch, cmd)?;
     each(s, p, cmd, "Chart Style", |el, _| match &mut el.kind {
         ElementKind::Chart(c) => {
@@ -382,9 +705,10 @@ fn chart_set_kind(s: &mut Session, p: &Value) -> Result<Value> {
             let is_pie = matches!(kind, ChartKind::Pie | ChartKind::Donut);
             c.kind = kind;
             if was_pie != is_pie {
-                // Shares read best on pies, plain numbers on bars and lines.
+                // Shares read best on pies, plain numbers on bars and lines; several series need
+                // a key.
                 c.value_format = if is_pie { genha_doc::ValueFormat::Percent } else { genha_doc::ValueFormat::Number };
-                c.show_legend = is_pie;
+                c.show_legend = is_pie || c.series.len() > 1;
             }
             if kind == ChartKind::Progress {
                 c.value_format = genha_doc::ValueFormat::Percent;
@@ -441,13 +765,31 @@ fn index_param(p: &Value, key: &str, cmd: &str) -> Result<Option<usize>> {
     }
 }
 
+/// A count of rows or columns (at least 1).
+fn span_param(p: &Value, key: &str, cmd: &str, max: usize) -> Result<usize> {
+    match index_param(p, key, cmd)? {
+        None => Ok(1),
+        Some(n) if (1..=max).contains(&n) => Ok(n),
+        Some(_) => Err(bad(cmd, format!("`{key}` must be 1 to {max}"))),
+    }
+}
+
+/// The cell range of `row`, `col`, `rows`, `cols`.
+fn range_param(p: &Value, cmd: &str) -> Result<CellRange> {
+    let row = index_param(p, "row", cmd)?.ok_or_else(|| bad(cmd, format!("missing `row` ({RANGE_DOC})")))?;
+    let col = index_param(p, "col", cmd)?.ok_or_else(|| bad(cmd, format!("missing `col` ({RANGE_DOC})")))?;
+    Ok(CellRange::new(row, col, span_param(p, "rows", cmd, MAX_TABLE_ROWS)?, span_param(p, "cols", cmd, MAX_TABLE_COLS)?))
+}
+
 fn table_set_cell(s: &mut Session, p: &Value) -> Result<Value> {
     let cmd = "table.setCell";
     let row = index_param(p, "row", cmd)?.ok_or_else(|| bad(cmd, "missing `row`"))?;
     let col = index_param(p, "col", cmd)?.ok_or_else(|| bad(cmd, "missing `col`"))?;
     let text: String = str_param(p, "text").ok_or_else(|| bad(cmd, "missing `text`"))?.chars().take(MAX_CELL_CHARS).collect();
     each_table(s, p, cmd, "Edit Cell", |t| {
-        let cell = t.rows.get_mut(row).and_then(|r| r.get_mut(col)).ok_or_else(|| bad(cmd, format!("no cell at row {row}, column {col}")))?;
+        // A cell under a merge stands for the merge, whose text is in its top-left cell.
+        let (r, c) = t.merge_at(row, col).map_or((row, col), |m| (m.row, m.col));
+        let cell = t.rows.get_mut(r).and_then(|x| x.get_mut(c)).ok_or_else(|| bad(cmd, format!("no cell at row {row}, column {col}")))?;
         *cell = text.clone();
         Ok(true)
     })
@@ -460,8 +802,7 @@ fn table_insert_row(s: &mut Session, p: &Value) -> Result<Value> {
         if t.rows.len() >= MAX_TABLE_ROWS {
             return Err(bad(cmd, format!("a table has at most {MAX_TABLE_ROWS} rows")));
         }
-        let at = index.unwrap_or(t.rows.len()).min(t.rows.len());
-        t.rows.insert(at, vec![String::new(); t.columns().max(1)]);
+        t.insert_row(index.unwrap_or(t.rows.len()));
         Ok(true)
     })
 }
@@ -477,7 +818,7 @@ fn table_delete_row(s: &mut Session, p: &Value) -> Result<Value> {
         if at >= t.rows.len() {
             return Err(bad(cmd, format!("no row {at}")));
         }
-        t.rows.remove(at);
+        t.delete_row(at);
         Ok(true)
     })
 }
@@ -490,16 +831,7 @@ fn table_insert_col(s: &mut Session, p: &Value) -> Result<Value> {
         if n >= MAX_TABLE_COLS {
             return Err(bad(cmd, format!("a table has at most {MAX_TABLE_COLS} columns")));
         }
-        let at = index.unwrap_or(n).min(n);
-        for r in &mut t.rows {
-            r.resize(n, String::new());
-            r.insert(at, String::new());
-        }
-        if !t.column_widths.is_empty() {
-            let mean = t.column_widths.iter().sum::<f64>() / t.column_widths.len() as f64;
-            t.column_widths.resize(n, mean);
-            t.column_widths.insert(at.min(t.column_widths.len()), mean);
-        }
+        t.insert_col(index.unwrap_or(n));
         Ok(true)
     })
 }
@@ -516,14 +848,7 @@ fn table_delete_col(s: &mut Session, p: &Value) -> Result<Value> {
         if at >= n {
             return Err(bad(cmd, format!("no column {at}")));
         }
-        for r in &mut t.rows {
-            if at < r.len() {
-                r.remove(at);
-            }
-        }
-        if at < t.column_widths.len() {
-            t.column_widths.remove(at);
-        }
+        t.delete_col(at);
         Ok(true)
     })
 }
@@ -550,6 +875,159 @@ fn table_set_rows(s: &mut Session, p: &Value) -> Result<Value> {
     })
 }
 
+fn table_merge_cells(s: &mut Session, p: &Value) -> Result<Value> {
+    let cmd = "table.mergeCells";
+    let range = range_param(p, cmd)?;
+    if range.is_single() {
+        return Err(bad(cmd, "merge at least two cells (give `rows` or `cols`)"));
+    }
+    each_table(s, p, cmd, "Merge Cells", |t| {
+        t.merge_cells(range).map(|_| true).ok_or_else(|| bad(cmd, format!("no cells at row {}, column {}", range.row, range.col)))
+    })
+}
+
+fn table_split_cells(s: &mut Session, p: &Value) -> Result<Value> {
+    let cmd = "table.splitCell";
+    let range = range_param(p, cmd)?;
+    each_table(s, p, cmd, "Split Cells", |t| {
+        if t.split_cells(range) == 0 {
+            return Err(bad(cmd, "no merged cells there"));
+        }
+        Ok(true)
+    })
+}
+
+/// A colour field that may be `null` (back to the table's colour): `None` when not given.
+fn opt_color(p: &Value, key: &str, cmd: &str) -> Result<Option<Option<Color>>> {
+    match p.get(key) {
+        None => Ok(None),
+        Some(Value::Null) => Ok(Some(None)),
+        Some(_) => super::color_param(p, key, cmd).map(Some),
+    }
+}
+
+fn table_set_cell_style(s: &mut Session, p: &Value) -> Result<Value> {
+    let cmd = "table.setCellStyle";
+    let range = range_param(p, cmd)?;
+    let clear = super::bool_or(p, "clear", false);
+    let fill = opt_color(p, "fill", cmd)?;
+    let text_color = opt_color(p, "text_color", cmd)?;
+    let bold = match p.get("bold") {
+        None => None,
+        Some(Value::Null) => Some(None),
+        Some(Value::Bool(b)) => Some(Some(*b)),
+        Some(_) => return Err(bad(cmd, "`bold` must be true, false or null")),
+    };
+    let align = match p.get("align") {
+        None => None,
+        Some(Value::Null) => Some(None),
+        Some(v) => Some(Some(serde_json::from_value::<TextAlign>(v.clone()).map_err(|_| bad(cmd, "`align` must be left, center or right"))?)),
+    };
+    let font_size = match p.get("font_size") {
+        None => None,
+        Some(Value::Null) => Some(None),
+        Some(v) => {
+            Some(Some(v.as_f64().filter(|f| f.is_finite() && *f > 0.0).ok_or_else(|| bad(cmd, "`font_size` must be a size in pixels"))?.min(2000.0)))
+        }
+    };
+    if !clear && fill.is_none() && text_color.is_none() && bold.is_none() && align.is_none() && font_size.is_none() {
+        return Err(bad(cmd, "give fill, text_color, bold, align, font_size or clear"));
+    }
+    each_table(s, p, cmd, "Cell Style", |t| {
+        let n = t.style_cells(range, |st| {
+            if clear {
+                *st = genha_doc::CellStyle::default();
+            }
+            if let Some(v) = fill {
+                st.fill = v;
+            }
+            if let Some(v) = text_color {
+                st.text_color = v;
+            }
+            if let Some(v) = bold {
+                st.bold = v;
+            }
+            if let Some(v) = align {
+                st.align = v;
+            }
+            if let Some(v) = font_size {
+                st.font_size = v;
+            }
+        });
+        if n == 0 {
+            return Err(bad(cmd, format!("no cells at row {}, column {}", range.row, range.col)));
+        }
+        Ok(true)
+    })
+}
+
+fn table_set_column_width(s: &mut Session, p: &Value) -> Result<Value> {
+    let cmd = "table.setColumnWidth";
+    let auto = super::bool_or(p, "auto", false);
+    let equal = super::bool_or(p, "equal", false);
+    let col = index_param(p, "col", cmd)?;
+    let width = p.get("width").and_then(Value::as_f64).filter(|w| w.is_finite() && *w > 0.0);
+    if !auto && !equal && (col.is_none() || width.is_none()) {
+        return Err(bad(cmd, "give `col` and `width` (px), or `auto: true`, or `equal: true`"));
+    }
+    each_table_w(s, p, cmd, "Column Width", |t, table_w, fonts| {
+        if equal {
+            t.column_widths.clear();
+            return Ok(true);
+        }
+        if auto {
+            t.column_widths = genha_render::table_fit_columns(fonts, t);
+            return Ok(true);
+        }
+        let (Some(col), Some(width)) = (col, width) else { return Ok(false) };
+        let n = t.columns();
+        if col >= n {
+            return Err(bad(cmd, format!("no column {col}")));
+        }
+        if n == 1 {
+            return Ok(false);
+        }
+        let mut f = t.fractions();
+        let target = (width / table_w.max(1.0)).clamp(0.02, 1.0 - 0.02 * (n - 1) as f64);
+        let rest: f64 = f.iter().enumerate().filter(|(i, _)| *i != col).map(|(_, w)| w).sum();
+        for (i, w) in f.iter_mut().enumerate() {
+            *w = if i == col {
+                target
+            } else if rest > 0.0 {
+                *w / rest * (1.0 - target)
+            } else {
+                (1.0 - target) / (n - 1) as f64
+            };
+        }
+        t.column_widths = f;
+        Ok(true)
+    })
+}
+
+fn table_set_row_height(s: &mut Session, p: &Value) -> Result<Value> {
+    let cmd = "table.setRowHeight";
+    let row = index_param(p, "row", cmd)?;
+    let auto = super::bool_or(p, "auto", false);
+    let height = if auto {
+        0.0
+    } else {
+        p.get("height")
+            .and_then(Value::as_f64)
+            .filter(|h| h.is_finite() && *h >= 0.0)
+            .ok_or_else(|| bad(cmd, "give `height` in pixels (0 fits the text) or `auto: true`"))?
+            .min(100_000.0)
+    };
+    each_table(s, p, cmd, "Row Height", |t| {
+        let n = t.rows.len();
+        t.row_heights.resize(n, 0.0);
+        match row {
+            Some(r) => *t.row_heights.get_mut(r).ok_or_else(|| bad(cmd, format!("no row {r}")))? = height,
+            None => t.row_heights.iter_mut().for_each(|h| *h = height),
+        }
+        Ok(true)
+    })
+}
+
 // ---------- curved text ----------
 
 fn text_set_curve(s: &mut Session, p: &Value) -> Result<Value> {
@@ -561,7 +1039,7 @@ fn text_set_curve(s: &mut Session, p: &Value) -> Result<Value> {
     if let Ok(d) = s.doc() {
         for id in &ids {
             if let Ok(Element { kind: ElementKind::Text(t), frame, .. }) = d.doc.element(*id) {
-                straight_heights.push((*id, text_height(s, &t.text, &t.style, frame.width)));
+                straight_heights.push((*id, text_el_height(s, t, frame.width)));
             }
         }
     }
@@ -610,5 +1088,31 @@ mod tests {
         assert!(parse_data(&json!([{"label": "a"}]), "t").is_err());
         assert!(parse_data(&json!(vec![1; 500]), "t").is_err());
         assert!(parse_data(&json!(5), "t").is_err());
+    }
+
+    #[test]
+    fn csv_cells_and_chart_grids_parse() {
+        assert_eq!(split_line(r#"a, "b, c" ,"say ""hi""",,"#, ','), vec!["a", "b, c", "say \"hi\"", "", ""]);
+        assert_eq!(split_line("x\t 1,200 \t", '\t'), vec!["x", "1,200", ""]);
+        let rows = split_text("Quarter,North,South\nQ1,10,\"1,200\"\n\nQ2,5\n", 10, 10);
+        let (cats, series) = chart_grid(&rows, "t").unwrap();
+        assert_eq!(cats, vec!["Q1", "Q2"]);
+        assert_eq!(series, vec![ChartSeries::new("North", vec![10.0, 5.0]), ChartSeries::new("South", vec![1200.0, 0.0])]);
+        // The first row names the series even when it holds numbers (years); empty names are numbered.
+        let (cats, series) = chart_grid(&split_text("Team\t2023\t\nb\t3\t4", 10, 10), "t").unwrap();
+        assert_eq!(
+            (cats, series[0].name.as_str(), series[1].name.as_str(), series[1].values.clone()),
+            (vec!["b".to_string()], "2023", "Series 2", vec![4.0])
+        );
+        assert!(chart_grid(&split_text("a\nb", 10, 10), "t").is_err());
+        assert!(chart_grid(&split_text("x,y\na,lots", 10, 10), "t").is_err());
+        let wide = vec![vec!["x".to_string(); MAX_CHART_SERIES + 2]];
+        assert!(chart_grid(&wide, "t").is_err());
+        // Series from JSON, with colours and gaps.
+        let s = json_series(&json!([{"name": "A", "values": [1, "2", null], "color": "#ff0000"}, {"values": []}]), "t").unwrap();
+        assert_eq!((s[0].values.clone(), s[0].color, s[1].name.as_str()), (vec![1.0, 2.0, 0.0], Some(Color::rgb(255, 0, 0)), "Series 2"));
+        assert!(json_series(&json!([{"values": ["x"]}]), "t").is_err());
+        assert!(json_series(&json!([{"color": 3}]), "t").is_err());
+        assert!(json_series(&json!({"a": 1}), "t").is_err());
     }
 }

@@ -23,6 +23,7 @@ genha-templates = { path = "crates/templates" }
 genha-render = { path = "crates/render" }
 genha-svg = { path = "crates/svg" }
 genha-pdf = { path = "crates/pdf" }
+genha-video = { path = "crates/video" }
 genha-format = { path = "crates/format" }
 genha-tools = { path = "crates/tools" }
 genha-engine = { path = "crates/engine" }

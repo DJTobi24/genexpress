@@ -33,6 +33,7 @@ fn text(d: &mut Document, frame: Frame, s: &str, size: f64) -> Element {
             style: TextStyle { font_size: size, ..TextStyle::default() },
             effect: TextEffect::None,
             curve: 0.0,
+            spans: vec![],
         }),
     )
 }
@@ -56,7 +57,10 @@ fn parse(pdf: &[u8]) -> lopdf::Document {
 
 /// The text `pdftotext` (poppler) reads from `pdf`, when it is installed.
 fn pdftotext(pdf: &[u8]) -> Option<String> {
-    let dir = std::env::temp_dir().join(format!("genha-pdf-test-{}", std::process::id()));
+    // Tests run in parallel: each call gets its own folder.
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("genha-pdf-test-{}-{n}", std::process::id()));
     std::fs::create_dir_all(&dir).ok()?;
     let path = dir.join("t.pdf");
     std::fs::write(&path, pdf).ok()?;
@@ -560,4 +564,42 @@ fn junk_survives() {
         let pdf = export_pdf(&d, &fonts, &opts).unwrap();
         parse(&pdf);
     }
+}
+
+#[test]
+fn vector_text_draws_style_runs() {
+    let fonts = FontBook::system();
+    let mut d = Document::new("Runs", 600.0, 200.0);
+    let mut t = text(&mut d, Frame::new(20.0, 20.0, 560.0, 160.0), "Big sale today", 36.0);
+    if let ElementKind::Text(te) = &mut t.kind {
+        te.set_style_range(
+            4..8,
+            &genha_doc::SpanStyle {
+                bold: Some(true),
+                color: Some(Color::rgb(255, 0, 0)),
+                font_size: Some(60.0),
+                strikethrough: Some(true),
+                ..Default::default()
+            },
+        );
+    }
+    d.pages[0].elements.push(t);
+    let pdf = vector(&d, &fonts);
+    let p = parse(&pdf);
+    let o = all_ops(&p);
+    if fonts.is_empty() {
+        return;
+    }
+    // Two faces (regular and bold), the red run and its strikethrough bar.
+    assert!(base_fonts(&p).len() >= 2, "{:?}", base_fonts(&p));
+    assert!(has(&o, "rg") && has(&o, "re") || has(&o, "f"), "{o:?}");
+    let red = p.get_pages().values().any(|id| String::from_utf8_lossy(&p.get_page_content(*id)).contains("1 0 0 rg"));
+    assert!(red, "a red fill");
+    if let Some(text) = pdftotext(&pdf) {
+        let words: Vec<&str> = text.split_whitespace().collect();
+        assert_eq!(words, ["Big", "sale", "today"], "{text:?}");
+    }
+    // As outlines too.
+    let outlined = export_pdf(&d, &fonts, &PdfOptions { text_as_outlines: true, ..Default::default() }).unwrap();
+    assert!(String::from_utf8_lossy(&parse(&outlined).get_page_content(*parse(&outlined).get_pages().values().next().unwrap())).contains("1 0 0 rg"));
 }

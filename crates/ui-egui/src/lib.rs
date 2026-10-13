@@ -153,6 +153,7 @@ impl App {
         if let Some(i) = opts.instance {
             session.instance = i;
         }
+        genha_engine::cmd::edit::load_preferences(&mut session);
         // Fonts the user added before.
         let added = genha_engine::cmd::fonts::load_stored_fonts(&mut session);
         if added > 0 {

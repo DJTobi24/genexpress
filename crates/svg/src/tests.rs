@@ -124,6 +124,7 @@ fn text_is_escaped_and_laid_out() {
             style,
             effect: TextEffect::Shadow { color: Color::BLACK, offset_x: 2.0, offset_y: 2.0, blur: 3.0 },
             curve: 0.0,
+            spans: vec![],
         }),
     );
     let svg = export_page(&d, 0, fonts(), &SvgOptions::default()).unwrap();
@@ -156,7 +157,7 @@ fn text_effects() {
         push(
             &mut d,
             Frame::new(0.0, 0.0, 300.0, 50.0),
-            ElementKind::Text(TextEl { text: "Hi".into(), style: TextStyle::default(), effect, curve: 0.0 }),
+            ElementKind::Text(TextEl { text: "Hi".into(), style: TextStyle::default(), effect, curve: 0.0, spans: vec![] }),
         );
     }
     let svg = export_page(&d, 0, &FontBook::new(), &SvgOptions::default()).unwrap();
@@ -241,7 +242,7 @@ fn charts_tables_and_curved_text() {
     let mut d = Document::new("Data", 900.0, 600.0);
     for (i, k) in genha_doc::ChartKind::ALL.into_iter().enumerate() {
         let mut c = genha_doc::ChartEl::sample(k);
-        c.data[0].label = "R&D <x>".into();
+        c.categories[0] = "R&D <x>".into();
         c.background = Fill::linear(90.0, Color::WHITE, Color::rgb(0xee, 0xee, 0xff));
         push(&mut d, Frame::new((i % 4) as f64 * 220.0, (i / 4) as f64 * 220.0, 200.0, 200.0), ElementKind::Chart(c));
     }
@@ -265,5 +266,36 @@ fn charts_tables_and_curved_text() {
         if !fonts().is_empty() {
             assert!(svg.matches("<path").count() > 40);
         }
+    }
+}
+
+#[test]
+fn style_runs_become_nested_tspans_or_coloured_paths() {
+    let mut d = Document::new("Runs", 600.0, 200.0);
+    let id = d.alloc_id();
+    let mut t = TextEl::new("Big sale today", TextStyle { font_size: 36.0, ..TextStyle::default() });
+    t.set_style_range(
+        4..8,
+        &genha_doc::SpanStyle {
+            bold: Some(true),
+            color: Some(Color::rgb(255, 0, 0)),
+            underline: Some(true),
+            font_size: Some(60.0),
+            ..Default::default()
+        },
+    );
+    d.pages[0].elements.push(Element::new(id, Frame::new(20.0, 20.0, 560.0, 160.0), ElementKind::Text(t)));
+    let svg = export_page(&d, 0, fonts(), &SvgOptions::default()).unwrap();
+    check_tags(&svg);
+    assert!(
+        svg.contains(r##"font-size="60" font-weight="bold" font-style="normal" text-decoration="underline" fill="#ff0000">sale</tspan>"##),
+        "{svg}"
+    );
+    assert!(svg.contains(">Big <tspan"), "{svg}");
+    assert!(svg.contains("</tspan> today</tspan></text>"), "{svg}");
+    let paths = export_page(&d, 0, fonts(), &SvgOptions { text_as_paths: true }).unwrap();
+    check_tags(&paths);
+    if !fonts().is_empty() {
+        assert!(paths.contains(r##"fill="#ff0000""##) && paths.contains(r##"fill="#1b1b2f""##), "{paths}");
     }
 }

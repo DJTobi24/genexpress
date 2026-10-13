@@ -99,7 +99,7 @@ fn text_layer(page: &Page, fonts: &FontBook, x0: f64, top: f64) -> String {
             return;
         }
         let m = element_transform(e);
-        let layout = genha_text::layout(fonts, &t.text, &t.style, e.frame.width);
+        let layout = genha_text::layout_el(fonts, t, e.frame.width);
         // Page pixels (y down) to points (y up).
         let to_pt = |p: Point| (x0 + p.x * PT_PER_PX, top - p.y * PT_PER_PX);
         let c = m.as_coeffs();

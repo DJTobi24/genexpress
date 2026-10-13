@@ -17,11 +17,72 @@ pub struct EditorState {
     pub new_brand_color: [u8; 3],
     pub versions_open: bool,
     pub version_name: String,
+    /// A video being exported on a worker thread (desktop; the browser exports in place).
+    #[cfg(not(target_arch = "wasm32"))]
+    pub video_job: Option<VideoJob>,
+}
+
+/// An MP4 export running on its own thread, so the editor stays responsive: progress in the
+/// status bar, a Cancel button, the result when it ends. It runs `export.mp4`'s own work
+/// ([`genha_engine::cmd::motion::video_file`]) on a copy of the design.
+#[cfg(not(target_arch = "wasm32"))]
+pub struct VideoJob {
+    path: std::path::PathBuf,
+    /// Frames rendered and to render.
+    progress: std::sync::Arc<(std::sync::atomic::AtomicUsize, std::sync::atomic::AtomicUsize)>,
+    cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    done: std::sync::mpsc::Receiver<Result<Value, String>>,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl VideoJob {
+    pub(crate) fn start(app: &App, ctx: &egui::Context, params: Value, path: std::path::PathBuf) -> Option<VideoJob> {
+        use std::sync::atomic::Ordering;
+        let d = app.session.active()?;
+        let (doc, page, fonts) = (d.doc.clone(), d.page, app.session.fonts.clone());
+        let progress = std::sync::Arc::new((std::sync::atomic::AtomicUsize::new(0), std::sync::atomic::AtomicUsize::new(0)));
+        let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let (tx, done) = std::sync::mpsc::channel();
+        let (p, c, ctx) = (progress.clone(), cancel.clone(), ctx.clone());
+        let spawned = std::thread::Builder::new().name("video export".into()).spawn(move || {
+            let r = genha_engine::cmd::motion::video_file(&doc, &fonts, page, &params, &mut |n, total| {
+                p.0.store(n, Ordering::Relaxed);
+                p.1.store(total, Ordering::Relaxed);
+                ctx.request_repaint();
+                !c.load(Ordering::Relaxed)
+            });
+            // Nothing to do if the editor has gone away: it no longer waits for the result.
+            tx.send(r.map_err(|e| e.to_string())).ok();
+            ctx.request_repaint();
+        });
+        spawned.ok().map(|_| VideoJob { path, progress, cancel, done })
+    }
+
+    /// Asks the export to stop (it ends at the next frame and reports that it was cancelled).
+    pub(crate) fn cancel(&self) {
+        self.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+/// Picks up the result of a finished video export.
+#[cfg(not(target_arch = "wasm32"))]
+fn poll_video(app: &mut App) {
+    let Some(job) = &app.editor.video_job else { return };
+    let msg = match job.done.try_recv() {
+        Ok(Ok(_)) => format!("Downloaded {}", job.path.display()),
+        Ok(Err(e)) => e,
+        Err(std::sync::mpsc::TryRecvError::Empty) => return,
+        Err(std::sync::mpsc::TryRecvError::Disconnected) => "The video export stopped unexpectedly".into(),
+    };
+    app.editor.video_job = None;
+    app.set_status(msg);
 }
 
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     app.thumbs.begin_frame();
+    #[cfg(not(target_arch = "wasm32"))]
+    poll_video(app);
     shortcuts(app, ui.ctx());
     top_bar(app, ui, &t);
     status_bar(app, ui, &t);
@@ -93,7 +154,7 @@ fn top_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.menu_button(egui::RichText::new("Download").strong().color(t.accent), |ui| download_menu(app, ui))
                         .response
-                        .on_hover_text("Export as PNG, JPEG, SVG, PDF, GIF or animated PNG");
+                        .on_hover_text("Export as PNG, JPEG, SVG, PDF, GIF, animated PNG or MP4 video");
                     if ui.button("Versions").on_hover_text("Version history").clicked() {
                         app.editor.versions_open = !app.editor.versions_open;
                     }
@@ -117,6 +178,14 @@ fn top_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                         }
                     }
                     ui.separator();
+                    let snapping = app.session.snapping;
+                    if ui
+                        .add(egui::Button::new("Snap").selected(snapping))
+                        .on_hover_text("Smart guides: snap to the page, other objects, equal gaps and sizes (hold Ctrl/Cmd while dragging to skip)")
+                        .clicked()
+                    {
+                        app.run("view.snapping", &json!({"on": !snapping}));
+                    }
                     if ui.button("Fit").on_hover_text("Fit page (Ctrl+0)").clicked() {
                         app.view.fit_pending = true;
                     }
@@ -172,7 +241,7 @@ fn resize_menu(app: &mut App, ui: &mut egui::Ui) {
 
 fn download_menu(app: &mut App, ui: &mut egui::Ui) {
     let name = app.session.active().map(|d| io::file_stem(&d.doc.title)).unwrap_or_else(|| "design".into());
-    let entries: [(&str, &str, &str, Value); 9] = [
+    let entries: [(&str, &str, &str, Value); 10] = [
         ("PNG", "export.png", "png", json!({})),
         ("PNG — transparent background", "export.png", "png", json!({"transparent": true})),
         ("PNG — 2× size", "export.png", "png", json!({"scale": 2.0})),
@@ -182,9 +251,17 @@ fn download_menu(app: &mut App, ui: &mut egui::Ui) {
         ("PDF — print (bleed, crop marks)", "export.pdf", "pdf", json!({"print": true})),
         ("GIF (animated)", "export.gif", "gif", json!({})),
         ("Animated PNG", "export.apng", "png", json!({})),
+        ("MP4 video", "export.mp4", "mp4", json!({})),
     ];
     for (label, cmd, ext, extra) in entries {
-        if ui.button(label).clicked() {
+        let video = cmd == "export.mp4";
+        #[cfg(not(target_arch = "wasm32"))]
+        let busy = video && app.editor.video_job.is_some();
+        #[cfg(target_arch = "wasm32")]
+        let busy = false;
+        let button = ui.add_enabled(!busy, egui::Button::new(label));
+        let button = if video { button.on_hover_text("Every page in turn, each for its duration (30 frames per second)") } else { button };
+        if button.clicked() {
             ui.close();
             #[cfg(target_arch = "wasm32")]
             crate::web::export(app, cmd, ext, &extra, &name);
@@ -192,6 +269,14 @@ fn download_menu(app: &mut App, ui: &mut egui::Ui) {
                 let mut p = extra;
                 if let Some(o) = p.as_object_mut() {
                     o.insert("path".into(), json!(path.display().to_string()));
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                if video {
+                    app.editor.video_job = VideoJob::start(app, ui.ctx(), p, path);
+                    if app.editor.video_job.is_none() {
+                        app.set_status("Could not start the video export");
+                    }
+                    continue;
                 }
                 if app.run(cmd, &p).is_some() {
                     app.set_status(format!("Downloaded {}", path.display()));
@@ -238,6 +323,17 @@ fn status_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 {
                     ui.separator();
                     ui.colored_label(t.text, msg);
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                if let Some(job) = &app.editor.video_job {
+                    use std::sync::atomic::Ordering;
+                    let (n, total) = (job.progress.0.load(Ordering::Relaxed), job.progress.1.load(Ordering::Relaxed));
+                    ui.separator();
+                    ui.add(egui::ProgressBar::new(if total > 0 { n as f32 / total as f32 } else { 0.0 }).desired_width(120.0));
+                    ui.colored_label(t.text, format!("Exporting video… {n} of {total} frames"));
+                    if ui.small_button("Cancel").clicked() {
+                        job.cancel();
+                    }
                 }
             });
         },

@@ -11,6 +11,9 @@ use genha_geom::{Frame, Point, Rect, Vec2};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+pub mod smart;
+pub use smart::{Measure, MeasureKind, Scene, Sides, format_px, hover_measures, measure_between};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ToolId {
@@ -89,7 +92,11 @@ pub struct ToolContext<'a> {
     pub selection: &'a [NodeId],
     /// Screen pixels per page pixel (handles keep a constant screen size).
     pub zoom: f64,
-    /// Snap targets (x and y lines in page coordinates); empty disables snapping.
+    /// Smart guides on: moves and resizes snap to the page, the other objects, equal gaps and
+    /// matching sizes (off: the preference is off, or the user holds Ctrl/Cmd while dragging).
+    pub snap: bool,
+    /// Extra snap lines from the host (x and y in page coordinates), on top of the page's and the
+    /// other objects' edges and centres, which the tool finds itself.
     pub snap_xs: &'a [f64],
     pub snap_ys: &'a [f64],
 }
@@ -123,6 +130,8 @@ pub struct Preview {
     /// Snap lines hit, page coordinates.
     pub guides_x: Vec<f64>,
     pub guides_y: Vec<f64>,
+    /// Distance hints, equal-spacing and same-size markers (page coordinates).
+    pub measures: Vec<Measure>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -188,6 +197,9 @@ pub const ROTATE_OFFSET: f64 = 28.0;
 pub const HANDLE_RADIUS: f64 = 7.0;
 /// Screen distance within which edges snap.
 pub const SNAP_DISTANCE: f64 = 6.0;
+/// Screen distance the pointer must travel before a press on an object or a handle becomes a drag
+/// (a click never nudges anything).
+pub const DRAG_START: f64 = 3.0;
 /// Smallest element side a drag creates or resizes to.
 const MIN_SIDE: f64 = 1.0;
 
@@ -203,22 +215,29 @@ enum Gesture {
         id: NodeId,
         handle: Handle,
         start_frame: Frame,
+        /// Where the pointer went down (the handle follows the pointer's travel, not its position).
+        start: Point,
     },
     Rotate {
         id: NodeId,
         start_frame: Frame,
+        /// Angle of the pointer about the centre when it went down (radians).
+        start_angle: f64,
+        start: Point,
     },
     /// Several objects scaled with their joint box.
     ResizeMany {
         handle: Handle,
         start_box: Frame,
         frames: Vec<(NodeId, Frame)>,
+        start: Point,
     },
     /// Several objects turned about their joint box's centre.
     RotateMany {
         start_box: Frame,
         start_angle: f64,
         frames: Vec<(NodeId, Frame)>,
+        start: Point,
     },
     Marquee {
         start: Point,
@@ -239,12 +258,17 @@ pub struct ToolState {
     gesture: Gesture,
     /// Selection when the gesture began (shift-marquee adds to it).
     base_selection: Vec<NodeId>,
+    /// What the dragged objects snap to and are measured against (collected on press).
+    scene: Scene,
+    /// The pointer has travelled [`DRAG_START`] since the press: the gesture is a drag.
+    dragged: bool,
 }
 
 impl ToolState {
     pub fn set_tool(&mut self, tool: ToolId) {
         self.tool = tool;
         self.gesture = Gesture::Idle;
+        self.scene = Scene::default();
     }
 
     pub fn is_dragging(&self) -> bool {
@@ -254,6 +278,7 @@ impl ToolState {
     /// Abandons the gesture (Escape).
     pub fn cancel(&mut self) {
         self.gesture = Gesture::Idle;
+        self.scene = Scene::default();
     }
 
     pub fn event(&mut self, cx: &ToolContext, ev: PointerEvent) -> ToolOutput {
@@ -338,6 +363,7 @@ impl ToolState {
             PointerKind::Up => {
                 let out = self.select_drag(cx, ev, true);
                 self.gesture = Gesture::Idle;
+                self.scene = Scene::default();
                 out
             }
         }
@@ -345,6 +371,8 @@ impl ToolState {
 
     fn select_down(&mut self, cx: &ToolContext, ev: PointerEvent) -> ToolOutput {
         self.base_selection = cx.selection.to_vec();
+        self.dragged = false;
+        self.scene = Scene::default();
         // Handles of a single selected, unlocked element.
         if let [id] = cx.selection
             && let Some((_, el)) = cx.doc.find(*id)
@@ -352,9 +380,11 @@ impl ToolState {
             && let Some(handle) = hit_handle(&el.frame, ev.pos, cx.zoom)
         {
             self.gesture = if handle == Handle::Rotate {
-                Gesture::Rotate { id: *id, start_frame: el.frame }
+                let v = ev.pos - el.frame.center();
+                Gesture::Rotate { id: *id, start_frame: el.frame, start_angle: v.y.atan2(v.x), start: ev.pos }
             } else {
-                Gesture::Resize { id: *id, handle, start_frame: el.frame }
+                self.scene = Scene::collect(cx.doc, cx.page, &[*id], cx.snap_xs, cx.snap_ys);
+                Gesture::Resize { id: *id, handle, start_frame: el.frame, start: ev.pos }
             };
             return ToolOutput::default();
         }
@@ -367,9 +397,11 @@ impl ToolState {
                 cx.selection.iter().filter_map(|id| cx.doc.find(*id).map(|(_, e)| e)).filter(|e| !e.locked).map(|e| (e.id, e.frame)).collect();
             self.gesture = if handle == Handle::Rotate {
                 let v = ev.pos - start_box.center();
-                Gesture::RotateMany { start_box, start_angle: v.y.atan2(v.x), frames }
+                Gesture::RotateMany { start_box, start_angle: v.y.atan2(v.x), frames, start: ev.pos }
             } else {
-                Gesture::ResizeMany { handle, start_box, frames }
+                let ids: Vec<NodeId> = frames.iter().map(|(id, _)| *id).collect();
+                self.scene = Scene::collect(cx.doc, cx.page, &ids, cx.snap_xs, cx.snap_ys);
+                Gesture::ResizeMany { handle, start_box, frames, start: ev.pos }
             };
             return ToolOutput::default();
         }
@@ -391,6 +423,8 @@ impl ToolState {
                 }
                 let frames: Vec<(NodeId, Frame)> =
                     sel.iter().filter_map(|id| cx.doc.find(*id).map(|(_, e)| e)).filter(|e| !e.locked).map(|e| (e.id, e.frame)).collect();
+                let ids: Vec<NodeId> = frames.iter().map(|(id, _)| *id).collect();
+                self.scene = Scene::collect(cx.doc, cx.page, &ids, cx.snap_xs, cx.snap_ys);
                 self.gesture = Gesture::Move { start: ev.pos, frames };
                 ToolOutput { commands, ..Default::default() }
             }
@@ -403,39 +437,81 @@ impl ToolState {
     }
 
     fn select_drag(&mut self, cx: &ToolContext, ev: PointerEvent, commit: bool) -> ToolOutput {
+        // A press becomes a drag only once the pointer has really travelled: a click (or a click
+        // with a little jitter) never moves, resizes or turns anything, even next to a guide.
+        let pressed_at = match &self.gesture {
+            Gesture::Move { start, .. }
+            | Gesture::Resize { start, .. }
+            | Gesture::Rotate { start, .. }
+            | Gesture::ResizeMany { start, .. }
+            | Gesture::RotateMany { start, .. } => Some(*start),
+            _ => None,
+        };
+        if let Some(s) = pressed_at
+            && !self.dragged
+        {
+            if (ev.pos - s).hypot() * cx.zoom.max(0.01) < DRAG_START {
+                return ToolOutput::default();
+            }
+            self.dragged = true;
+        }
+        let threshold = SNAP_DISTANCE / cx.zoom.max(0.01);
         match self.gesture.clone() {
             Gesture::Move { start, frames } => {
                 let mut d = ev.pos - start;
-                if ev.shift {
-                    // Constrain to the dominant axis.
-                    if d.x.abs() > d.y.abs() { d.y = 0.0 } else { d.x = 0.0 }
-                }
-                // A click (no movement) never moves anything, even next to a snapping guide.
+                // Shift constrains the move to the dominant axis (which alone snaps).
+                let (free_x, free_y) = if !ev.shift {
+                    (true, true)
+                } else if d.x.abs() > d.y.abs() {
+                    d.y = 0.0;
+                    (true, false)
+                } else {
+                    d.x = 0.0;
+                    (false, true)
+                };
                 if commit && d.x == 0.0 && d.y == 0.0 {
                     return ToolOutput::default();
                 }
-                let (dx, dy, gx, gy) = snap_delta(cx, &frames, d);
-                let moved: Vec<(NodeId, Frame)> = frames.iter().map(|(id, f)| (*id, f.translated(dx, dy))).collect();
+                let Some(b0) = joint_bounds(&frames) else { return ToolOutput::default() };
+                if cx.snap {
+                    let s = self.scene.snap_move(b0 + d, threshold);
+                    if free_x {
+                        d.x += s.x;
+                    }
+                    if free_y {
+                        d.y += s.y;
+                    }
+                }
+                let moved: Vec<(NodeId, Frame)> = frames.iter().map(|(id, f)| (*id, f.translated(d.x, d.y))).collect();
                 if commit {
-                    if (dx, dy) == (0.0, 0.0) || moved.is_empty() {
+                    if (d.x, d.y) == (0.0, 0.0) || moved.is_empty() {
                         return ToolOutput::default();
                     }
                     return ToolOutput { commands: vec![frames_cmd(&moved, "Move")], ..Default::default() };
                 }
-                ToolOutput { preview: Some(Preview { frames: moved, guides_x: gx, guides_y: gy, ..Default::default() }), ..Default::default() }
+                let b = b0 + d;
+                let (guides_x, guides_y) = if cx.snap { self.scene.touching(b, None) } else { (vec![], vec![]) };
+                let measures = self.scene.hints(b, cx.snap);
+                ToolOutput { preview: Some(Preview { frames: moved, guides_x, guides_y, measures, ..Default::default() }), ..Default::default() }
             }
-            Gesture::Resize { id, handle, start_frame } => {
-                let f = resize_frame(&start_frame, handle, ev.pos, ev.shift, ev.alt);
+            Gesture::Resize { id, handle, start_frame, start } => {
+                // The handle follows the pointer's travel, so grabbing it off-centre does not jump.
+                let p = handle.position(&start_frame, cx.zoom) + (ev.pos - start);
+                let raw = resize_frame(&start_frame, handle, p, ev.shift, ev.alt);
+                let (f, mut preview) = self.snap_resized(cx, raw, &start_frame, handle, ev);
                 if commit {
                     if f == start_frame {
                         return ToolOutput::default();
                     }
                     return ToolOutput { commands: vec![frames_cmd(&[(id, f)], "Resize")], ..Default::default() };
                 }
-                ToolOutput { preview: Some(Preview { frames: vec![(id, f)], ..Default::default() }), ..Default::default() }
+                preview.frames = vec![(id, f)];
+                ToolOutput { preview: Some(preview), ..Default::default() }
             }
-            Gesture::ResizeMany { handle, start_box, frames } => {
-                let b = resize_frame(&start_box, handle, ev.pos, ev.shift, ev.alt);
+            Gesture::ResizeMany { handle, start_box, frames, start } => {
+                let p = handle.position(&start_box, cx.zoom) + (ev.pos - start);
+                let raw = resize_frame(&start_box, handle, p, ev.shift, ev.alt);
+                let (b, mut preview) = self.snap_resized(cx, raw, &start_box, handle, ev);
                 let sx = if start_box.width > 0.0 { b.width / start_box.width } else { 1.0 };
                 let sy = if start_box.height > 0.0 { b.height / start_box.height } else { 1.0 };
                 let out: Vec<(NodeId, Frame)> = frames
@@ -453,9 +529,10 @@ impl ToolState {
                     }
                     return ToolOutput { commands: vec![frames_cmd(&out, "Resize")], ..Default::default() };
                 }
-                ToolOutput { preview: Some(Preview { frames: out, ..Default::default() }), ..Default::default() }
+                preview.frames = out;
+                ToolOutput { preview: Some(preview), ..Default::default() }
             }
-            Gesture::RotateMany { start_box, start_angle, frames } => {
+            Gesture::RotateMany { start_box, start_angle, frames, .. } => {
                 let c = start_box.center();
                 let v = ev.pos - c;
                 let mut delta = (v.y.atan2(v.x) - start_angle).to_degrees();
@@ -475,15 +552,20 @@ impl ToolState {
                 }
                 ToolOutput { preview: Some(Preview { frames: out, ..Default::default() }), ..Default::default() }
             }
-            Gesture::Rotate { id, start_frame } => {
-                let c = start_frame.center();
-                let v = ev.pos - c;
-                let mut deg = v.y.atan2(v.x).to_degrees() + 90.0;
+            Gesture::Rotate { id, start_frame, start_angle, .. } => {
+                // Turns by the pointer's travel about the centre (grabbing the knob off-centre does
+                // not jump); Shift lands on whole 15° steps.
+                let v = ev.pos - start_frame.center();
+                let delta = (v.y.atan2(v.x) - start_angle).to_degrees();
+                let mut deg = normalize_degrees(start_frame.rotation + delta);
                 if ev.shift {
-                    deg = (deg / 15.0).round() * 15.0;
+                    deg = normalize_degrees((deg / 15.0).round() * 15.0);
                 }
-                let f = Frame { rotation: normalize_degrees(deg), ..start_frame };
+                let f = Frame { rotation: deg, ..start_frame };
                 if commit {
+                    if f == start_frame {
+                        return ToolOutput::default();
+                    }
                     return ToolOutput { commands: vec![frames_cmd(&[(id, f)], "Rotate")], ..Default::default() };
                 }
                 ToolOutput { preview: Some(Preview { frames: vec![(id, f)], ..Default::default() }), ..Default::default() }
@@ -508,6 +590,55 @@ impl ToolState {
             _ => ToolOutput::default(),
         }
     }
+}
+
+impl ToolState {
+    /// Snaps a box being resized (`raw` follows the pointer) and gathers the hints to show: guides
+    /// on the moving sides, matching sizes, equal spacing and distances. Rotated boxes do not snap
+    /// (their distances are measured on their bounds).
+    fn snap_resized(&self, cx: &ToolContext, raw: Frame, start: &Frame, handle: Handle, ev: PointerEvent) -> (Frame, Preview) {
+        let sides = handle_sides(handle);
+        if !cx.snap || normalize_degrees(start.rotation).abs() > 1e-9 {
+            let measures = self.scene.hints(raw.bounds(), false);
+            return (raw, Preview { measures, ..Default::default() });
+        }
+        let threshold = SNAP_DISTANCE / cx.zoom.max(0.01);
+        let ratio = (ev.shift && sides.corner() && start.width > 0.0 && start.height > 0.0).then(|| start.width / start.height);
+        let r = self.scene.snap_resize(raw.rect(), sides, ev.alt, ratio, threshold);
+        let f = Frame { x: r.x0, y: r.y0, width: r.width().max(MIN_SIDE), height: r.height().max(MIN_SIDE), rotation: raw.rotation };
+        // From the centre both sides of an axis move.
+        let moving = if ev.alt {
+            let (h, v) = (sides.left || sides.right, sides.top || sides.bottom);
+            Sides { left: h, right: h, top: v, bottom: v }
+        } else {
+            sides
+        };
+        let (guides_x, guides_y) = self.scene.touching(f.rect(), Some(moving));
+        let mut measures = self.scene.same_size(f.rect(), sides);
+        measures.extend(self.scene.hints(f.rect(), true));
+        (f, Preview { guides_x, guides_y, measures, ..Default::default() })
+    }
+}
+
+/// The sides of a box a handle moves.
+fn handle_sides(handle: Handle) -> Sides {
+    let (left, right, top, bottom) = match handle {
+        Handle::TopLeft => (true, false, true, false),
+        Handle::Top => (false, false, true, false),
+        Handle::TopRight => (false, true, true, false),
+        Handle::Right => (false, true, false, false),
+        Handle::BottomRight => (false, true, false, true),
+        Handle::Bottom => (false, false, false, true),
+        Handle::BottomLeft => (true, false, false, true),
+        Handle::Left => (true, false, false, false),
+        Handle::Rotate => (false, false, false, false),
+    };
+    Sides { left, right, top, bottom }
+}
+
+/// The joint axis-aligned bounds of `frames`.
+fn joint_bounds(frames: &[(NodeId, Frame)]) -> Option<Rect> {
+    frames.iter().map(|(_, f)| f.bounds()).reduce(|a, b| a.union(b))
 }
 
 fn select_cmd(ids: &[NodeId]) -> Invocation {
@@ -553,41 +684,6 @@ fn normalize_degrees(d: f64) -> f64 {
     if d > 180.0 { d - 360.0 } else { d }
 }
 
-/// Snaps a move of `frames` by `d` to the context's guides (using their joint bounds).
-fn snap_delta(cx: &ToolContext, frames: &[(NodeId, Frame)], d: Vec2) -> (f64, f64, Vec<f64>, Vec<f64>) {
-    let Some(first) = frames.first() else { return (d.x, d.y, vec![], vec![]) };
-    if cx.snap_xs.is_empty() && cx.snap_ys.is_empty() {
-        return (d.x, d.y, vec![], vec![]);
-    }
-    let mut b = first.1.bounds();
-    for (_, f) in frames.iter().skip(1) {
-        b = b.union(f.bounds());
-    }
-    let b = b + d;
-    let threshold = SNAP_DISTANCE / cx.zoom.max(0.01);
-    let best = |cands: [f64; 3], targets: &[f64]| -> Option<(f64, f64)> {
-        let mut best: Option<(f64, f64)> = None;
-        for c in cands {
-            let (snapped, hit) = genha_geom::snap(c, targets, threshold);
-            if let Some(t) = hit {
-                let adj = snapped - c;
-                if best.is_none_or(|(a, _)| adj.abs() < a.abs()) {
-                    best = Some((adj, t));
-                }
-            }
-        }
-        best
-    };
-    let sx = best([b.x0, b.center().x, b.x1], cx.snap_xs);
-    let sy = best([b.y0, b.center().y, b.y1], cx.snap_ys);
-    (
-        d.x + sx.map_or(0.0, |s| s.0),
-        d.y + sy.map_or(0.0, |s| s.0),
-        sx.map(|s| vec![s.1]).unwrap_or_default(),
-        sy.map(|s| vec![s.1]).unwrap_or_default(),
-    )
-}
-
 /// The frame a drag from `a` to `b` draws.
 fn drag_frame(a: Point, b: Point, square: bool, from_center: bool, line: bool) -> Frame {
     if line {
@@ -617,17 +713,10 @@ fn drag_frame(a: Point, b: Point, square: bool, from_center: bool, line: bool) -
 fn resize_frame(f: &Frame, handle: Handle, p: Point, keep_ratio: bool, from_center: bool) -> Frame {
     let local = f.from_page() * p;
     let (mut x0, mut y0, mut x1, mut y1) = (0.0, 0.0, f.width, f.height);
-    let (left, right, top, bottom) = match handle {
-        Handle::TopLeft => (true, false, true, false),
-        Handle::Top => (false, false, true, false),
-        Handle::TopRight => (false, true, true, false),
-        Handle::Right => (false, true, false, false),
-        Handle::BottomRight => (false, true, false, true),
-        Handle::Bottom => (false, false, false, true),
-        Handle::BottomLeft => (true, false, false, true),
-        Handle::Left => (true, false, false, false),
-        Handle::Rotate => return *f,
-    };
+    if handle == Handle::Rotate {
+        return *f;
+    }
+    let Sides { left, right, top, bottom } = handle_sides(handle);
     if left {
         x0 = local.x.min(x1 - MIN_SIDE);
     }

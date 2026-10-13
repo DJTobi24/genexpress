@@ -22,11 +22,16 @@ Errors: `{"id": 1, "ok": false, "error": "…"}`.
 | `ui.present` | `{page?, stop?}` | present mode (full window, animations playing) at `page`; `stop` leaves it |
 
 To look at an animation headlessly, use the `export.frame` command (`{path, t}`: one moment as PNG),
-`animation.timeline`, or `export.gif` / `export.apng`.
+`animation.timeline`, or `export.gif` / `export.apng` / `export.mp4`.
 
 Text is edited in place with commands too: `text.beginEdit {id?, selection?}` enters editing (the app shows the caret on the
 canvas), `text.edit {text? | insert?, range?, selection?}` types or replaces text and moves the selection (one undo step per
 editing session), `text.endEdit` leaves; `session.inspect` reports `text_editing` (`{id, selection}` or null).
+Part of a box is formatted with `text.setStyle {range?: [start, end], bold?, italic?, underline?, strikethrough?, font_family?,
+font_size?, color?, …}` (without `range`: the selection while editing, else the whole box) and `text.toggleBold` /
+`toggleItalic` / `toggleUnderline` / `toggleStrikethrough`; `text.inspect {id?}` lists the box's style runs and, while editing,
+the style at the selection with `mixed` values. Example: bold and colour the second word of a headline —
+`{"id":3,"method":"engine.execute","params":{"command":"text.setStyle","params":{"ids":[12],"range":[6,13],"bold":true,"color":"#e63946"}}}`.
 
 Every command (`engine.commands`) is reachable, so an agent can do anything a user can.
 The same methods are what [MCP](mcp.md) forwards to.

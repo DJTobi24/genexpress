@@ -1168,6 +1168,7 @@ dependencies = [
  "genha-templates",
  "genha-text",
  "genha-tools",
+ "genha-video",
  "image",
  "log",
  "png",
@@ -1244,7 +1245,6 @@ dependencies = [
  "krilla",
  "kurbo 0.13.1",
  "lopdf",
- "skrifa 0.44.0",
  "thiserror 2.0.21",
 ]
 
@@ -1339,6 +1339,7 @@ dependencies = [
  "genha-templates",
  "genha-text",
  "genha-tools",
+ "genha-video",
  "js-sys",
  "log",
  "rfd",
@@ -1346,6 +1347,14 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "genha-video"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

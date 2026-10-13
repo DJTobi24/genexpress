@@ -14,7 +14,7 @@ use serde_json::json;
 
 use crate::App;
 use crate::theme::Tokens;
-use genha_doc::{Document, ElementKind, NodeId, TextStyle};
+use genha_doc::{Document, ElementKind, NodeId, TextEl};
 use genha_geom::{Affine, Point, Rect};
 use genha_text::caret::CaretMap;
 use genha_text::edit::{self, EditBuffer, EditKind, UndoStack};
@@ -58,12 +58,13 @@ pub struct View<'a> {
     pub zoom: f32,
 }
 
-/// The text element `id` on `page` of `doc`: its transform (box → page), box width and text.
-fn element(doc: &Document, page: usize, id: NodeId) -> Option<(Affine, f64, f64, String, TextStyle)> {
+/// The text element `id` on `page` of `doc`: its transform (box → page), box width and height,
+/// and the text element.
+fn element(doc: &Document, page: usize, id: NodeId) -> Option<(Affine, f64, f64, TextEl)> {
     let el = doc.pages.get(page)?.find(id)?;
     let ElementKind::Text(t) = &el.kind else { return None };
     let f = el.frame.sanitized();
-    Some((genha_render::element_transform(el), f.width, f.height, t.text.clone(), t.style.clone()))
+    Some((genha_render::element_transform(el), f.width, f.height, t.clone()))
 }
 
 fn caret_map(app: &mut App, doc: &Arc<Document>, page: usize, id: NodeId) -> Option<Arc<CaretMap>> {
@@ -73,8 +74,8 @@ fn caret_map(app: &mut App, doc: &Arc<Document>, page: usize, id: NodeId) -> Opt
     {
         return Some(Arc::clone(m));
     }
-    let (_, w, _, text, style) = element(doc, page, id)?;
-    let m = Arc::new(CaretMap::for_text(&app.session.fonts, &text, &style, w));
+    let (_, w, _, t) = element(doc, page, id)?;
+    let m = Arc::new(CaretMap::for_el(&app.session.fonts, &t, w));
     app.canvas.text.map = Some((Arc::clone(doc), id, Arc::clone(&m)));
     Some(m)
 }
@@ -82,11 +83,11 @@ fn caret_map(app: &mut App, doc: &Arc<Document>, page: usize, id: NodeId) -> Opt
 /// Starts editing text box `id` after a double-click at `at` (page) / `screen`: the word there
 /// is selected, and a third click selects its paragraph.
 pub fn begin_at(app: &mut App, doc: &Arc<Document>, page: usize, id: NodeId, at: Point, screen: egui::Pos2, now: f64) {
-    let Some((m, _, _, text, _)) = element(doc, page, id) else { return };
+    let Some((m, _, _, t)) = element(doc, page, id) else { return };
     let Some(map) = caret_map(app, doc, page, id) else { return };
     let local = m.inverse() * at;
     let (i, _) = map.hit(local.x, local.y);
-    let w = edit::word_at(&text, i);
+    let w = edit::word_at(&t.text, i);
     if app.run("text.beginEdit", &json!({"id": id.0, "selection": [w.start, w.end]})).is_some() {
         app.canvas.text.last_press = Some((now, screen, 2));
     }
@@ -107,7 +108,8 @@ pub fn show(app: &mut App, ui: &egui::Ui, resp: &egui::Response, doc: &Arc<Docum
     if st.session.as_deref() != Some(e.merge_key.as_str()) {
         *st = TextEditUi { session: Some(e.merge_key.clone()), blink_from: now, last_press: st.last_press, ..TextEditUi::default() };
     }
-    let Some((m, w, h, text, style)) = element(doc, page, e.id) else { return false };
+    let Some((m, w, h, el)) = element(doc, page, e.id) else { return false };
+    let text = el.text.clone();
     let Some(map) = caret_map(app, doc, page, e.id) else { return false };
 
     // Keyboard focus: the canvas takes it; when another widget takes it, editing ends.
@@ -132,17 +134,29 @@ pub fn show(app: &mut App, ui: &egui::Ui, resp: &egui::Response, doc: &Arc<Docum
         return consumed;
     }
     let mut end = false;
+    let mut toggles: Vec<(&'static str, EditBuffer)> = vec![];
     if resp.has_focus() {
-        end = keyboard(app, ui, &map, &style, w, &mut buf);
+        end = keyboard(app, ui, &map, &el, w, &mut buf, &mut toggles);
     }
-    if buf != start {
-        app.canvas.text.blink_from = now;
-        let mut p = json!({"id": e.id.0, "selection": [buf.anchor, buf.caret]});
-        if buf.text != start.text {
-            p["text"] = json!(buf.text);
+    // The edits, in order with the formatting shortcuts (Cmd/Ctrl+B, I, U) pressed between them:
+    // each shortcut acts on the text and selection as they were when it was pressed.
+    let mut sent = start.clone();
+    let steps = toggles.into_iter().map(|(cmd, at)| (Some(cmd), at)).chain(std::iter::once((None, buf.clone())));
+    for (cmd, at) in steps {
+        if at != sent {
+            app.canvas.text.blink_from = now;
+            let mut p = json!({"id": e.id.0, "selection": [at.anchor, at.caret]});
+            if at.text != sent.text {
+                p["text"] = json!(at.text);
+            }
+            app.run("text.edit", &p);
+            ui.ctx().request_repaint();
+            sent = at;
         }
-        app.run("text.edit", &p);
-        ui.ctx().request_repaint();
+        if let Some(cmd) = cmd {
+            app.run(cmd, &json!({}));
+            ui.ctx().request_repaint();
+        }
     }
     if end {
         app.canvas.text.preedit = None;
@@ -241,8 +255,17 @@ fn pointer(
     true
 }
 
-/// Typing, deleting, moving, clipboard and IME. Returns true when editing should end.
-fn keyboard(app: &mut App, ui: &egui::Ui, map: &CaretMap, style: &TextStyle, width: f64, buf: &mut EditBuffer) -> bool {
+/// Typing, deleting, moving, clipboard and IME; formatting shortcuts are collected in `toggles`,
+/// each with the text and selection it applies to. Returns true when editing should end.
+fn keyboard(
+    app: &mut App,
+    ui: &egui::Ui,
+    map: &CaretMap,
+    el: &TextEl,
+    width: f64,
+    buf: &mut EditBuffer,
+    toggles: &mut Vec<(&'static str, EditBuffer)>,
+) -> bool {
     let events = ui.input(|i| i.events.clone());
     let fonts = Arc::clone(&app.session.fonts);
     let st = &mut app.canvas.text;
@@ -321,10 +344,25 @@ fn keyboard(app: &mut App, ui: &egui::Ui, map: &CaretMap, style: &TextStyle, wid
                     map
                 } else {
                     if relaid.as_ref().is_none_or(|(t, _)| *t != buf.text) {
-                        relaid = Some((buf.text.clone(), CaretMap::for_text(&fonts, &buf.text, style, width)));
+                        // The style runs moved with the text, as the engine will move them.
+                        let mut t = el.clone();
+                        t.set_text_keeping_styles(&buf.text, Some(buf.caret), None);
+                        relaid = Some((buf.text.clone(), CaretMap::for_el(&fonts, &t, width)));
                     }
                     relaid.as_ref().map_or(map, |(_, m)| m)
                 };
+                if modifiers.command && !modifiers.shift && !modifiers.alt {
+                    let toggle = match key {
+                        egui::Key::B => Some("text.toggleBold"),
+                        egui::Key::I => Some("text.toggleItalic"),
+                        egui::Key::U => Some("text.toggleUnderline"),
+                        _ => None,
+                    };
+                    if let Some(cmd) = toggle {
+                        toggles.push((cmd, buf.clone()));
+                        continue;
+                    }
+                }
                 if key_press(ui, st, buf, m, *key, *modifiers) {
                     return true;
                 }

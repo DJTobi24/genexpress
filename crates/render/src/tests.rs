@@ -315,7 +315,7 @@ fn text_doc(effect: TextEffect) -> Document {
     d.pages[0].elements.push(Element::new(
         id,
         Frame::new(10.0, 10.0, 280.0, 80.0),
-        ElementKind::Text(TextEl { text: "HHHH".into(), style, effect, curve: 0.0 }),
+        ElementKind::Text(TextEl { text: "HHHH".into(), style, effect, curve: 0.0, spans: vec![] }),
     ));
     d
 }
@@ -402,7 +402,8 @@ fn data_sample() -> Document {
         let (col, row) = (i % 3, i / 3);
         let mut c = genha_doc::ChartEl::sample(*k);
         if *k == genha_doc::ChartKind::Bar {
-            c.data.push(genha_doc::ChartPoint::new("Loss", -12.0));
+            c.categories.push("Loss".into());
+            c.series[0].values.push(-12.0);
         }
         if *k == genha_doc::ChartKind::HorizontalBar {
             c.show_legend = true;
@@ -412,7 +413,7 @@ fn data_sample() -> Document {
         d.pages[0].elements.push(Element::new(id, frame, ElementKind::Chart(c)));
     }
     let mut bar = genha_doc::ChartEl::sample(genha_doc::ChartKind::Progress);
-    bar.data[0].label = "Funding goal".into();
+    bar.categories[0] = "Funding goal".into();
     let id = d.alloc_id();
     d.pages[0].elements.push(Element::new(id, Frame::new(510.0, 860.0, 460.0, 90.0), ElementKind::Chart(bar)));
     let mut t = genha_doc::TableEl::blank(4, 3);
@@ -465,10 +466,13 @@ fn charts_tables_and_curved_text_draw() {
                 assert!(path.is_empty() || (b.x0.is_finite() && b.y1.is_finite()), "{k:?} {w}x{h}");
             }
         }
-        c.data = vec![genha_doc::ChartPoint::new("z", 0.0), genha_doc::ChartPoint::new("n", -5.0)];
+        c.set_points(vec![genha_doc::ChartPoint::new("z", 0.0), genha_doc::ChartPoint::new("n", -5.0)]);
+        c.series.push(genha_doc::ChartSeries::new("two", vec![f64::NAN, 1e300]));
+        c.stacked = true;
+        c.min = Some(-1e-300);
         c.max = Some(1e-300);
         let _ = chart_scene(fonts, &genha_doc::BrandKit::default(), &c, 300.0, 300.0);
-        c.data.clear();
+        c.set_points(vec![]);
         let _ = chart_scene(fonts, &genha_doc::BrandKit::default(), &c, 300.0, 300.0);
     }
 }
@@ -477,7 +481,7 @@ fn charts_tables_and_curved_text_draw() {
 fn pie_starts_at_twelve_and_goes_clockwise() {
     let mut d = doc(200.0, 200.0);
     let mut c = genha_doc::ChartEl::sample(genha_doc::ChartKind::Pie);
-    c.data = vec![genha_doc::ChartPoint::new("a", 1.0), genha_doc::ChartPoint::new("b", 3.0)];
+    c.set_points(vec![genha_doc::ChartPoint::new("a", 1.0), genha_doc::ChartPoint::new("b", 3.0)]);
     c.colors = vec![RED, Color::rgb(0, 0, 255)];
     c.show_legend = false;
     c.show_values = false;
@@ -511,6 +515,123 @@ fn table_cells_fill_and_grow() {
     d.pages[0].elements.push(Element::new(id, Frame::new(0.0, 0.0, 200.0, 200.0), ElementKind::Table(t)));
     let r = render(&d);
     assert!(close(r.pixel(5, 5).unwrap(), [255, 0, 0, 255], 2));
+}
+
+/// Charts with several series (grouped and stacked bars, lines, a stacked area, with axis titles
+/// and legends) and a table with merged and styled cells (written to `$GENHA_SAMPLES/multi.png`
+/// when that variable is set, to look at).
+pub(crate) fn multi_sample() -> Document {
+    use genha_doc::{BorderLines, CellRange, ChartSeries, LegendPosition};
+    let mut d = doc(1500.0, 1250.0);
+    let quarters = vec!["Q1".to_string(), "Q2".into(), "Q3".into(), "Q4".into()];
+    let three = vec![
+        ChartSeries::new("North", vec![24.0, 38.0, 31.0, 46.0]),
+        ChartSeries::new("South", vec![18.0, 22.0, 35.0, 30.0]),
+        ChartSeries::new("West", vec![9.0, 14.0, 12.0, 21.0]),
+    ];
+    let chart = |kind, stacked, legend| {
+        let mut c = genha_doc::ChartEl::sample(kind);
+        c.categories = quarters.clone();
+        c.series = three.clone();
+        c.stacked = stacked;
+        c.show_legend = true;
+        c.legend_position = legend;
+        c.x_title = "Quarter".into();
+        c.y_title = "Sales (units)".into();
+        c.font_size = 20.0;
+        c
+    };
+    let mut charts = vec![
+        chart(genha_doc::ChartKind::Bar, false, LegendPosition::Top),
+        chart(genha_doc::ChartKind::Bar, true, LegendPosition::Right),
+        chart(genha_doc::ChartKind::Line, false, LegendPosition::Bottom),
+        chart(genha_doc::ChartKind::Area, true, LegendPosition::Bottom),
+        chart(genha_doc::ChartKind::HorizontalBar, false, LegendPosition::Bottom),
+    ];
+    if let Some(line) = charts.get_mut(2) {
+        line.value_format = genha_doc::ValueFormat::Currency;
+        line.show_values = false;
+        line.gridlines = false;
+        line.min = Some(5.0);
+    }
+    if let Some(h) = charts.get_mut(4) {
+        h.x_title = "Units".into();
+        h.y_title = String::new();
+    }
+    for (i, c) in charts.into_iter().enumerate() {
+        let (col, row) = (i % 3, i / 3);
+        let id = d.alloc_id();
+        let frame = Frame::new(20.0 + col as f64 * 490.0, 20.0 + row as f64 * 420.0, 460.0, 390.0);
+        d.pages[0].elements.push(Element::new(id, frame, ElementKind::Chart(c)));
+    }
+    let mut t = genha_doc::TableEl::blank(5, 4);
+    t.rows = vec![
+        vec!["Plans".into(), String::new(), "Price".into(), String::new()],
+        vec!["Name".into(), "For".into(), "Month".into(), "Year".into()],
+        vec!["Starter".into(), "Everyone".into(), "$0".into(), "$0".into()],
+        vec!["Plus".into(), "Small teams with a brand kit".into(), "$9".into(), "$90".into()],
+        vec!["Team".into(), "Agencies".into(), "Ask us".into(), String::new()],
+    ];
+    t.font_size = 20.0;
+    t.merge_cells(CellRange::new(0, 0, 1, 2));
+    t.merge_cells(CellRange::new(0, 2, 1, 2));
+    t.merge_cells(CellRange::new(4, 2, 1, 2));
+    t.style_cells(CellRange::new(1, 0, 1, 4), |s| {
+        s.bold = Some(true);
+        s.fill = Some(Color::rgb(0xe4, 0xde, 0xff));
+    });
+    t.style_cells(CellRange::new(0, 0, 5, 4), |s| s.align = Some(TextAlign::Center));
+    t.style_cells(CellRange::new(3, 2, 1, 2), |s| {
+        s.text_color = Some(Color::rgb(0xd0, 0x20, 0x40));
+        s.font_size = Some(26.0);
+    });
+    t.borders = BorderLines::All;
+    t.outer_border = Some(genha_doc::StrokeStyle { color: Color::rgb(0x5b, 0x3c, 0xf5), width: 4.0, dash: vec![] });
+    t.row_heights = vec![0.0, 0.0, 0.0, 0.0, 90.0];
+    let id = d.alloc_id();
+    d.pages[0].elements.push(Element::new(id, Frame::new(1000.0, 460.0, 470.0, 300.0), ElementKind::Table(t)));
+    d
+}
+
+#[test]
+fn several_series_and_merged_cells_draw() {
+    let d = multi_sample();
+    let fonts = fonts();
+    let r = render_page(&d, 0, fonts, &RenderOptions::default()).unwrap();
+    if let Ok(dir) = std::env::var("GENHA_SAMPLES") {
+        std::fs::write(std::path::Path::new(&dir).join("multi.png"), encode_png(&r).unwrap()).unwrap();
+    }
+    // Every series has its own colour on the page.
+    let brand = genha_doc::BrandKit::default();
+    let ElementKind::Chart(c) = &d.pages[0].elements[0].kind else { panic!() };
+    for i in 0..3 {
+        let col = series_color(c, &brand, i);
+        assert!(count(&r, |p| close(p, [col.r, col.g, col.b, 255], 6)) > 500, "series {i}");
+    }
+    // A merged header has no line through it; its colour runs across the old cell edge.
+    let ElementKind::Table(t) = &d.pages[0].elements[5].kind else { panic!() };
+    let g = table_geometry(fonts, t, 470.0, 300.0);
+    let (x, y) = ((1000.0 + g.xs[1]) as u32, (460.0 + g.ys[0] + 7.0) as u32);
+    let head = t.header_fill;
+    assert!(close(r.pixel(x, y).unwrap(), [head.r, head.g, head.b, 255], 6), "{:?}", r.pixel(x, y));
+    // The rows below keep their inner line.
+    let y = (460.0 + g.ys[3] - 4.0) as u32;
+    assert!(!close(r.pixel(x, y).unwrap(), r.pixel(x + 8, y).unwrap(), 8), "{:?}", r.pixel(x, y));
+    // The last row is at least as tall as asked.
+    assert!(g.ys[5] - g.ys[4] >= 90.0);
+    // The vertical axis title reads upwards: its text is taller than it is wide.
+    let s = chart_scene(fonts, &brand, c, 460.0, 390.0);
+    let turned: Vec<&TextPrim> = s
+        .prims
+        .iter()
+        .filter_map(|p| if let Prim::Text(t) = p { Some(t) } else { None })
+        .filter(|t| t.transform != kurbo::Affine::IDENTITY)
+        .collect();
+    assert_eq!(turned.len(), 1);
+    if !fonts.is_empty() {
+        let b = turned[0].path.bounding_box();
+        assert!(b.height() > b.width() * 2.0, "{b:?}");
+    }
 }
 
 #[test]
@@ -569,4 +690,46 @@ fn synthetic_bold_and_italic_when_the_family_has_neither() {
     assert!((italic as f64 - plain as f64).abs() < plain as f64 * 0.1, "slanting keeps the ink: {italic} vs {plain}");
     assert!(italic_right > plain_right + 5, "italic leans right: {italic_right} vs {plain_right}");
     assert_eq!(synthetic(&book, &TextStyle { font_family: "DejaVu Sans".into(), ..TextStyle::default() }), Synthetic::default());
+}
+
+#[test]
+fn style_runs_draw_in_their_own_colour_size_and_weight() {
+    let Some(path) =
+        ["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/TTF/DejaVuSans.ttf"].iter().find(|p| std::path::Path::new(p).exists())
+    else {
+        return; // no font on this machine
+    };
+    let mut book = FontBook::new();
+    book.add_font(std::fs::read(path).unwrap()).unwrap();
+    let style = TextStyle { font_family: "DejaVu Sans".into(), font_size: 40.0, align: TextAlign::Left, color: Color::BLACK, ..TextStyle::default() };
+    let draw = |t: TextEl| {
+        let mut d = doc(600.0, 200.0);
+        let id = d.alloc_id();
+        d.pages[0].elements.push(Element::new(id, Frame::new(0.0, 0.0, 600.0, 200.0), ElementKind::Text(t)));
+        render_page(&d, 0, &book, &RenderOptions { scale: 1.0, transparent_background: true }).unwrap()
+    };
+    let ink = |r: &Raster, f: &dyn Fn([u8; 4]) -> bool| -> Vec<(usize, usize)> {
+        r.rgba.as_chunks::<4>().0.iter().enumerate().filter(|(_, p)| p[3] > 200 && f(**p)).map(|(i, _)| (i % 600, i / 600)).collect()
+    };
+    // "IIII IIII": the second word red, twice as big and (synthetically) bold.
+    let mut t = TextEl::new("IIII IIII", style);
+    let plain = draw(t.clone());
+    t.set_style_range(5..9, &genha_doc::SpanStyle { color: Some(RED), font_size: Some(80.0), bold: Some(true), ..Default::default() });
+    let rich = draw(t);
+    let red = ink(&rich, &|p| p[0] > 200 && p[1] < 60);
+    let black = ink(&rich, &|p| p[0] < 60 && p[1] < 60);
+    assert!(!red.is_empty() && !black.is_empty());
+    let red_left = red.iter().map(|p| p.0).min().unwrap();
+    let black_right = black.iter().map(|p| p.0).max().unwrap();
+    assert!(black_right < red_left, "the black word comes first: {black_right} vs {red_left}");
+    // The red word is twice as tall as the black one, both on one baseline.
+    let height = |v: &[(usize, usize)]| v.iter().map(|p| p.1).max().unwrap() - v.iter().map(|p| p.1).min().unwrap();
+    assert!(height(&red) as f64 > height(&black) as f64 * 1.8, "{} vs {}", height(&red), height(&black));
+    let bottom = |v: &[(usize, usize)]| v.iter().map(|p| p.1).max().unwrap() as i64;
+    assert!((bottom(&red) - bottom(&black)).abs() <= 2);
+    // The first word keeps its look; the plain text's second word had the same ink as its first.
+    let plain_ink = ink(&plain, &|p| p[0] < 60).len() as f64;
+    assert!((black.len() as f64 - plain_ink / 2.0).abs() < plain_ink * 0.05, "{} vs {plain_ink}", black.len());
+    // Synthetic bold: the red word has more ink than four plain letters scaled up (×4 area).
+    assert!(red.len() as f64 > plain_ink / 2.0 * 4.0 * 1.1, "{} vs {plain_ink}", red.len());
 }
