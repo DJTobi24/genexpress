@@ -207,6 +207,12 @@ What `cargo xtask bundle macos` does, in order:
 5. the DMG: the app and a link to `/Applications` (`hdiutil create -format UDZO`), signed with the
    identity; with `--notary-profile` notarized and stapled too, then checked with `spctl`.
 
+In CI the macOS job then smoke-tests the finished app: it starts `GenHa.app` with `open` (Launch
+Services, as Finder does) and hands it a design made with the bundled `genha-cli`, then checks
+over the control channel that the design opened (`application:openURLs:`) and that the app is
+still running ten seconds later. A build that crashes on start fails the job instead of being
+published.
+
 The app keeps its data in `~/Library/Application Support/GenHa` (from `HOME`, never from the
 working directory), so it behaves the same started from Finder, the Dock or a terminal.
 
@@ -237,6 +243,11 @@ working directory), so it behaves the same started from Finder, the Dock or a te
 - **Gatekeeper still warns after notarization**: check that the DMG is stapled (`xcrun stapler
   validate`), and that you are testing the downloaded file; `spctl -a -vv -t exec
   /Applications/GenHa.app` names the reason.
+- **The app quits right after starting** (a crash report names `abort()` under
+  `-[NSApplication _handleEvent:]`): run it from Terminal to see the message,
+  `RUST_BACKTRACE=1 /Applications/GenHa.app/Contents/MacOS/genha`. 0.1.0 dry-run builds did this:
+  GenHa replaced winit's application delegate, and winit stops the app when it finds another one;
+  GenHa now adds its Finder method to winit's delegate instead (`apps/genha/src/macos.rs`).
 - **Windows SmartScreen** warns about every unsigned program: More info › Run anyway. Signing the
   Windows build needs a code-signing certificate (not set up yet).
 - **Linux: no menu entry after installing**: `~/.local/bin` must be on `PATH`, and the

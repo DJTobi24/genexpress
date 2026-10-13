@@ -167,12 +167,12 @@ fn run(native: eframe::NativeOptions, creator: eframe::AppCreator<'_>) -> Result
     eframe::run_native(genha_brand::APP_NAME, native, creator).map_err(|e| e.to_string())
 }
 
-/// macOS: what `eframe::run_native` does, with GenHa's application delegate installed between
-/// creating the event loop and running it (files opened from Finder, see `macos.rs`).
+/// macOS: what `eframe::run_native` does, with winit's application delegate taught to accept
+/// files from Finder between creating the event loop and running it (see `macos.rs`).
 #[cfg(target_os = "macos")]
 fn run(native: eframe::NativeOptions, creator: eframe::AppCreator<'_>) -> Result<(), String> {
     let event_loop = winit::event_loop::EventLoop::<eframe::UserEvent>::with_user_event().build().map_err(|e| e.to_string())?;
-    let _delegate = macos::install();
+    macos::install();
     let mut app = eframe::create_native(genha_brand::APP_NAME, native, creator, &event_loop);
     event_loop.run_app(&mut app).map_err(|e| e.to_string())
 }

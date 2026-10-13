@@ -22,7 +22,7 @@ serde_json = { workspace = true }
 [target.'cfg(target_os = "macos")'.dependencies]
 winit = { version = "0.30", default-features = false }
 objc2 = "0.6"
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSString", "NSURL"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSEnumerator", "NSString", "NSURL"] }
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSResponder"] }
 
 [build-dependencies]
