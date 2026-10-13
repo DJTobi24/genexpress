@@ -13,6 +13,7 @@ pub mod home;
 mod io;
 pub mod motion;
 pub mod properties;
+pub mod textedit;
 pub mod theme;
 mod thumbs;
 #[cfg(target_arch = "wasm32")]

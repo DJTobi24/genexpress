@@ -126,5 +126,6 @@ pub fn session_summary(s: &Session) -> Value {
         "active": s.active,
         "documents": s.docs.iter().enumerate().map(|(i, d)| json!({"index": i, "name": d.display_name(), "pages": d.doc.pages.len(), "dirty": d.dirty})).collect::<Vec<_>>(),
         "tool": s.tools.tool.id(),
+        "text_editing": s.text_editing.as_ref().map(|e| json!({"id": e.id, "selection": [e.anchor, e.caret]})),
     })
 }

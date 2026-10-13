@@ -47,6 +47,22 @@ fn snapping_while_moving() {
     // Right edge would be at 403: snaps to 400.
     let out = t.event(&c, ev(PointerKind::Up, 253.0, 150.0));
     assert_eq!(out.commands[0].params["frames"][0]["frame"]["x"], 200.0);
+    // A click without movement does not snap the object over (double-clicking text to edit it).
+    let near = [303.0];
+    let c = ToolContext { snap_xs: &near, ..c };
+    t.event(&c, ev(PointerKind::Down, 150.0, 150.0));
+    let out = t.event(&c, ev(PointerKind::Up, 150.0, 150.0));
+    assert!(out.commands.is_empty());
+}
+
+#[test]
+fn the_text_tool_starts_editing_the_new_box() {
+    let (doc, _) = doc_with_rect();
+    let mut t = ToolState::default();
+    t.set_tool(ToolId::Text);
+    let out = t.event(&cx(&doc, &[]), ev(PointerKind::Down, 500.0, 500.0));
+    let cmds: Vec<&str> = out.commands.iter().map(|c| c.command.as_str()).collect();
+    assert_eq!(cmds, ["text.add", "text.beginEdit"]);
 }
 
 #[test]

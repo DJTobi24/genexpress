@@ -780,9 +780,14 @@ fn parse_shortcut(s: &str) -> Option<egui::KeyboardShortcut> {
 }
 
 fn shortcuts(app: &mut App, ctx: &egui::Context) {
-    if ctx.egui_wants_keyboard_input() || app.canvas.editing_text.is_some() {
+    if ctx.egui_wants_keyboard_input() || app.session.text_editing.is_some() {
         return;
     }
+    // Enter edits the selected text box in place.
+    let one_text = app.session.active().is_some_and(|d| {
+        let sel = d.selected_elements();
+        sel.len() == 1 && sel.iter().all(|e| matches!(e.kind, ElementKind::Text(_)) && !e.locked)
+    });
     let mut todo: Vec<(&'static str, Value)> = vec![];
     // Single keys without modifiers: tools.
     ctx.input_mut(|i| {
@@ -819,6 +824,9 @@ fn shortcuts(app: &mut App, ctx: &egui::Context) {
         }
         if i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::Num0)) {
             app.view.fit_pending = true;
+        }
+        if one_text && i.consume_key(egui::Modifiers::NONE, egui::Key::Enter) {
+            todo.push(("text.beginEdit", json!({})));
         }
         if i.consume_key(egui::Modifiers::NONE, egui::Key::F5) {
             todo.push(("ui.present", json!({})));

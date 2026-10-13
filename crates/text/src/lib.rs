@@ -15,6 +15,8 @@
 #![forbid(unsafe_code)]
 
 mod book;
+pub mod caret;
+pub mod edit;
 mod layout;
 mod shape;
 
@@ -122,5 +124,7 @@ pub struct GlyphLayout {
     pub font_size: f64,
 }
 
+#[cfg(test)]
+mod caret_tests;
 #[cfg(test)]
 mod tests;

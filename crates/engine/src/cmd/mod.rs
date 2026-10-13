@@ -13,6 +13,7 @@ pub mod page;
 pub mod query;
 pub mod recovery;
 pub mod style;
+pub mod textedit;
 pub mod versions;
 
 use serde::Serialize;
@@ -114,6 +115,7 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(data::specs());
         v.extend(object::specs());
         v.extend(style::specs());
+        v.extend(textedit::specs());
         v.extend(brand::specs());
         v.extend(export::specs());
         v.extend(motion::specs());
