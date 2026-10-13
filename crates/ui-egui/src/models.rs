@@ -11,6 +11,7 @@ use serde_json::{Value, json};
 
 use crate::App;
 use genha_engine::cmd::models;
+use genha_i18n::tr;
 use genha_segment::ModelSpec;
 
 /// The commands that find a picture's subject (and so take a `method`).
@@ -40,17 +41,17 @@ impl Method {
 
     fn label(self) -> &'static str {
         match self {
-            Method::Auto => "Automatic",
-            Method::Ml => "AI model",
-            Method::Color => "Colour-based",
+            Method::Auto => tr("Automatic"),
+            Method::Ml => tr("AI model"),
+            Method::Color => tr("Colour-based"),
         }
     }
 
     fn hint(self) -> &'static str {
         match self {
-            Method::Auto => "The AI model when it is downloaded, else colour-based",
-            Method::Ml => "Finds the subject on busy photos (the model is downloaded once)",
-            Method::Color => "Removes the backdrop connected to the picture's edges: best on plain backgrounds",
+            Method::Auto => tr("The AI model when it is downloaded, else colour-based"),
+            Method::Ml => tr("Finds the subject on busy photos (the model is downloaded once)"),
+            Method::Color => tr("Removes the backdrop connected to the picture's edges: best on plain backgrounds"),
         }
     }
 }
@@ -94,7 +95,7 @@ fn busy(app: &App) -> Option<(String, Option<f32>)> {
     #[cfg(not(target_arch = "wasm32"))]
     {
         if let Some(d) = &app.ml.download {
-            return Some((format!("Downloading the {} model…", d.spec.name), Some(d.fraction())));
+            return Some((tr!("Downloading the {name} model…", name = d.spec.name), Some(d.fraction())));
         }
         if let Some(w) = &app.ml.work {
             return Some((w.what.clone(), w.fraction()));
@@ -102,7 +103,7 @@ fn busy(app: &App) -> Option<(String, Option<f32>)> {
     }
     #[cfg(target_arch = "wasm32")]
     if let Some(spec) = app.ml.fetching {
-        return Some((format!("Downloading the {} model…", spec.name), None));
+        return Some((tr!("Downloading the {name} model…", name = spec.name), None));
     }
     None
 }
@@ -113,7 +114,7 @@ pub fn draw(ui: &mut egui::Ui, p: &mut Panel) {
         return;
     }
     ui.horizontal(|ui| {
-        ui.label("Find the subject");
+        ui.label(tr("Find the subject"));
         egui::ComboBox::from_id_salt("bg-method").selected_text(p.method.label()).show_ui(ui, |ui| {
             for m in Method::ALL {
                 ui.selectable_value(&mut p.method, m, m.label()).on_hover_text(m.hint());
@@ -123,10 +124,10 @@ pub fn draw(ui: &mut egui::Ui, p: &mut Panel) {
     match (p.method, p.installed) {
         (Method::Color, _) => {}
         (_, Some(label)) => {
-            ui.weak(format!("AI model: {label}"));
+            ui.weak(tr!("AI model: {label}", label = label));
         }
         (_, None) => {
-            ui.weak("The AI model is not downloaded yet");
+            ui.weak(tr("The AI model is not downloaded yet"));
         }
     }
     if let Some((what, fraction)) = &p.busy {
@@ -140,7 +141,7 @@ pub fn draw(ui: &mut egui::Ui, p: &mut Panel) {
         if let Some(f) = fraction {
             ui.add(egui::ProgressBar::new(*f).desired_width(ui.available_width().min(240.0)).show_percentage());
         }
-        if ui.button("Cancel").clicked() {
+        if ui.button(tr("Cancel")).clicked() {
             p.cancel = true;
         }
     }
@@ -187,7 +188,7 @@ pub fn start(app: &mut App, ctx: &egui::Context, cmd: &str, mut p: Value) {
         o.entry("method").or_insert(json!(method.id()));
     }
     if busy(app).is_some() {
-        app.set_status("Background removal is busy: wait for it to finish or cancel it");
+        app.set_status(tr("Background removal is busy: wait for it to finish or cancel it"));
         return;
     }
     let installed = models::preferred(&app.session).is_some();
@@ -218,7 +219,7 @@ fn run(app: &mut App, ctx: &egui::Context, cmd: &str, p: Value) {
         if job.finder.method() == "ml" {
             app.ml.work = Work::start(ctx, job);
             if app.ml.work.is_none() {
-                app.set_status("Could not start background removal");
+                app.set_status(tr("Could not start background removal"));
             }
             return;
         }
@@ -258,20 +259,22 @@ fn prompt(app: &mut App, ctx: &egui::Context) {
     #[cfg(target_arch = "wasm32")]
     let source = web_url(spec);
     let host = source.split('/').nth(2).unwrap_or("the internet").to_string();
-    egui::Window::new("Remove background with the AI model")
+    egui::Window::new(tr("Remove background with the AI model"))
         .collapsible(false)
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .default_width(420.0)
         .show(ctx, |ui| {
-            ui.label("GenHa can find the subject of a photo with an AI model, so backgrounds come off busy photos too, not only plain ones.");
+            ui.label(tr("GenHa can find the subject of a photo with an AI model, so backgrounds come off busy photos too, not only plain ones."));
             ui.add_space(4.0);
-            ui.label(format!(
-                "The model ({}, licence {}) is downloaded once from {host} and kept on this device. Nothing is uploaded: pictures stay on your device.",
-                spec.label, spec.licence
+            ui.label(tr!(
+                "The model ({model}, licence {licence}) is downloaded once from {host} and kept on this device. Nothing is uploaded: pictures stay on your device.",
+                model = spec.label,
+                licence = spec.licence,
+                host = host
             ));
             ui.add_enabled_ui(downloading.is_none(), |ui| {
-                ui.checkbox(&mut high, "High quality model instead (U²-Net, 176 MB, slower)");
+                ui.checkbox(&mut high, tr("High quality model instead (U²-Net, 176 MB, slower)"));
             });
             ui.add_space(6.0);
             if let Some((what, fraction)) = &downloading {
@@ -286,26 +289,26 @@ fn prompt(app: &mut App, ctx: &egui::Context) {
                     }
                     ui.label(what);
                 });
-                if ui.button("Cancel").clicked() {
+                if ui.button(tr("Cancel")).clicked() {
                     choice = Some(Choice::Close);
                 }
                 return;
             }
             if !network {
-                ui.colored_label(ui.visuals().warn_fg_color, "Network use is turned off.");
+                ui.colored_label(ui.visuals().warn_fg_color, tr("Network use is turned off."));
             }
             ui.horizontal(|ui| {
                 if network {
-                    if ui.button(format!("Download ({:.1} MB)", spec.bytes as f64 / 1e6)).clicked() {
+                    if ui.button(tr!("Download ({size} MB)", size = format!("{:.1}", spec.bytes as f64 / 1e6))).clicked() {
                         choice = Some(Choice::Download);
                     }
-                } else if ui.button("Allow network use").clicked() {
+                } else if ui.button(tr("Allow network use")).clicked() {
                     choice = Some(Choice::AllowNetwork);
                 }
-                if ui.button("Use colour-based").on_hover_text(Method::Color.hint()).clicked() {
+                if ui.button(tr("Use colour-based")).on_hover_text(Method::Color.hint()).clicked() {
                     choice = Some(Choice::Colour);
                 }
-                if ui.button("Cancel").clicked() {
+                if ui.button(tr("Cancel")).clicked() {
                     choice = Some(Choice::Close);
                 }
             });
@@ -341,7 +344,7 @@ fn prompt(app: &mut App, ctx: &egui::Context) {
 fn installed(app: &mut App, ctx: &egui::Context, spec: &'static ModelSpec, bytes: &[u8]) {
     match models::install(&mut app.session, spec, bytes) {
         Ok(_) => {
-            app.set_status(format!("Downloaded the {} model", spec.label));
+            app.set_status(tr!("Downloaded the {model} model", model = spec.label));
             if let Some((cmd, p)) = app.ml.prompt.take() {
                 run(app, ctx, &cmd, p);
             }
@@ -397,7 +400,7 @@ fn begin_download(app: &mut App, ctx: &egui::Context, spec: &'static ModelSpec) 
     });
     match spawned {
         Ok(_) => app.ml.download = Some(Download { spec, progress, cancel, done }),
-        Err(e) => app.set_status(format!("Could not start the download: {e}")),
+        Err(e) => app.set_status(tr!("Could not start the download: {error}", error = e)),
     }
 }
 
@@ -414,7 +417,7 @@ struct Work {
 impl Work {
     fn start(ctx: &egui::Context, job: genha_engine::cmd::content::BackgroundJob) -> Option<Work> {
         let n = job.len();
-        let what = if n > 1 { format!("Finding the subjects of {n} pictures…") } else { "Finding the subject…".to_string() };
+        let what = if n > 1 { tr!("Finding the subjects of {n} pictures…", n = n) } else { tr!("Finding the subject…") };
         let progress = Arc::new((AtomicUsize::new(0), AtomicUsize::new(n)));
         let cancel = Arc::new(AtomicBool::new(false));
         let (tx, done) = std::sync::mpsc::channel();
@@ -459,7 +462,7 @@ fn poll(app: &mut App, ctx: &egui::Context) {
             Err(TryRecvError::Disconnected) => {
                 app.ml.download = None;
                 app.ml.prompt = None;
-                app.set_status("The model download stopped unexpectedly");
+                app.set_status(tr("The model download stopped unexpectedly"));
             }
         }
     }
@@ -474,11 +477,11 @@ fn poll(app: &mut App, ctx: &egui::Context) {
             }
             Ok(Err(e)) => {
                 app.ml.work = None;
-                app.set_status(if e == "cancelled" { "Background removal cancelled".to_string() } else { e });
+                app.set_status(if e == "cancelled" { tr!("Background removal cancelled") } else { e });
             }
             Err(TryRecvError::Disconnected) => {
                 app.ml.work = None;
-                app.set_status("Background removal stopped unexpectedly");
+                app.set_status(tr("Background removal stopped unexpectedly"));
             }
         }
     }

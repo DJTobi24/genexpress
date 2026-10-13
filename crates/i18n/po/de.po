@@ -693,8 +693,8 @@ msgstr "SCHNELLAKTIONEN"
 msgid "Remove background"
 msgstr "Hintergrund entfernen"
 
-msgid "Colour-based: works best on plain backdrops"
-msgstr "Farbbasiert: funktioniert am besten vor einfarbigem Hintergrund"
+msgid "Finds the subject and removes everything else"
+msgstr "Findet das Motiv und entfernt alles andere"
 
 msgid "Blur background"
 msgstr "Hintergrund weichzeichnen"
@@ -2449,3 +2449,84 @@ msgid "GenHa: {n} object"
 msgid_plural "GenHa: {n} objects"
 msgstr[0] "GenHa: {n} Objekt"
 msgstr[1] "GenHa: {n} Objekte"
+
+msgid "Automatic"
+msgstr "Automatisch"
+
+msgid "AI model"
+msgstr "KI-Modell"
+
+msgid "Colour-based"
+msgstr "Farbbasiert"
+
+msgid "The AI model when it is downloaded, else colour-based"
+msgstr "Das KI-Modell, sobald es heruntergeladen ist, sonst farbbasiert"
+
+msgid "Finds the subject on busy photos (the model is downloaded once)"
+msgstr "Findet das Motiv auch auf unruhigen Fotos (das Modell wird einmal heruntergeladen)"
+
+msgid "Removes the backdrop connected to the picture's edges: best on plain backgrounds"
+msgstr "Entfernt den Hintergrund, der an die Bildränder grenzt: am besten bei einfarbigem Hintergrund"
+
+msgid "Downloading the {name} model…"
+msgstr "Modell {name} wird heruntergeladen…"
+
+msgid "Find the subject"
+msgstr "Motiv finden"
+
+msgid "AI model: {label}"
+msgstr "KI-Modell: {label}"
+
+msgid "The AI model is not downloaded yet"
+msgstr "Das KI-Modell ist noch nicht heruntergeladen"
+
+msgid "Background removal is busy: wait for it to finish or cancel it"
+msgstr "Die Hintergrundentfernung läuft noch: abwarten oder abbrechen"
+
+msgid "Could not start background removal"
+msgstr "Hintergrundentfernung konnte nicht gestartet werden"
+
+msgid "Remove background with the AI model"
+msgstr "Hintergrund mit dem KI-Modell entfernen"
+
+msgid "GenHa can find the subject of a photo with an AI model, so backgrounds come off busy photos too, not only plain ones."
+msgstr "GenHa kann das Motiv eines Fotos mit einem KI-Modell finden. So lässt sich der Hintergrund auch bei unruhigen Fotos entfernen, nicht nur bei einfarbigen."
+
+msgid "The model ({model}, licence {licence}) is downloaded once from {host} and kept on this device. Nothing is uploaded: pictures stay on your device."
+msgstr "Das Modell ({model}, Lizenz {licence}) wird einmal von {host} heruntergeladen und auf diesem Gerät gespeichert. Es wird nichts hochgeladen: Bilder bleiben auf dem Gerät."
+
+msgid "High quality model instead (U²-Net, 176 MB, slower)"
+msgstr "Stattdessen das genauere Modell (U²-Net, 176 MB, langsamer)"
+
+msgid "Network use is turned off."
+msgstr "Die Netzwerknutzung ist ausgeschaltet."
+
+msgid "Download ({size} MB)"
+msgstr "Herunterladen ({size} MB)"
+
+msgid "Allow network use"
+msgstr "Netzwerknutzung erlauben"
+
+msgid "Use colour-based"
+msgstr "Farbbasiert verwenden"
+
+msgid "Downloaded the {model} model"
+msgstr "Modell {model} heruntergeladen"
+
+msgid "Could not start the download: {error}"
+msgstr "Download konnte nicht gestartet werden: {error}"
+
+msgid "Finding the subjects of {n} pictures…"
+msgstr "Motive in {n} Bildern werden gesucht…"
+
+msgid "Finding the subject…"
+msgstr "Motiv wird gesucht…"
+
+msgid "The model download stopped unexpectedly"
+msgstr "Der Modell-Download wurde unerwartet beendet"
+
+msgid "Background removal cancelled"
+msgstr "Hintergrundentfernung abgebrochen"
+
+msgid "Background removal stopped unexpectedly"
+msgstr "Die Hintergrundentfernung wurde unerwartet beendet"

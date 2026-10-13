@@ -78,6 +78,7 @@ const SOURCES: &[(&str, &str)] = &[
     ("web.rs", include_str!("web.rs")),
     ("control.rs", include_str!("control.rs")),
     ("io.rs", include_str!("io.rs")),
+    ("models.rs", include_str!("models.rs")),
     ("apps/genha", include_str!("../../../apps/genha/src/main.rs")),
 ];
 
