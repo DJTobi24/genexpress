@@ -13,6 +13,11 @@ file dialogs). Fonts come from the system; with none installed the app falls bac
 faces of the `epaint_default_fonts` crate (the CLI and tests then lay text out with approximate
 metrics but draw nothing).
 
+Templates are designed for **Inter** as the "Sans" / "Display" face (the first choice of
+`genha_text::SANS_FALLBACKS`). The template tests check that text fits its box with the system's
+fonts and with none; install Inter for them (`sudo apt-get install fonts-inter` on Debian/Ubuntu,
+as CI does), otherwise a wider fallback such as DejaVu Sans makes some headlines wrap.
+
 ## Web
 
 The same UI runs in the browser (`apps/genha-web`: eframe's web runner, WebGL2):
