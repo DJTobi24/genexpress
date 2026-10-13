@@ -57,7 +57,10 @@ fn parse(pdf: &[u8]) -> lopdf::Document {
 
 /// The text `pdftotext` (poppler) reads from `pdf`, when it is installed.
 fn pdftotext(pdf: &[u8]) -> Option<String> {
-    let dir = std::env::temp_dir().join(format!("genha-pdf-test-{}", std::process::id()));
+    // Tests run in parallel: each call gets its own folder.
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("genha-pdf-test-{}-{n}", std::process::id()));
     std::fs::create_dir_all(&dir).ok()?;
     let path = dir.join("t.pdf");
     std::fs::write(&path, pdf).ok()?;

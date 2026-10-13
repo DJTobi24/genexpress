@@ -9,7 +9,7 @@
 | Dimension | Value | Measured / estimated |
 |---|---|---|
 | Feature parity with the target (all areas) | ~20–25% | estimated, see [target-app-parity.md](docs/target-app-parity.md) |
-| Commands (UI = CLI = MCP) | COMMANDS | measured (`genha-cli exec engine.commands`) |
+| Commands (UI = CLI = MCP) | 158 | measured (`genha-cli exec engine.commands`) |
 | Templates / size presets / icons / text styles / palettes / filters | 65 / 35 / 114 (+10 basic shapes) / 25 / 40 / 14 | measured (counted from `genha_templates`) |
 | Tests | TESTS | measured (`cargo test --workspace`) |
 | Rust lines | ~36k | measured (all `.rs` files, tests included) |
