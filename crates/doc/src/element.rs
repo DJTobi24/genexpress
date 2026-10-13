@@ -214,6 +214,46 @@ pub struct TextEl {
     /// by character range; see [`crate::rich`]. Empty: the whole text is in `style`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub spans: Vec<TextSpan>,
+    /// What happens when the text does not fit its box ([`TextFit`]). The stored sizes never
+    /// change; the scale that makes the text fit is worked out when it is laid out
+    /// (`genha_text::fit_scale`).
+    #[serde(default, skip_serializing_if = "TextFit::is_none")]
+    pub fit: TextFit,
+}
+
+/// How a text box treats text that does not fit it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TextFit {
+    /// The text keeps its sizes (and may overflow the box).
+    #[default]
+    None,
+    /// The text is set smaller, all its sizes together, down to a minimum, until it fits the
+    /// box without breaking a word.
+    Shrink,
+}
+
+impl TextFit {
+    pub fn is_none(&self) -> bool {
+        *self == TextFit::None
+    }
+
+    /// `none` or `shrink`.
+    pub fn id(self) -> &'static str {
+        match self {
+            TextFit::None => "none",
+            TextFit::Shrink => "shrink",
+        }
+    }
+
+    /// The inverse of [`TextFit::id`].
+    pub fn parse(s: &str) -> Option<TextFit> {
+        match s {
+            "none" => Some(TextFit::None),
+            "shrink" => Some(TextFit::Shrink),
+            _ => None,
+        }
+    }
 }
 
 fn is_zero(v: &f64) -> bool {
@@ -226,12 +266,29 @@ pub const MAX_CURVE: f64 = 360.0;
 impl TextEl {
     /// Straight text with no effect.
     pub fn new(text: impl Into<String>, style: TextStyle) -> Self {
-        TextEl { text: text.into(), style, effect: TextEffect::None, curve: 0.0, spans: vec![] }
+        TextEl { text: text.into(), style, effect: TextEffect::None, curve: 0.0, spans: vec![], fit: TextFit::None }
     }
 
     /// The curve clamped to `-360..=360` (0 when not finite).
     pub fn curve_degrees(&self) -> f64 {
         if self.curve.is_finite() { self.curve.clamp(-MAX_CURVE, MAX_CURVE) } else { 0.0 }
+    }
+
+    /// A copy with every font size (the box's and its runs') multiplied by `k`, as fitting the
+    /// text to its box sets it (letter spacing, in ems, follows). Borrowed when `k` is 1 or not a
+    /// usable number.
+    pub fn scaled(&self, k: f64) -> std::borrow::Cow<'_, TextEl> {
+        if k == 1.0 || !k.is_finite() || k <= 0.0 {
+            return std::borrow::Cow::Borrowed(self);
+        }
+        let mut t = self.clone();
+        t.style.font_size *= k;
+        for sp in &mut t.spans {
+            if let Some(v) = &mut sp.style.font_size {
+                *v *= k;
+            }
+        }
+        std::borrow::Cow::Owned(t)
     }
 }
 

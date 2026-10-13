@@ -89,9 +89,9 @@ video timeline with audio, and more UI languages.
 | | |
 |---|---|
 | Templates / size presets / icons / palettes | 121 / 35 / 114 / 40 |
-| Commands (UI = CLI = MCP) | 163 |
-| Tests | 353 |
-| Code | ~52k lines of Rust |
+| Commands (UI = CLI = MCP) | 164 |
+| Tests | 372 |
+| Code | ~53k lines of Rust |
 
 - [ROADMAP.md](ROADMAP.md) — stage, numbers, what's next and the progress log.
 - [docs/target-app-parity.md](docs/target-app-parity.md) — feature-by-feature comparison with the target app.

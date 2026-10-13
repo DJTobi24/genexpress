@@ -406,7 +406,11 @@ fn inspect(s: &mut Session, p: &Value) -> Result<Value> {
             "typing_style": e.and_then(|e| e.typing_style.clone()),
         })
     });
-    Ok(json!({"id": id, "text": t.text, "style": t.style, "spans": t.spans, "runs": runs_json(&t), "editing": editing}))
+    let fit = match s.doc()?.doc.find(id) {
+        Some((_, el)) => crate::inspect::fit_json(&s.fonts, &t, el.frame),
+        None => Value::Null,
+    };
+    Ok(json!({"id": id, "text": t.text, "style": t.style, "spans": t.spans, "runs": runs_json(&t), "fit": fit, "editing": editing}))
 }
 
 #[cfg(test)]

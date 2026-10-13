@@ -208,7 +208,8 @@ fn text_add_preset(s: &mut Session, p: &Value) -> Result<Value> {
     let width = f64_or(p, "width", pw * 0.8);
     let h = super::create::text_height(s, &text, &style, width);
     let frame = Frame::new(f64_or(p, "x", (pw - width) / 2.0), f64_or(p, "y", (ph - h) / 2.0), width, h);
-    let mut el = Element::new(NodeId(0), frame, ElementKind::Text(TextEl { text, style, effect, curve: 0.0, spans: vec![] }));
+    let mut el =
+        Element::new(NodeId(0), frame, ElementKind::Text(TextEl { text, style, effect, curve: 0.0, spans: vec![], fit: Default::default() }));
     el.name = pr.label.to_string();
     super::create::add_element(s, "Add Text", el)
 }

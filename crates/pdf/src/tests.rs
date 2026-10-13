@@ -34,6 +34,7 @@ fn text(d: &mut Document, frame: Frame, s: &str, size: f64) -> Element {
             effect: TextEffect::None,
             curve: 0.0,
             spans: vec![],
+            fit: Default::default(),
         }),
     )
 }
@@ -602,4 +603,99 @@ fn vector_text_draws_style_runs() {
     // As outlines too.
     let outlined = export_pdf(&d, &fonts, &PdfOptions { text_as_outlines: true, ..Default::default() }).unwrap();
     assert!(String::from_utf8_lossy(&parse(&outlined).get_page_content(*parse(&outlined).get_pages().values().next().unwrap())).contains("1 0 0 rg"));
+}
+
+/// The box around the on-curve points of every filled path in page 1's content (transforms
+/// followed), in page pixels (y down).
+fn path_points_box(pdf: &lopdf::Document) -> Option<kurbo::Rect> {
+    let id = *pdf.get_pages().get(&1)?;
+    let mb = page_box(pdf, 1, b"MediaBox")?;
+    let content = lopdf::content::Content::decode(&pdf.get_page_content(id)).ok()?;
+    let num = |o: &lopdf::Object| o.as_float().ok().map(f64::from).or_else(|| o.as_i64().ok().map(|i| i as f64));
+    let mut ctm = kurbo::Affine::IDENTITY;
+    let mut stack = vec![];
+    let mut out: Option<kurbo::Rect> = None;
+    let mut cur: Option<kurbo::Rect> = None;
+    for op in content.operations {
+        let v: Vec<f64> = op.operands.iter().filter_map(num).collect();
+        let end = match (op.operator.as_str(), v.len()) {
+            ("q", _) => {
+                stack.push(ctm);
+                None
+            }
+            ("Q", _) => {
+                ctm = stack.pop().unwrap_or(kurbo::Affine::IDENTITY);
+                None
+            }
+            ("cm", 6) => {
+                ctm *= kurbo::Affine::new([v[0], v[1], v[2], v[3], v[4], v[5]]);
+                None
+            }
+            ("m" | "l", 2) => Some((v[0], v[1])),
+            ("c", 6) => Some((v[4], v[5])),
+            ("v" | "y", 4) => Some((v[2], v[3])),
+            _ => None,
+        };
+        if let Some((x, y)) = end {
+            let p = ctm * kurbo::Point::new(x, y);
+            let p = kurbo::Point::new((p.x - mb[0]) / PT_PER_PX, (mb[3] - p.y) / PT_PER_PX);
+            let r = kurbo::Rect::from_points(p, p);
+            cur = Some(cur.map_or(r, |b| b.union(r)));
+        }
+        // Filled paths count; clipping paths (`W n`) do not.
+        match op.operator.as_str() {
+            "f" | "f*" | "F" | "B" | "B*" | "b" | "b*" => {
+                if let Some(r) = cur.take() {
+                    out = Some(out.map_or(r, |b| b.union(r)));
+                }
+            }
+            "n" | "S" | "s" => cur = None,
+            _ => {}
+        }
+    }
+    out
+}
+
+#[test]
+fn shrunk_text_is_exported_where_the_renderer_draws_it() {
+    let fonts = FontBook::system();
+    if fonts.is_empty() {
+        return;
+    }
+    let mut d = Document::new("Fit", 700.0, 300.0);
+    d.pages[0].background = Fill::None;
+    let mut e = text(&mut d, Frame::new(40.0, 60.0, 600.0, 160.0), "Grand opening", 120.0);
+    let ElementKind::Text(t) = &mut e.kind else { panic!("text") };
+    t.style.bold = true;
+    t.style.color = Color::BLACK;
+    t.fit = genha_doc::TextFit::Shrink;
+    let t = t.clone();
+    let frame = e.frame;
+    d.pages[0].elements.push(e);
+    let fit = genha_render::text_fit(&fonts, &t, frame.width, frame.height);
+    assert!(fit.fits && fit.scale < 1.0, "{fit:?}");
+    // The on-curve points of the fitted lines, on the page.
+    let fitted = genha_render::fitted_text(&fonts, &t, frame.width, frame.height);
+    let mut want: Option<kurbo::Rect> = None;
+    for line in genha_text::layout_el(&fonts, &fitted, frame.width).lines {
+        for el in line.path.elements() {
+            let p = match *el {
+                kurbo::PathEl::MoveTo(p) | kurbo::PathEl::LineTo(p) | kurbo::PathEl::QuadTo(_, p) | kurbo::PathEl::CurveTo(_, _, p) => p,
+                kurbo::PathEl::ClosePath => continue,
+            } + kurbo::Vec2::new(frame.x, frame.y);
+            let r = kurbo::Rect::from_points(p, p);
+            want = Some(want.map_or(r, |b| b.union(r)));
+        }
+    }
+    let want = want.unwrap();
+    let pdf = export_pdf(&d, &fonts, &PdfOptions { text_as_outlines: true, ..Default::default() }).unwrap();
+    let got = path_points_box(&parse(&pdf)).unwrap();
+    for (a, b) in [(got.x0, want.x0), (got.y0, want.y0), (got.x1, want.x1), (got.y1, want.y1)] {
+        assert!((a - b).abs() < 0.05, "exported {got:?}, laid out {want:?}");
+    }
+    // With fonts embedded, the letters are set in the fitted size: the same text, readable.
+    let pdf = vector(&d, &fonts);
+    if let Some(text) = pdftotext(&pdf) {
+        assert!(text.contains("Grand opening"), "{text:?}");
+    }
 }

@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use super::{bad, cmd, color_param, f64_or, has_selection, merge, ok, parse, str_param, targets};
 use crate::{CommandSpec, EngineError, Result, Session};
 use genha_doc::{
-    Adjustments, ChartEl, CropRect, Element, ElementKind, Fill, Fit, NodeId, Shadow, ShapeKind, SpanStyle, StrokeStyle, TableEl, TextEffect,
+    Adjustments, ChartEl, CropRect, Element, ElementKind, Fill, Fit, NodeId, Shadow, ShapeKind, SpanStyle, StrokeStyle, TableEl, TextEffect, TextFit,
     TextStyle,
 };
 
@@ -63,6 +63,15 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             set_text_style
         ),
         cmd!("text.setEffect", "Text Effect", [], None, "{ids?, effect: {type: none|shadow|outline|highlight, …}}", has_selection, set_text_effect),
+        cmd!(
+            "text.setFit",
+            "Shrink Text to Fit",
+            [],
+            None,
+            "{ids?, fit: none|shrink} — shrink: the text is set smaller (every size together, down to 40% and never below 6 px) until it fits its box without breaking a word, and the box keeps its size; the sizes stay as set (text.inspect reports the scale used). none: the text keeps its sizes and the box's height follows it",
+            has_selection,
+            set_text_fit
+        ),
         cmd!(
             "image.adjust",
             "Adjust Picture",
@@ -275,6 +284,25 @@ fn set_text_effect(s: &mut Session, p: &Value) -> Result<Value> {
     each_kind(s, p, "text.setEffect", "Text Effect", |e| match &mut e.kind {
         ElementKind::Text(t) => {
             t.effect = effect.clone();
+            true
+        }
+        _ => false,
+    })
+}
+
+fn set_text_fit(s: &mut Session, p: &Value) -> Result<Value> {
+    let cmd = "text.setFit";
+    let id = str_param(p, "fit").ok_or_else(|| bad(cmd, "missing `fit` (none or shrink)"))?;
+    let fit = TextFit::parse(id).ok_or_else(|| bad(cmd, format!("unknown fit `{id}` (none or shrink)")))?;
+    let fonts = std::sync::Arc::clone(&s.fonts);
+    each_kind(s, p, cmd, "Shrink Text to Fit", |e| match &mut e.kind {
+        ElementKind::Text(t) => {
+            t.fit = fit;
+            // Text that no longer shrinks: the box grows to hold it as set.
+            if fit == TextFit::None {
+                let t = t.clone();
+                e.frame = super::textedit::fitted_frame(&fonts, &t, e.frame);
+            }
             true
         }
         _ => false,

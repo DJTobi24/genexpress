@@ -13,7 +13,8 @@
 //! is shaped in its own font, size and weight, while line breaking, bidi and alignment work across
 //! runs and each line is as tall as its tallest run; placed glyphs and line pieces carry their
 //! run's style (an index in [`TextLayout::styles`]) so colours, underlines and synthetic styles can
-//! be drawn per run. With an empty book text still lays out, using an approximate advance of 0.55 em per
+//! be drawn per run. Text boxes that shrink to fit ([`genha_doc::TextFit::Shrink`]) are laid out
+//! at the scale [`fit_scale`] finds ([`fitted`]). With an empty book text still lays out, using an approximate advance of 0.55 em per
 //! character, so the UI can size text boxes before any font is available (the paths are then
 //! empty).
 #![forbid(unsafe_code)]
@@ -21,10 +22,12 @@
 mod book;
 pub mod caret;
 pub mod edit;
+mod fit;
 mod layout;
 mod shape;
 
 pub use book::{FontBook, MAX_FACES, MAX_FONT_FILE, MAX_FONT_FILES, MONO_FALLBACKS, SANS_FALLBACKS, SERIF_FALLBACKS};
+pub use fit::{FitScale, MIN_FIT_SCALE, MIN_FIT_SIZE, fit_scale, fit_scale_by, fitted, min_fit_scale};
 pub use layout::{
     MAX_FONT_SIZE, MAX_STYLE_RUNS, MAX_TEXT_CHARS, layout, layout_el, layout_glyphs, layout_glyphs_el, layout_glyphs_rich, layout_rich, measure,
     measure_el, measure_rich, measure_wrapped_el,
@@ -163,5 +166,7 @@ pub struct GlyphLayout {
 
 #[cfg(test)]
 mod caret_tests;
+#[cfg(test)]
+mod fit_tests;
 #[cfg(test)]
 mod tests;

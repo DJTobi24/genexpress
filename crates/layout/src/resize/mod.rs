@@ -91,6 +91,12 @@ pub fn resize_page(page: &Page, width: f64, height: f64, mode: ResizeMode, fonts
             }
         }
         ResizeMode::Smart => {
+            // Text that shrinks to fit its box is re-laid out at the size it is drawn at, and
+            // its sizes are put back afterwards: it still shrinks in its new box, by about as much.
+            let mut fitted = vec![];
+            for el in &mut out.elements {
+                bake_fit(el, fonts, &mut fitted);
+            }
             let min_size = settle::min_text_size(nw, nh);
             let k = nw.min(nh) / ow.min(oh);
             let floors: Vec<f64> = out
@@ -103,6 +109,9 @@ pub fn resize_page(page: &Page, width: f64, height: f64, mode: ResizeMode, fonts
                 .collect();
             smart::relayout(&mut out, ow, oh, fonts);
             settle::settle(&mut out, fonts, &floors, &mut notes);
+            for el in &mut out.elements {
+                unbake_fit(el, &fitted);
+            }
         }
     }
     Resized { page: out, notes }
@@ -121,6 +130,36 @@ pub(crate) fn within(v: f64, lo: f64, hi: f64) -> f64 {
 
 fn side(v: f64, fallback: f64) -> f64 {
     if v.is_finite() { v.clamp(1.0, MAX_PAGE_SIDE) } else { fallback }
+}
+
+/// Straight text that shrinks to fit its box set at the scale it is drawn at
+/// ([`genha_text::fit_scale`]; children of groups too); the scales are added to `out` by id.
+/// Bent text is left alone: it moves as a unit, so it keeps fitting.
+fn bake_fit(el: &mut Element, fonts: &FontBook, out: &mut Vec<(genha_doc::NodeId, f64)>) {
+    match &mut el.kind {
+        ElementKind::Group(g) => g.children.iter_mut().for_each(|c| bake_fit(c, fonts, out)),
+        ElementKind::Text(t) if t.curve_degrees() == 0.0 => {
+            let k = genha_text::fit_scale(fonts, t, el.frame.width, el.frame.height).scale;
+            if k < 1.0 && k > 0.0 {
+                *t = t.scaled(k).into_owned();
+                out.push((el.id, k));
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Undoes [`bake_fit`]: the sizes divided by the scale they were set at.
+fn unbake_fit(el: &mut Element, fitted: &[(genha_doc::NodeId, f64)]) {
+    match &mut el.kind {
+        ElementKind::Group(g) => g.children.iter_mut().for_each(|c| unbake_fit(c, fitted)),
+        ElementKind::Text(t) => {
+            if let Some((_, k)) = fitted.iter().find(|(id, _)| *id == el.id) {
+                *t = t.scaled(1.0 / k).into_owned();
+            }
+        }
+        _ => {}
+    }
 }
 
 /// Frames made finite (children too).

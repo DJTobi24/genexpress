@@ -366,3 +366,37 @@ fn junk_survives() {
     let r = smart_resize(&page(100.0, 100.0, vec![dot(2, 10.0, 10.0, 10.0, 10.0)]), 50.0, 80.0, &none());
     assert_eq!(r.page.elements.len(), 1);
 }
+
+#[test]
+fn shrinking_text_is_laid_out_as_drawn_and_keeps_shrinking() {
+    // A headline that only fits its one-line box shrunk (no fonts: 0.55 em per character, so
+    // 22 characters at 100 px are 1210 px in a 900 px box).
+    let mut head = text(1, 90.0, 100.0, 900.0, "Grand opening weekend!", 100.0, TextAlign::Left);
+    let ElementKind::Text(t) = &mut head.kind else { panic!() };
+    t.fit = genha_doc::TextFit::Shrink;
+    let k0 = genha_text::fit_scale(&none(), t, head.frame.width, head.frame.height).scale;
+    assert!(k0 < 0.75);
+    let p = page(1080.0, 1080.0, vec![head, text(2, 90.0, 260.0, 900.0, "Saturday 4 October", 40.0, TextAlign::Left)]);
+    let fonts = none();
+    for (w, h) in [(1080.0, 1920.0), (1920.0, 1080.0), (600.0, 600.0)] {
+        let r = smart_resize(&p, w, h, &fonts).page;
+        let f = frame(&r, 0);
+        let ElementKind::Text(t) = &r.elements[0].kind else { panic!() };
+        assert_eq!(t.fit, genha_doc::TextFit::Shrink);
+        // Laid out as drawn: one line, not the two lines its stored size would wrap into.
+        let fit = genha_text::fit_scale(&fonts, t, f.width, f.height);
+        let shown = genha_text::fitted(&fonts, t, f.width, f.height);
+        let l = genha_text::layout_el(&fonts, &shown, f.width);
+        assert!(fit.fits && l.lines.len() == 1 && l.height <= f.height + 0.5, "{w}×{h}: {fit:?}, {} lines in {f:?}", l.lines.len());
+        // The stored size is the size set (times the type scale), not the shrunk size: the text
+        // still shrinks in its new box, and keeps its proportion to the other text.
+        assert!(fit.scale < 0.95, "{fit:?}");
+        assert!(
+            (t.style.font_size * fit.scale / (100.0 * k0) - size(&r, 1) / 40.0).abs() < 0.05,
+            "{} vs {}",
+            t.style.font_size * fit.scale,
+            size(&r, 1)
+        );
+        assert!(!overlaps(f, frame(&r, 1)));
+    }
+}

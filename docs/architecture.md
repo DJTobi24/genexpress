@@ -135,7 +135,18 @@ renderer, SVG and PDF writers paint each run in its colour with its synthetic bo
 4. **Placement:** each line is reordered for display (UAX #9 L1/L2) and drawn with `skrifa`
    outlines. `layout_glyphs` also reports per glyph its glyph id, face (`FontBook::face_data` gives
    the font bytes, for exporters that embed fonts), source byte offset (`cluster`, for carets) and
-   direction; lines carry their source byte range. Charts and tables are
+   direction; lines carry their source byte range.
+
+**Text that shrinks to fit** (`TextEl::fit = TextFit::Shrink`): the stored sizes never change.
+`genha_text::fit_scale` finds, by bisection on the scale (each step re-breaks lines; shaping is
+cached), the largest scale in `min_fit_scale..=1` (40% of the size, at least 6 px) at which all the
+box's sizes multiplied together give lines no taller than the box and no word broken (when some
+scale avoids that); results are cached in the `FontBook`. `genha_render::text_fit` / `fitted_text`
+add curved text (measured along its arc) and are what the renderer, the SVG and PDF writers, the
+canvas text editor (caret map), `text.inspect` and the properties panel use, so every output agrees;
+smart resize lays shrinking text out at its fitted size and puts the stored sizes back afterwards.
+
+Charts and tables are
 turned into a `Scene` of filled/stroked paths and laid-out text by `genha_render::{chart_scene,
 table_scene}`, which both the rasterizer and the SVG writer draw, so they agree.
 

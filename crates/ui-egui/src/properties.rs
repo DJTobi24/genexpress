@@ -7,7 +7,7 @@ mod data_props;
 
 use crate::App;
 use crate::theme::{Tokens, from_egui, to_egui};
-use genha_doc::{AnimationKind, Element, ElementKind, Fill, Page, RangeStyle, ShapeKind, TextAlign, TextEffect};
+use genha_doc::{AnimationKind, Element, ElementKind, Fill, Page, RangeStyle, ShapeKind, TextAlign, TextEffect, TextFit};
 use genha_i18n::{N_, tr, tr_n};
 
 /// Commands to run after drawing (the panel reads a snapshot, then acts).
@@ -46,7 +46,14 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         }
         [el] => {
             let sel = editing.as_ref().filter(|(id, _)| *id == el.id).map(|(_, r)| r);
-            element_props(ui, t, el, sel, editing_caret, &brand, &families, &mut acts);
+            // The scale shrinking text is shown at (as the canvas draws it).
+            let fit = match &el.kind {
+                ElementKind::Text(tx) if tx.fit == TextFit::Shrink => {
+                    Some(genha_render::text_fit(&app.session.fonts, tx, el.frame.width, el.frame.height))
+                }
+                _ => None,
+            };
+            element_props(ui, t, el, sel, editing_caret, &brand, &families, fit, &mut acts);
         }
         many => multi_props(ui, t, many, &mut acts),
     }
@@ -261,6 +268,7 @@ fn element_props(
     editing_caret: bool,
     brand: &[genha_color::Color],
     families: &[String],
+    fit: Option<genha_text::FitScale>,
     acts: &mut Actions,
 ) {
     let id = el.id.0;
@@ -343,6 +351,20 @@ fn element_props(
             }
             if ui.add(egui::Slider::new(&mut ls, -200.0..=800.0).text(tr("Letter spacing"))).changed() {
                 acts.run("text.setStyle", json!({"letter_spacing": ls, "merge_key": key("ls")}));
+            }
+            let mut shrink = text.fit == TextFit::Shrink;
+            let tip = tr("When the text does not fit its box, set it smaller (down to 40%) instead of growing the box");
+            if ui.checkbox(&mut shrink, tr("Shrink text to fit")).on_hover_text(tip).changed() {
+                acts.run("text.setFit", json!({"fit": if shrink { "shrink" } else { "none" }}));
+            }
+            if let Some(f) = fit.filter(|f| f.scale < 1.0 || !f.fits) {
+                let percent = format!("{:.0}", f.scale * 100.0);
+                let note = if f.fits {
+                    tr!("Shown at {percent}% to fit", percent = percent)
+                } else {
+                    tr!("Too long to fit, even at {percent}%", percent = percent)
+                };
+                ui.label(egui::RichText::new(note).size(11.0).color(t.text_dim));
             }
             data_props::curve(ui, t, id, text, acts);
             section(ui, t, tr("EFFECT"));

@@ -39,7 +39,9 @@ fn problems(page: &Page, fonts: &FontBook) -> Vec<String> {
         }
         let ElementKind::Text(t) = &e.kind else { continue };
         if e.frame.rotation == 0.0 && t.curve_degrees() == 0.0 {
-            let (w, h) = genha_text::measure_wrapped_el(fonts, t, e.frame.width);
+            // As drawn: text that shrinks to fit at the scale it is drawn at.
+            let t = genha_text::fitted(fonts, t, e.frame.width, e.frame.height);
+            let (w, h) = genha_text::measure_wrapped_el(fonts, &t, e.frame.width);
             if h > e.frame.height + 0.5 || w > e.frame.width + 0.5 {
                 out.push(format!("{:?} overflows its box: needs {w:.1} × {h:.1}, has {:.1} × {:.1}", e.name, e.frame.width, e.frame.height));
             }
@@ -85,4 +87,25 @@ fn every_template_resizes_cleanly_with_system_fonts() {
 #[test]
 fn every_template_resizes_cleanly_without_fonts() {
     run(&FontBook::new(), "no fonts");
+}
+
+/// With only DejaVu Sans (much wider than Inter, the templates' design font), text that shrinks to
+/// fit its box keeps fitting in every new size.
+#[test]
+fn every_template_resizes_cleanly_with_a_wide_font() {
+    let mut book = FontBook::new();
+    for dir in ["/usr/share/fonts/truetype/dejavu", "/usr/share/fonts/dejavu", "/usr/share/fonts/TTF"] {
+        let Ok(rd) = std::fs::read_dir(dir) else { continue };
+        for f in rd.flatten() {
+            let name = f.file_name().to_string_lossy().to_string();
+            if name.starts_with("DejaVu") && name.ends_with(".ttf") && !name.contains("Mono") && !name.contains("Condensed") {
+                let _ = book.add_font(std::fs::read(f.path()).unwrap());
+            }
+        }
+    }
+    if !book.has_family("DejaVu Sans") {
+        eprintln!("DejaVu Sans not installed: skipped");
+        return;
+    }
+    run(&book, "DejaVu only");
 }

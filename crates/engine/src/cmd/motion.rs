@@ -319,7 +319,8 @@ fn export_frame(s: &mut Session, p: &Value) -> Result<Value> {
     let index = page_index(s, p, cmd)?;
     let scale = f64_or(p, "scale", 1.0).clamp(0.1, 8.0);
     let d = s.doc()?;
-    let posed = motion::page_at(d.doc.page(index)?, t);
+    let page = genha_render::page_with_fitted_text(d.doc.page(index)?, &s.fonts);
+    let posed = motion::page_at(&page, t);
     let doc = single_page_doc(&d.doc, posed);
     let opts = genha_render::RenderOptions { scale, transparent_background: false };
     let r = genha_render::render_page(&doc, 0, &s.fonts, &opts).map_err(|e| EngineError::Other(e.to_string()))?;
@@ -441,7 +442,7 @@ impl Frames<'_> {
             // Pages of another size are fitted into the first page's frame.
             let fit = (f64::from(w) / (page.width * self.scale)).min(f64::from(h) / (page.height * self.scale)).min(1.0);
             let fit = if fit.is_finite() && fit > 0.0 { fit } else { 1.0 };
-            doc.pages = vec![motion::page_at(page, shot.t)];
+            doc.pages = vec![motion::page_at(&genha_render::page_with_fitted_text(page, self.fonts), shot.t)];
             let opts = genha_render::RenderOptions { scale: self.scale * fit, transparent_background: false };
             let r = renderer.render_page(&doc, 0, self.fonts, &opts).map_err(|e| EngineError::Other(e.to_string()))?;
             let rgba = if r.width == w && r.height == h { opaque(r.rgba) } else { opaque(letterbox(&r, w, h, self.bars)) };

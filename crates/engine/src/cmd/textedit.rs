@@ -232,9 +232,13 @@ fn edit_text(s: &mut Session, p: &Value) -> Result<Value> {
 }
 
 /// `frame` with its height fitted to `t`: straight text keeps its top edge (its top-left corner
-/// on the page when turned), curved text its centre.
+/// on the page when turned), curved text its centre. A box whose text shrinks to fit it
+/// ([`genha_doc::TextFit::Shrink`]) keeps its size: the text is fitted to the box instead.
 pub(crate) fn fitted_frame(fonts: &genha_text::FontBook, t: &TextEl, frame: Frame) -> Frame {
     let f = frame.sanitized();
+    if t.fit == genha_doc::TextFit::Shrink {
+        return f;
+    }
     if t.curve_degrees() != 0.0 {
         return match genha_render::curved_text_size(fonts, t, f.width) {
             Some((_, h)) if h.is_finite() && h > 0.0 => {

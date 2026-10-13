@@ -594,6 +594,18 @@ msgstr "Zeilenhöhe"
 msgid "Letter spacing"
 msgstr "Zeichenabstand"
 
+msgid "Shrink text to fit"
+msgstr "Text an Rahmen anpassen"
+
+msgid "When the text does not fit its box, set it smaller (down to 40%) instead of growing the box"
+msgstr "Passt der Text nicht in seinen Rahmen, wird er kleiner gesetzt (bis auf 40 %), statt den Rahmen zu vergrößern"
+
+msgid "Shown at {percent}% to fit"
+msgstr "Auf {percent} % verkleinert, damit er passt"
+
+msgid "Too long to fit, even at {percent}%"
+msgstr "Passt auch mit {percent} % nicht"
+
 msgid "EFFECT"
 msgstr "EFFEKT"
 

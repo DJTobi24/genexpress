@@ -3,10 +3,28 @@
 use serde_json::{Value, json};
 
 use crate::{DocState, Session};
-use genha_doc::{Element, ElementKind, Fill, ShapeKind, TextEffect};
+use genha_doc::{Element, ElementKind, Fill, Frame, ShapeKind, TextEffect, TextEl, TextFit};
+use genha_text::FontBook;
 
-/// One element as a compact JSON summary.
-pub fn element_summary(e: &Element) -> Value {
+/// How a text box fits its text: `{fit: none|shrink, scale, fits}` — the scale its sizes are
+/// laid out at (1: as set) and whether the text fits the box at that scale (shrinking text that
+/// overflows even at the smallest scale allowed does not).
+pub fn fit_json(fonts: &FontBook, t: &TextEl, frame: Frame) -> Value {
+    let f = frame.sanitized();
+    let r = genha_render::text_fit(fonts, t, f.width, f.height);
+    let fits = match t.fit {
+        TextFit::Shrink => r.fits,
+        TextFit::None if t.curve_degrees() != 0.0 => {
+            genha_render::curved_text_size(fonts, t, f.width).is_none_or(|(w, h)| w <= f.width + 0.5 && h <= f.height + 0.5)
+        }
+        TextFit::None => genha_text::measure_wrapped_el(fonts, t, f.width).1 <= f.height + 0.5,
+    };
+    json!({"fit": t.fit.id(), "scale": (r.scale * 1000.0).round() / 1000.0, "fits": fits})
+}
+
+/// One element as a compact JSON summary; text boxes say how they fit their text ([`fit_json`],
+/// measured with `fonts`).
+pub fn element_summary(e: &Element, fonts: &FontBook) -> Value {
     let mut v = json!({
         "id": e.id.0,
         "type": e.kind.type_name().to_lowercase(),
@@ -55,6 +73,9 @@ pub fn element_summary(e: &Element) -> Value {
                 // Formatted parts: {start, end (characters), and the values that differ}.
                 o.insert("spans".into(), json!(t.spans));
             }
+            if t.fit != TextFit::None {
+                o.insert("fit".into(), fit_json(fonts, t, e.frame));
+            }
         }
         ElementKind::Image(i) => {
             o.insert("asset".into(), json!(i.asset.0));
@@ -66,7 +87,7 @@ pub fn element_summary(e: &Element) -> Value {
             }
         }
         ElementKind::Group(g) => {
-            o.insert("children".into(), Value::Array(g.children.iter().map(element_summary).collect()));
+            o.insert("children".into(), Value::Array(g.children.iter().map(|c| element_summary(c, fonts)).collect()));
         }
         ElementKind::Chart(c) => {
             o.insert("chart".into(), json!(c.kind.id()));
@@ -105,7 +126,7 @@ fn fill_summary(f: &Fill) -> Value {
 }
 
 /// The open document: pages (current page in full), selection, brand.
-pub fn document_summary(d: &DocState, all_pages: bool) -> Value {
+pub fn document_summary(d: &DocState, all_pages: bool, fonts: &FontBook) -> Value {
     let pages: Vec<Value> = d
         .doc
         .pages
@@ -116,7 +137,7 @@ pub fn document_summary(d: &DocState, all_pages: bool) -> Value {
             if (all_pages || i == d.page)
                 && let Some(o) = v.as_object_mut()
             {
-                o.insert("elements".into(), Value::Array(p.elements.iter().map(element_summary).collect()));
+                o.insert("elements".into(), Value::Array(p.elements.iter().map(|e| element_summary(e, fonts)).collect()));
             }
             v
         })
