@@ -4,6 +4,10 @@ use serde_json::{Value, json};
 
 #[path = "data_props.rs"]
 mod data_props;
+#[path = "text_panel.rs"]
+mod text_panel;
+
+pub use text_panel::{TextTab, show as text_panel, target as text_panel_target};
 
 use crate::App;
 use crate::theme::{Tokens, from_egui, to_egui};
@@ -566,21 +570,7 @@ fn element_props(
 fn common(ui: &mut egui::Ui, t: &Tokens, el: &Element, acts: &mut Actions) {
     let id = el.id.0;
     section(ui, t, tr("POSITION"));
-    let f = el.frame;
-    let (mut x, mut y, mut w, mut h, mut r) = (f.x, f.y, f.width, f.height, f.rotation);
-    let mut changed = false;
-    ui.horizontal(|ui| {
-        changed |= ui.add(egui::DragValue::new(&mut x).prefix(tr("X ")).speed(1.0)).changed();
-        changed |= ui.add(egui::DragValue::new(&mut y).prefix(tr("Y ")).speed(1.0)).changed();
-    });
-    ui.horizontal(|ui| {
-        changed |= ui.add(egui::DragValue::new(&mut w).prefix(tr("W ")).range(1.0..=100_000.0).speed(1.0)).changed();
-        changed |= ui.add(egui::DragValue::new(&mut h).prefix(tr("H ")).range(1.0..=100_000.0).speed(1.0)).changed();
-        changed |= ui.add(egui::DragValue::new(&mut r).prefix(tr("Rot ")).suffix("°").speed(0.5)).changed();
-    });
-    if changed {
-        acts.run("object.setFrame", json!({"x": x, "y": y, "width": w, "height": h, "rotation": r, "merge_key": format!("frame:{id}")}));
-    }
+    common_frame(ui, el, acts);
     let mut o = el.opacity;
     if ui.add(egui::Slider::new(&mut o, 0.0..=1.0).text(tr("Opacity"))).changed() {
         acts.run("object.setOpacity", json!({"opacity": o, "merge_key": format!("opacity:{id}")}));
@@ -609,6 +599,26 @@ fn common(ui: &mut egui::Ui, t: &Tokens, el: &Element, acts: &mut Actions) {
             acts.run("edit.delete", json!({}));
         }
     });
+}
+
+/// Position, size and rotation as numbers.
+fn common_frame(ui: &mut egui::Ui, el: &Element, acts: &mut Actions) {
+    let id = el.id.0;
+    let f = el.frame;
+    let (mut x, mut y, mut w, mut h, mut r) = (f.x, f.y, f.width, f.height, f.rotation);
+    let mut changed = false;
+    ui.horizontal(|ui| {
+        changed |= ui.add(egui::DragValue::new(&mut x).prefix(tr("X ")).speed(1.0)).changed();
+        changed |= ui.add(egui::DragValue::new(&mut y).prefix(tr("Y ")).speed(1.0)).changed();
+    });
+    ui.horizontal(|ui| {
+        changed |= ui.add(egui::DragValue::new(&mut w).prefix(tr("W ")).range(1.0..=100_000.0).speed(1.0)).changed();
+        changed |= ui.add(egui::DragValue::new(&mut h).prefix(tr("H ")).range(1.0..=100_000.0).speed(1.0)).changed();
+        changed |= ui.add(egui::DragValue::new(&mut r).prefix(tr("Rot ")).suffix("°").speed(0.5)).changed();
+    });
+    if changed {
+        acts.run("object.setFrame", json!({"x": x, "y": y, "width": w, "height": h, "rotation": r, "merge_key": format!("frame:{id}")}));
+    }
 }
 
 fn align_buttons(ui: &mut egui::Ui, acts: &mut Actions, to: &str) {

@@ -50,6 +50,11 @@ impl Thumbs {
         Some(tex)
     }
 
+    /// The texture for `key` as it is, without drawing anything.
+    pub fn cached(&self, key: &str) -> Option<egui::TextureHandle> {
+        self.map.get(key).map(|(_, t)| t.clone())
+    }
+
     pub fn forget_prefix(&mut self, prefix: &str) {
         self.map.retain(|k, _| !k.starts_with(prefix));
     }

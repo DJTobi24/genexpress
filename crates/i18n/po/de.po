@@ -242,8 +242,8 @@ msgstr "Ebenen"
 msgid "Search templates"
 msgstr "Vorlagen suchen"
 
-msgid "Click: open as a new design · right-click: add as a page"
-msgstr "Klick: als neues Design öffnen · Rechtsklick: als Seite hinzufügen"
+msgid "Click: use (asks first when your design has content) · right-click: add as a page"
+msgstr "Klick: verwenden (fragt vorher, wenn dein Design Inhalt hat) · Rechtsklick: als Seite hinzufügen"
 
 msgid "Shapes & icons"
 msgstr "Formen & Symbole"
@@ -2889,3 +2889,120 @@ msgid "{n} original template, made in code — free to use and change."
 msgid_plural "{n} original templates, made in code — free to use and change."
 msgstr[0] "{n} eigene Vorlage, im Code erstellt – frei nutzbar und veränderbar."
 msgstr[1] "{n} eigene Vorlagen, im Code erstellt – frei nutzbar und veränderbar."
+
+msgid "Empty page"
+msgstr "Leere Seite"
+
+msgid "Hide the layer strip (View › Layer Strip shows it again)"
+msgstr "Ebenenleiste ausblenden (Ansicht › Ebenenleiste zeigt sie wieder)"
+
+msgid "The layer strip: every object as a picture, the front at the top; drag one up or down to restack it"
+msgstr "Die Ebenenleiste: jedes Objekt als Bild, das vorderste oben; zum Umsortieren nach oben oder unten ziehen"
+
+msgid "hidden"
+msgstr "ausgeblendet"
+
+msgid "Layer Strip"
+msgstr "Ebenenleiste"
+
+msgid "Add as a new page"
+msgstr "Als neue Seite hinzufügen"
+
+msgid "After the current page"
+msgstr "Nach der aktuellen Seite"
+
+msgid "Open as a new design"
+msgstr "Als neues Design öffnen"
+
+msgid "Replace this page"
+msgstr "Diese Seite ersetzen"
+
+msgid "The page becomes the template; Undo brings it back"
+msgstr "Die Seite wird durch die Vorlage ersetzt; Rückgängig holt sie zurück"
+
+msgid "Use “{name}”?"
+msgstr "„{name}“ verwenden?"
+
+msgid "Your design has content. How should the template be used?"
+msgstr "Dein Design hat schon Inhalt. Wie soll die Vorlage verwendet werden?"
+
+msgid "Your design stays as it is"
+msgstr "Dein Design bleibt, wie es ist"
+
+msgid "Align left"
+msgstr "Linksbündig"
+
+msgid "Align on the page"
+msgstr "Auf der Seite ausrichten"
+
+msgid "Align right"
+msgstr "Rechtsbündig"
+
+msgid "Animation"
+msgstr "Animation"
+
+msgid "Centre"
+msgstr "Zentriert"
+
+msgid "Close (the left panel shows its tab again)"
+msgstr "Schließen (links erscheint wieder der Reiter)"
+
+msgid "Colour (mixed)"
+msgstr "Farbe (gemischt)"
+
+msgid "Curved"
+msgstr "Gebogen"
+
+msgid "Distance"
+msgstr "Abstand"
+
+msgid "Effect"
+msgstr "Effekt"
+
+msgid "Effects"
+msgstr "Effekte"
+
+msgid "Highlight colour"
+msgstr "Markierungsfarbe"
+
+msgid "Larger"
+msgstr "Größer"
+
+msgid "Mixed fonts"
+msgstr "Gemischte Schriften"
+
+msgid "Outline colour"
+msgstr "Konturfarbe"
+
+msgid "Padding"
+msgstr "Innenabstand"
+
+msgid "Pick an effect to make the text stand out."
+msgstr "Wähle einen Effekt, damit der Text hervorsticht."
+
+msgid "Pick any colour"
+msgstr "Beliebige Farbe wählen"
+
+msgid "Position"
+msgstr "Position"
+
+msgid "Shadow colour"
+msgstr "Schattenfarbe"
+
+msgid "Size"
+msgstr "Größe"
+
+msgid "Size (mixed)"
+msgstr "Größe (gemischt)"
+
+msgid "Smaller"
+msgstr "Kleiner"
+
+msgid "Softness"
+msgstr "Weichheit"
+
+msgid "Spacing"
+msgstr "Abstände"
+
+msgid "Thickness"
+msgstr "Stärke"

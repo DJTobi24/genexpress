@@ -33,6 +33,10 @@ pub struct Tokens {
     pub art_shadow: Color32,
     /// Behind a thumbnail or a modal's content: the backdrop dimming the rest.
     pub scrim: Color32,
+    /// Behind an object's picture in the layer strip: light for dark objects, dark for light ones
+    /// (white text stays visible).
+    pub thumb_light: Color32,
+    pub thumb_dark: Color32,
 }
 
 impl Tokens {
@@ -65,6 +69,8 @@ impl Tokens {
         art_paper: Color32::WHITE,
         art_shadow: Color32::from_rgba_premultiplied(0x18, 0x10, 0x40, 0x1c),
         scrim: Color32::from_rgba_premultiplied(0x10, 0x0c, 0x24, 0x70),
+        thumb_light: Color32::from_rgb(0xf7, 0xf6, 0xfb),
+        thumb_dark: Color32::from_rgb(0x3a, 0x38, 0x48),
     };
 
     pub const DARK: Tokens = Tokens {
@@ -96,6 +102,8 @@ impl Tokens {
         art_paper: Color32::from_rgb(0xf4, 0xf2, 0xfb),
         art_shadow: Color32::from_rgba_premultiplied(0, 0, 0, 0x50),
         scrim: Color32::from_rgba_premultiplied(0, 0, 0, 0x90),
+        thumb_light: Color32::from_rgb(0xe6, 0xe4, 0xee),
+        thumb_dark: Color32::from_rgb(0x2a, 0x29, 0x37),
     };
 
     pub fn get(ctx: &egui::Context) -> Tokens {

@@ -83,6 +83,8 @@ const SOURCES: &[(&str, &str)] = &[
     ("control.rs", include_str!("control.rs")),
     ("io.rs", include_str!("io.rs")),
     ("models.rs", include_str!("models.rs")),
+    ("layers.rs", include_str!("layers.rs")),
+    ("text_panel.rs", include_str!("text_panel.rs")),
     ("apps/genha", include_str!("../../../apps/genha/src/main.rs")),
     // Engine strings shown in the UI: the quick actions, a duplicate's title.
     ("engine home.rs", include_str!("../../engine/src/cmd/home.rs")),

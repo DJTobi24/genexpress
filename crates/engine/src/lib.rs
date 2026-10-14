@@ -185,6 +185,9 @@ pub struct Session {
     /// Smart guides preference (`view.snapping`): moves and resizes snap to the page, other
     /// objects, equal gaps and matching sizes. Kept in the store between runs.
     pub snapping: bool,
+    /// The layer strip beside the canvas (`view.layerStrip`): every object of the page as a
+    /// picture, front at the top, dragged to restack. Kept in the store between runs.
+    pub layer_strip: bool,
     /// The user interface's language (`ui.setLanguage`): the system's, or a fixed one. Kept in
     /// the store between runs.
     pub language: genha_i18n::Setting,
@@ -236,6 +239,7 @@ impl Session {
             style_clipboard: None,
             tools: ToolState::default(),
             snapping: true,
+            layer_strip: true,
             language: genha_i18n::Setting::System,
             user_name: String::new(),
             dark: None,

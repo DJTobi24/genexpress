@@ -59,6 +59,8 @@ pub enum RenderError {
     InvalidScale(f64),
     #[error("could not encode the picture: {0}")]
     Encode(String),
+    #[error("no object {0} on the page")]
+    NoElement(u64),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -151,6 +153,45 @@ impl Renderer {
         ctx.render(&mut pm, &mut self.resources);
         let rgba: Vec<u8> = pm.take_unpremultiplied().into_iter().flat_map(|p| [p.r, p.g, p.b, p.a]).collect();
         Ok(Raster { width: u32::from(w), height: u32::from(h), rgba })
+    }
+}
+
+impl Renderer {
+    /// Renders object `id` of page `page` on its own, transparent around it, framed to its bounds
+    /// (rotation included) with a small margin, to fit in `max_side` × `max_side` pixels: the
+    /// pictures of the layer strip. A hidden object is drawn as if shown.
+    pub fn render_element(
+        &mut self,
+        doc: &Document,
+        page: usize,
+        id: genha_doc::NodeId,
+        fonts: &FontBook,
+        max_side: u32,
+    ) -> Result<Raster, RenderError> {
+        let pg = doc.page(page).map_err(|_| RenderError::NoPage(page))?;
+        let el = pg.elements.iter().find(|e| e.id == id).ok_or(RenderError::NoElement(id.0))?;
+        let b = el.frame.sanitized().bounds();
+        let (bw, bh) = (b.width(), b.height());
+        let longest = bw.max(bh);
+        if !longest.is_finite() || longest <= 0.0 {
+            return Err(RenderError::InvalidScale(longest));
+        }
+        // A margin so outlines and soft edges are not cut off.
+        let pad = longest * 0.04;
+        let (w, h) = (bw + 2.0 * pad, bh + 2.0 * pad);
+        let side = f64::from(max_side.clamp(1, MAX_SIDE));
+        let scale = side / w.max(h) * (1.0 - 1e-9);
+        let (pw, ph) = raster_size(w * scale, h * scale)?;
+        let mut ctx = RenderContext::new(pw, ph);
+        let mut shown = el.clone();
+        shown.hidden = false;
+        let mut draw = Draw { doc, fonts, scale, pictures: &mut self.pictures };
+        draw.element(&mut ctx, &shown, 0, Affine::translate((pad - b.x0, pad - b.y0)));
+        ctx.flush();
+        let mut pm = Pixmap::new(pw, ph);
+        ctx.render(&mut pm, &mut self.resources);
+        let rgba: Vec<u8> = pm.take_unpremultiplied().into_iter().flat_map(|p| [p.r, p.g, p.b, p.a]).collect();
+        Ok(Raster { width: u32::from(pw), height: u32::from(ph), rgba })
     }
 }
 
