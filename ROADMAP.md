@@ -2,7 +2,7 @@
 
 **Stage: pre-alpha** · next: alpha (M2–M3: document styles, embedded fonts) · ~30–35% of the target feature set (estimated)
 
-> **Last updated:** 2026-10-14 · **Change:** minor (M2.25 layer strip, M2.26 template dialog, M2.27 text panel, M2.28 picture panel and icon rail, M3.1 text shaping, M2.16 text edited on the canvas, M4.1 vector PDF, M2.17 web app follow-ups, M2.19 smart guides, M5.1 multi-series charts and richer tables, M3.2 formatting part of a text box, M6.1 MP4 video export, M2.20 template library of 121, M5.2 German UI, M2.21 smart resize re-layout, M4.2 AI background removal, M3.3 text that shrinks to fit its box, M2.24 home screen with My designs and project folders, M7.1 release packaging)
+> **Last updated:** 2026-10-14 · **Change:** minor (M2.25 layer strip, M2.26 template dialog, M2.27 text panel, M2.28 picture panel and icon rail, M2.29 all panels on the left, M3.1 text shaping, M2.16 text edited on the canvas, M4.1 vector PDF, M2.17 web app follow-ups, M2.19 smart guides, M5.1 multi-series charts and richer tables, M3.2 formatting part of a text box, M6.1 MP4 video export, M2.20 template library of 121, M5.2 German UI, M2.21 smart resize re-layout, M4.2 AI background removal, M3.3 text that shrinks to fit its box, M2.24 home screen with My designs and project folders, M7.1 release packaging)
 
 ## Headline numbers
 
@@ -14,7 +14,7 @@
 | Tests | 404 | measured (`cargo test --workspace`) |
 | Rust lines | ~60k | measured (all `.rs` files, tests included) |
 | Platforms | Linux, macOS, Windows (desktop); web (WASM, `cargo xtask web`); downloads: universal macOS DMG (signed and notarized with the Apple secrets set), Windows zip, Linux tar.gz, web zip (`release.yml`, docs/release.md) | Linux, its package and Chromium measured; macOS and Windows packaging untested until the first tagged release |
-| UI languages | English, German (983 strings) | measured (`crates/i18n/po/de.po`) |
+| UI languages | English, German (968 strings) | measured (`crates/i18n/po/de.po`) |
 
 ## What's next
 
@@ -30,6 +30,7 @@ Full milestone table: [docs/roadmap.md](docs/roadmap.md). Ranked work list: [doc
 
 | Date | Milestone | Summary |
 |---|---|---|
+| 2026-10-14 | M2.29 | Every object is edited on the left; the right-hand panel is gone (the canvas gets its width). Shapes: fill swatches with gradient and no fill, border none/solid/dashed as pictures with colour and width, corners, an Effects tab with shadow none/soft/hard as pictures plus softness and distance; charts and tables: their data editors under Edit, plus Animation; groups: ungroup; several objects: align to each other, spread evenly, group, duplicate, paste style, delete. Position, Opacity (pop-ups) and Arrange look the same on every panel. The page's settings (name, size, background, notes, page animation) moved to a new Page item in the icon rail. 20 strings of the old panel dropped from the catalogue |
 | 2026-10-14 | M2.28 | Picture panel on the left and an icon rail (asked for by the owner, designed from his description): selecting a picture turns the left panel into its editor like text, the right-hand panel stays closed. Edit: quick actions as tiles with GenHa's own illustrations (remove, blur or change the background — a colour pop-up —, black & white, fill frame, colours to the brand), the subject-finding method and progress, then Adjust, Crop & shape, Corners, Fit, Position and Opacity as buttons with icons opening pop-ups; Effects: the 14 filters as previews of the selected picture itself (rendered per filter, cached), the chosen one highlighted, a strength slider; Animation. The rail is narrower (78 pt) with icons drawn in code (grid, shapes, T, picture, brand dots, layers) over short labels, the active one on a soft pill; light and dark |
 | 2026-10-14 | M2.27 | Text panel on the left (asked for by the owner, designed from his description): selecting a text box turns the left panel into its editor and keeps the right-hand panel closed, so editing text no longer means a column of sliders. Tabs Edit, Effects, Animation in one rounded control; Edit has the text styles as rendered previews in a sideways row (`text.applyPreset`: font, weight, colour, spacing and effect on the box, size and alignment kept, one undo step), the font, a size stepper, alignment and emphasis as icon tiles, colour (current colour opening the full picker, brand colours, nine colours), straight or curved as pictures with the curve slider, spacing folded away, shrink to fit, position and opacity in pop-ups; Effects shows none/shadow/outline/highlight as pictures with colour and strength (softness, distance, thickness, padding, corners). The rail stays; a rail tab or × closes the panel until another text box is selected. German throughout |
 | 2026-10-14 | M2.26 | Templates no longer take over a design unasked: clicking a template in the editor while the design has content asks whether to open it as a new design (the design stays as it is), replace the current page (`template.use {replace: true}`: the template's pages take its place in one undo step) or add it as a page; an empty design simply takes the template |

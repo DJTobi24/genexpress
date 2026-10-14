@@ -105,8 +105,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     if app.session.active().is_some_and(|d| d.selection.is_empty()) && app.session.text_editing.is_none() {
         app.editor.panel_closed = None;
     }
-    // A selected text box or picture is edited in the left panel; the right-hand panel stays
-    // closed.
+    // A selected object is edited in the left panel (nothing selected: the rail's tab).
     let context = crate::properties::context_target(app);
     egui::Panel::left("left_panel").resizable(true).default_size(290.0).min_size(260.0).frame(panel_frame(&t)).show(ui, |ui| {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| match context {
@@ -114,11 +113,6 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
             None => left_panel(app, ui, &t),
         });
     });
-    if context.is_none() {
-        egui::Panel::right("properties").resizable(true).default_size(290.0).min_size(240.0).frame(panel_frame(&t)).show(ui, |ui| {
-            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| crate::properties::show(app, ui, &t));
-        });
-    }
     crate::layers::show(app, ui, &t);
     egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.canvas)).show(ui, |ui| crate::canvas::show(app, ui, &t));
     palette(app, ui.ctx(), &t);
@@ -566,6 +560,7 @@ fn left_rail(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                         LeftTab::Media => crate::art::Icon::Lib("image"),
                         LeftTab::Brand => crate::art::Icon::Brand,
                         LeftTab::Layers => crate::art::Icon::Layers,
+                        LeftTab::Page => crate::art::Icon::Page,
                     };
                     let mut art = crate::art::Art::new(&mut app.thumbs, &ctx, fonts.clone());
                     art.icon(ui.painter(), icon, egui::Rect::from_center_size(back.center(), egui::vec2(20.0, 20.0)), ink);
@@ -606,6 +601,7 @@ fn left_panel(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         LeftTab::Media => media_tab(app, ui, t),
         LeftTab::Brand => brand_tab(app, ui, t),
         LeftTab::Layers => layers_tab(app, ui, t),
+        LeftTab::Page => crate::properties::page_panel(app, ui, t),
     }
 }
 

@@ -1,4 +1,6 @@
-//! The right-hand panel: properties of the selection, or of the page when nothing is selected.
+//! The object panels: when an object is selected the left panel edits it (text, pictures,
+//! shapes, charts, tables, groups, several objects), and the Page item of the rail edits the
+//! page. Each panel reads a snapshot of the design, then acts through commands.
 
 use serde_json::{Value, json};
 
@@ -6,6 +8,8 @@ use serde_json::{Value, json};
 mod data_props;
 #[path = "image_panel.rs"]
 mod image_panel;
+#[path = "object_panel.rs"]
+mod object_panel;
 #[path = "text_panel.rs"]
 mod text_panel;
 
@@ -16,21 +20,34 @@ pub use text_panel::PanelTab;
 pub enum Context {
     Text,
     Picture,
+    Shape,
+    Chart,
+    Table,
+    Group,
+    /// Several objects (the id is the first one's).
+    Several,
 }
 
-/// The object the left panel edits: exactly one text box or picture selected (or the text box
-/// edited in place), unless the panel was closed for it.
+/// The object the left panel edits: the selection (or the text box edited in place), unless the
+/// panel was closed for it.
 pub fn context_target(app: &App) -> Option<(genha_doc::NodeId, Context)> {
     let d = app.session.active()?;
     let (id, kind) = match &app.session.text_editing {
         Some(e) => (e.id, Context::Text),
         None => match d.selected_elements().as_slice() {
-            [el] => match el.kind {
-                ElementKind::Text(_) => (el.id, Context::Text),
-                ElementKind::Image(_) => (el.id, Context::Picture),
-                _ => return None,
-            },
-            _ => return None,
+            [] => return None,
+            [el] => (
+                el.id,
+                match el.kind {
+                    ElementKind::Text(_) => Context::Text,
+                    ElementKind::Image(_) => Context::Picture,
+                    ElementKind::Shape(_) => Context::Shape,
+                    ElementKind::Chart(_) => Context::Chart,
+                    ElementKind::Table(_) => Context::Table,
+                    ElementKind::Group(_) => Context::Group,
+                },
+            ),
+            [first, ..] => (first.id, Context::Several),
         },
     };
     (app.editor.panel_closed != Some(id)).then_some((id, kind))
@@ -41,13 +58,33 @@ pub fn context_panel(app: &mut App, ui: &mut egui::Ui, t: &Tokens, id: genha_doc
     match kind {
         Context::Text => text_panel::show(app, ui, t, id),
         Context::Picture => image_panel::show(app, ui, t, id),
+        Context::Several => object_panel::several(app, ui, t, id),
+        _ => object_panel::show(app, ui, t, id),
+    }
+}
+
+/// The Page item of the rail: the page's name, size, background, notes and animation.
+pub fn page_panel(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
+    let Some(d) = app.session.active() else { return };
+    let Some(page) = d.doc.pages.get(d.page).cloned() else { return };
+    let brand: Vec<genha_color::Color> = d.doc.brand.colors.iter().map(|c| c.color).collect();
+    let mut acts = Actions::default();
+    let mut choices = app.motion.panel;
+    page_props(ui, t, &page, &brand, &mut acts);
+    page_animation(ui, t, &page, &mut choices, &mut acts);
+    app.motion.panel = choices;
+    for (cmd, p) in acts.commands {
+        app.run(cmd, &p);
+    }
+    if acts.preview {
+        crate::motion::play(app, ui.ctx());
     }
 }
 
 use crate::App;
 use crate::theme::{Tokens, from_egui, to_egui};
-use genha_doc::{AnimationKind, Element, ElementKind, Fill, Page, RangeStyle, ShapeKind, TextAlign, TextEffect, TextFit};
-use genha_i18n::{N_, tr, tr_n};
+use genha_doc::{AnimationKind, Element, ElementKind, Fill, Page};
+use genha_i18n::{N_, tr};
 
 /// Commands to run after drawing (the panel reads a snapshot, then acts).
 #[derive(Default)]
@@ -62,51 +99,6 @@ struct Actions {
 impl Actions {
     fn run(&mut self, id: &'static str, p: Value) {
         self.commands.push((id, p));
-    }
-}
-
-pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
-    let Some(d) = app.session.active() else { return };
-    let selected: Vec<Element> = d.selected_elements().into_iter().cloned().collect();
-    let page = d.doc.pages.get(d.page).cloned();
-    let brand: Vec<genha_color::Color> = d.doc.brand.colors.iter().map(|c| c.color).collect();
-    let families = app.font_families().to_vec();
-    // The text being edited in place: the style at its selection.
-    let editing = genha_engine::text_selection_style(&app.session);
-    let editing_caret = app.session.text_editing.as_ref().is_some_and(|e| e.anchor == e.caret);
-    let mut acts = Actions { ml: crate::models::panel(app), ..Default::default() };
-    let mut choices = app.motion.panel;
-    match selected.as_slice() {
-        [] => {
-            if let Some(p) = &page {
-                page_props(ui, t, p, &brand, &mut acts);
-                page_animation(ui, t, p, &mut choices, &mut acts);
-            }
-        }
-        [el] => {
-            let sel = editing.as_ref().filter(|(id, _)| *id == el.id).map(|(_, r)| r);
-            // The scale shrinking text is shown at (as the canvas draws it).
-            let fit = match &el.kind {
-                ElementKind::Text(tx) if tx.fit == TextFit::Shrink => {
-                    Some(genha_render::text_fit(&app.session.fonts, tx, el.frame.width, el.frame.height))
-                }
-                _ => None,
-            };
-            element_props(ui, t, el, sel, editing_caret, &brand, &families, fit, &mut acts);
-        }
-        many => multi_props(ui, t, many, &mut acts),
-    }
-    app.motion.panel = choices;
-    crate::models::apply(app, acts.ml);
-    for (id, p) in acts.commands {
-        if crate::models::is_background(id) {
-            crate::models::start(app, ui.ctx(), id, p);
-        } else {
-            app.run(id, &p);
-        }
-    }
-    if acts.preview {
-        crate::motion::play(app, ui.ctx());
     }
 }
 
@@ -298,344 +290,6 @@ fn page_props(ui: &mut egui::Ui, t: &Tokens, p: &Page, brand: &[genha_color::Col
     });
 }
 
-#[allow(clippy::too_many_arguments)]
-fn element_props(
-    ui: &mut egui::Ui,
-    t: &Tokens,
-    el: &Element,
-    sel: Option<&RangeStyle>,
-    editing_caret: bool,
-    brand: &[genha_color::Color],
-    families: &[String],
-    fit: Option<genha_text::FitScale>,
-    acts: &mut Actions,
-) {
-    let id = el.id.0;
-    let key = |what: &str| format!("{what}:{id}");
-    title(ui, &crate::element_name(el));
-    match &el.kind {
-        ElementKind::Text(text) => {
-            section(ui, t, tr("TEXT"));
-            let mut s = text.text.clone();
-            if ui.add(egui::TextEdit::multiline(&mut s).desired_rows(3).desired_width(f32::INFINITY)).changed() {
-                acts.run("text.setText", json!({"text": s, "merge_key": key("text")}));
-            }
-            // The style shown: at the selection while the box is edited, else its first
-            // character's; values that vary over it show as mixed.
-            let whole;
-            let shown = match sel {
-                Some(r) => r,
-                None => {
-                    whole = text.range_style(0..text.text.chars().count());
-                    &whole
-                }
-            };
-            let st = &shown.style;
-            let mixed = |f: &str| shown.is_mixed(f);
-            if sel.is_some() {
-                let hint = if editing_caret { tr("Changes apply to the next text you type") } else { tr("Changes apply to the selected text") };
-                ui.label(egui::RichText::new(hint).size(11.0).color(t.text_dim));
-            }
-            let mut family = st.font_family.clone();
-            crate::editor::font_combo(
-                ui,
-                &format!("font_{id}"),
-                if mixed("font_family") { tr("Font (mixed)") } else { tr("Font") },
-                &mut family,
-                families,
-            );
-            if family != st.font_family {
-                acts.run("text.setStyle", json!({"font_family": family}));
-            }
-            ui.horizontal(|ui| {
-                let mut size = st.font_size;
-                let prefix = if mixed("font_size") { tr("Size (mixed) ") } else { tr("Size ") };
-                if ui.add(egui::DragValue::new(&mut size).range(1.0..=2000.0).speed(0.5).prefix(prefix)).changed() {
-                    acts.run("text.setStyle", json!({"font_size": size, "merge_key": key("size")}));
-                }
-                for (label, field, cmd, on) in [
-                    ("B", N_("bold"), "text.toggleBold", st.bold),
-                    ("I", N_("italic"), "text.toggleItalic", st.italic),
-                    ("U", N_("underline"), "text.toggleUnderline", st.underline),
-                    ("S", N_("strikethrough"), "text.toggleStrikethrough", st.strikethrough),
-                ] {
-                    let label = if mixed(field) { format!("{label}~") } else { label.to_string() };
-                    let b = ui.add(egui::Button::new(label).selected(on && !mixed(field)));
-                    if b.on_hover_text(if mixed(field) { tr!("{style}: mixed", style = tr(field)) } else { tr(field).to_string() }).clicked() {
-                        acts.run(cmd, json!({}));
-                    }
-                }
-                if ui.add(egui::Button::new("AA").selected(text.style.uppercase)).on_hover_text(tr("uppercase")).clicked() {
-                    acts.run("text.setStyle", json!({"uppercase": !text.style.uppercase}));
-                }
-            });
-            ui.horizontal(|ui| {
-                ui.label(tr("Align"));
-                for (label, a) in [(N_("Left"), TextAlign::Left), (N_("Center"), TextAlign::Center), (N_("Right"), TextAlign::Right)] {
-                    if ui.add(egui::Button::new(tr(label)).selected(st.align == a)).clicked() {
-                        acts.run("text.setStyle", json!({"align": a}));
-                    }
-                }
-            });
-            if mixed("color") {
-                ui.label(egui::RichText::new(tr("Colour: mixed")).size(11.0).color(t.text_dim));
-            }
-            if let Some(c) = color_row(ui, st.color, brand) {
-                acts.run("text.setStyle", json!({"color": c.to_hex(), "merge_key": key("color")}));
-            }
-            let st = &text.style;
-            let (mut lh, mut ls) = (st.line_height, st.letter_spacing);
-            if ui.add(egui::Slider::new(&mut lh, 0.6..=3.0).text(tr("Line height"))).changed() {
-                acts.run("text.setStyle", json!({"line_height": lh, "merge_key": key("lh")}));
-            }
-            if ui.add(egui::Slider::new(&mut ls, -200.0..=800.0).text(tr("Letter spacing"))).changed() {
-                acts.run("text.setStyle", json!({"letter_spacing": ls, "merge_key": key("ls")}));
-            }
-            let mut shrink = text.fit == TextFit::Shrink;
-            let tip = tr("When the text does not fit its box, set it smaller (down to 40%) instead of growing the box");
-            if ui.checkbox(&mut shrink, tr("Shrink text to fit")).on_hover_text(tip).changed() {
-                acts.run("text.setFit", json!({"fit": if shrink { "shrink" } else { "none" }}));
-            }
-            if let Some(f) = fit.filter(|f| f.scale < 1.0 || !f.fits) {
-                let percent = format!("{:.0}", f.scale * 100.0);
-                let note = if f.fits {
-                    tr!("Shown at {percent}% to fit", percent = percent)
-                } else {
-                    tr!("Too long to fit, even at {percent}%", percent = percent)
-                };
-                ui.label(egui::RichText::new(note).size(11.0).color(t.text_dim));
-            }
-            data_props::curve(ui, t, id, text, acts);
-            section(ui, t, tr("EFFECT"));
-            ui.horizontal_wrapped(|ui| {
-                let effects: [(&str, TextEffect); 4] = [
-                    (N_("None"), TextEffect::None),
-                    (N_("Shadow"), TextEffect::Shadow { color: genha_color::Color::rgba(0, 0, 0, 110), offset_x: 4.0, offset_y: 4.0, blur: 6.0 }),
-                    (N_("Outline"), TextEffect::Outline { color: st.color.readable_text(), width: (st.font_size / 18.0).max(1.0) }),
-                    (
-                        N_("Highlight"),
-                        TextEffect::Highlight {
-                            color: brand.get(1).copied().unwrap_or(genha_color::Color::rgb(255, 230, 0)),
-                            padding: st.font_size * 0.2,
-                            corner_radius: st.font_size * 0.15,
-                        },
-                    ),
-                ];
-                for (label, e) in effects {
-                    let on = std::mem::discriminant(&text.effect) == std::mem::discriminant(&e);
-                    if ui.add(egui::Button::new(tr(label)).selected(on)).clicked() {
-                        acts.run("text.setEffect", json!({"effect": e}));
-                    }
-                }
-            });
-            match &text.effect {
-                TextEffect::Shadow { color, .. } | TextEffect::Outline { color, .. } | TextEffect::Highlight { color, .. } => {
-                    if let Some(c) = color_row(ui, *color, brand) {
-                        let mut e = serde_json::to_value(&text.effect).unwrap_or(Value::Null);
-                        if let Some(o) = e.as_object_mut() {
-                            o.insert("color".into(), json!(c.to_hex()));
-                        }
-                        acts.run("text.setEffect", json!({"effect": e, "merge_key": key("effectcolor")}));
-                    }
-                }
-                TextEffect::None => {}
-            }
-        }
-        ElementKind::Shape(sh) => {
-            section(ui, t, tr("FILL"));
-            let fill = sh.fill.primary_color().unwrap_or(genha_color::Color::TRANSPARENT);
-            if let Some(c) = color_row(ui, fill, brand) {
-                acts.run("style.fill", json!({"color": c.to_hex(), "merge_key": key("fill")}));
-            }
-            ui.horizontal(|ui| {
-                if ui.button(tr("Gradient")).clicked() {
-                    let second = brand.iter().find(|b| **b != fill).copied().unwrap_or(genha_color::Color::WHITE);
-                    acts.run("style.fill", json!({"fill": Fill::linear(45.0, fill, second)}));
-                }
-                if ui.button(tr("No fill")).clicked() {
-                    acts.run("style.fill", json!({"color": "none"}));
-                }
-            });
-            if let ShapeKind::Rect { corner_radius } = &sh.shape {
-                let mut r = *corner_radius;
-                if ui.add(egui::Slider::new(&mut r, 0.0..=(el.frame.width.min(el.frame.height) / 2.0).max(1.0)).text(tr("Corners"))).changed() {
-                    acts.run("style.cornerRadius", json!({"radius": r, "merge_key": key("radius")}));
-                }
-            }
-            section(ui, t, tr("BORDER"));
-            let stroke = sh.stroke.clone();
-            ui.horizontal(|ui| {
-                let mut on = stroke.is_some();
-                if ui.checkbox(&mut on, tr("Border")).changed() {
-                    acts.run("style.stroke", if on { json!({"width": 4.0}) } else { json!({"none": true}) });
-                }
-            });
-            if let Some(st) = stroke {
-                if let Some(c) = color_row(ui, st.color, brand) {
-                    acts.run("style.stroke", json!({"color": c.to_hex(), "merge_key": key("strokecolor")}));
-                }
-                let mut w = st.width;
-                if ui.add(egui::Slider::new(&mut w, 0.0..=100.0).text(tr("Width"))).changed() {
-                    acts.run("style.stroke", json!({"width": w, "merge_key": key("strokewidth")}));
-                }
-                let mut dashed = !st.dash.is_empty();
-                if ui.checkbox(&mut dashed, tr("Dashed")).changed() {
-                    let dash = if dashed { vec![w * 3.0, w * 2.0] } else { vec![] };
-                    acts.run("style.stroke", json!({"dash": dash}));
-                }
-            }
-            section(ui, t, tr("SHADOW"));
-            let mut on = sh.shadow.is_some();
-            if ui.checkbox(&mut on, tr("Drop shadow")).changed() {
-                acts.run("style.shadow", if on { json!({}) } else { json!({"none": true}) });
-            }
-            if let Some(s) = &sh.shadow {
-                let mut blur = s.blur;
-                if ui.add(egui::Slider::new(&mut blur, 0.0..=100.0).text(tr("Blur"))).changed() {
-                    acts.run("style.shadow", json!({"blur": blur, "merge_key": key("shadowblur")}));
-                }
-                let (mut ox, mut oy) = (s.offset_x, s.offset_y);
-                ui.horizontal(|ui| {
-                    let a = ui.add(egui::DragValue::new(&mut ox).prefix(tr("X ")));
-                    let b = ui.add(egui::DragValue::new(&mut oy).prefix(tr("Y ")));
-                    if a.changed() || b.changed() {
-                        acts.run("style.shadow", json!({"offset_x": ox, "offset_y": oy, "merge_key": key("shadowoff")}));
-                    }
-                });
-            }
-        }
-        ElementKind::Image(img) => {
-            section(ui, t, tr("FILTERS"));
-            let current = img.filter.clone();
-            ui.horizontal_wrapped(|ui| {
-                for f in genha_effects::filter_presets() {
-                    if ui.add(egui::Button::new(genha_i18n::trc("filter", f.label)).selected(current.as_deref() == Some(f.id))).clicked() {
-                        acts.run("image.filter", json!({"preset": f.id, "intensity": 100}));
-                    }
-                }
-            });
-            section(ui, t, tr("ADJUST"));
-            let a = &img.adjustments;
-            for (label, field, v, lo, hi) in [
-                (N_("Brightness"), "brightness", a.brightness, -100.0, 100.0),
-                (N_("Contrast"), "contrast", a.contrast, -100.0, 100.0),
-                (N_("Saturation"), "saturation", a.saturation, -100.0, 100.0),
-                (N_("Warmth"), "warmth", a.warmth, -100.0, 100.0),
-                (N_("Sharpen"), "sharpen", a.sharpen, 0.0, 100.0),
-                (N_("Blur"), "blur", a.blur, 0.0, 100.0),
-            ] {
-                let mut x = v;
-                if ui.add(egui::Slider::new(&mut x, lo..=hi).text(tr(label))).changed() {
-                    acts.run("image.adjust", json!({field: x, "merge_key": key(field)}));
-                }
-            }
-            if ui.button(tr("Reset adjustments")).clicked() {
-                acts.run("image.adjust", json!({"reset": true}));
-            }
-            section(ui, t, tr("CROP & SHAPE"));
-            let c = img.crop;
-            let (mut cx, mut cy, mut cw, mut ch) = (c.x, c.y, c.width, c.height);
-            let mut changed = false;
-            changed |= ui.add(egui::Slider::new(&mut cx, 0.0..=0.95).text(tr("Left"))).changed();
-            changed |= ui.add(egui::Slider::new(&mut cy, 0.0..=0.95).text(tr("Top"))).changed();
-            changed |= ui.add(egui::Slider::new(&mut cw, 0.05..=1.0).text(tr("Width"))).changed();
-            changed |= ui.add(egui::Slider::new(&mut ch, 0.05..=1.0).text(tr("Height"))).changed();
-            if changed {
-                acts.run("image.crop", json!({"x": cx, "y": cy, "width": cw, "height": ch, "merge_key": key("crop")}));
-            }
-            ui.horizontal_wrapped(|ui| {
-                for (label, shape) in [
-                    (N_("None"), ""),
-                    (N_("Circle"), "circle"),
-                    (N_("Rounded"), "rounded"),
-                    (N_("Star"), "star"),
-                    (N_("Hexagon"), "polygon"),
-                    (N_("Triangle"), "triangle"),
-                ] {
-                    if ui.button(tr(label)).clicked() {
-                        acts.run("image.mask", if shape.is_empty() { json!({"none": true}) } else { json!({"shape": shape}) });
-                    }
-                }
-            });
-            let mut r = img.corner_radius;
-            if ui.add(egui::Slider::new(&mut r, 0.0..=(el.frame.width.min(el.frame.height) / 2.0).max(1.0)).text(tr("Corners"))).changed() {
-                acts.run("style.cornerRadius", json!({"radius": r, "merge_key": key("radius")}));
-            }
-            section(ui, t, tr("QUICK ACTIONS"));
-            ui.horizontal_wrapped(|ui| {
-                if ui.button(tr("Remove background")).on_hover_text(tr("Finds the subject and removes everything else")).clicked() {
-                    acts.run("image.removeBackground", json!({}));
-                }
-                if ui.button(tr("Blur background")).clicked() {
-                    acts.run("image.blurBackground", json!({}));
-                }
-                if ui.button(tr("White background")).clicked() {
-                    acts.run("image.changeBackground", json!({"color": "#ffffff"}));
-                }
-                if let Some(b) = brand.first()
-                    && ui.button(tr("Brand background")).clicked()
-                {
-                    acts.run("image.changeBackground", json!({"color": b.to_hex()}));
-                }
-                if ui.button(tr("Fill frame")).clicked() {
-                    acts.run("image.setFit", json!({"fit": "cover"}));
-                }
-                if ui.button(tr("Fit inside")).clicked() {
-                    acts.run("image.setFit", json!({"fit": "contain"}));
-                }
-                if ui.button(tr("Colours → brand")).clicked() {
-                    acts.run("brand.fromPicture", json!({}));
-                }
-            });
-            crate::models::draw(ui, &mut acts.ml);
-        }
-        ElementKind::Chart(c) => data_props::chart(ui, t, id, c, brand, acts),
-        ElementKind::Table(tb) => data_props::table(ui, t, id, tb, el.frame.width, brand, acts),
-        ElementKind::Group(g) => {
-            ui.label(tr_n!("Group of {n} object", "Group of {n} objects", g.children.len()));
-            if ui.button(tr("Ungroup")).clicked() {
-                acts.run("object.ungroup", json!({}));
-            }
-        }
-    }
-    element_animation(ui, t, el, acts);
-    common(ui, t, el, acts);
-}
-
-fn common(ui: &mut egui::Ui, t: &Tokens, el: &Element, acts: &mut Actions) {
-    let id = el.id.0;
-    section(ui, t, tr("POSITION"));
-    common_frame(ui, el, acts);
-    let mut o = el.opacity;
-    if ui.add(egui::Slider::new(&mut o, 0.0..=1.0).text(tr("Opacity"))).changed() {
-        acts.run("object.setOpacity", json!({"opacity": o, "merge_key": format!("opacity:{id}")}));
-    }
-    section(ui, t, tr("ALIGN TO PAGE"));
-    align_buttons(ui, acts, "page");
-    section(ui, t, tr("ARRANGE"));
-    ui.horizontal_wrapped(|ui| {
-        for (label, cmd) in [
-            (N_("Forward"), "object.bringForward"),
-            (N_("Backward"), "object.sendBackward"),
-            (N_("Flip H"), "object.flipHorizontal"),
-            (N_("Flip V"), "object.flipVertical"),
-            (N_("Duplicate"), "edit.duplicate"),
-            (N_("Copy style"), "style.copy"),
-            (N_("Paste style"), "style.paste"),
-        ] {
-            if ui.button(tr(label)).clicked() {
-                acts.run(cmd, json!({}));
-            }
-        }
-        if ui.button(if el.locked { tr("Unlock") } else { tr("Lock") }).clicked() {
-            acts.run(if el.locked { "object.unlock" } else { "object.lock" }, json!({}));
-        }
-        if ui.add(egui::Button::new(egui::RichText::new(tr("Delete")).color(t.danger))).clicked() {
-            acts.run("edit.delete", json!({}));
-        }
-    });
-}
-
 /// Position, size and rotation as numbers.
 fn common_frame(ui: &mut egui::Ui, el: &Element, acts: &mut Actions) {
     let id = el.id.0;
@@ -671,38 +325,4 @@ fn align_buttons(ui: &mut egui::Ui, acts: &mut Actions, to: &str) {
             }
         }
     });
-}
-
-fn multi_props(ui: &mut egui::Ui, t: &Tokens, els: &[Element], acts: &mut Actions) {
-    title(ui, &tr_n!("{n} object", "{n} objects", els.len()));
-    section(ui, t, tr("ALIGN"));
-    align_buttons(ui, acts, "selection");
-    section(ui, t, tr("DISTRIBUTE"));
-    ui.horizontal(|ui| {
-        if ui.button(tr("Horizontally")).clicked() {
-            acts.run("object.distribute", json!({"axis": "horizontal"}));
-        }
-        if ui.button(tr("Vertically")).clicked() {
-            acts.run("object.distribute", json!({"axis": "vertical"}));
-        }
-    });
-    section(ui, t, tr("ARRANGE"));
-    ui.horizontal_wrapped(|ui| {
-        if ui.button(tr("Group")).clicked() {
-            acts.run("object.group", json!({}));
-        }
-        if ui.button(tr("Duplicate")).clicked() {
-            acts.run("edit.duplicate", json!({}));
-        }
-        if ui.button(tr("Paste style")).clicked() {
-            acts.run("style.paste", json!({}));
-        }
-        if ui.add(egui::Button::new(egui::RichText::new(tr("Delete")).color(t.danger))).clicked() {
-            acts.run("edit.delete", json!({}));
-        }
-    });
-    if els.iter().all(|e| matches!(e.kind, ElementKind::Image(_))) {
-        section(ui, t, tr("COLLAGE"));
-        ui.label(egui::RichText::new(tr("Pick a layout in Elements › Collage.")).color(t.text_dim));
-    }
 }

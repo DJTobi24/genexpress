@@ -60,10 +60,13 @@ pub enum LeftTab {
     Media,
     Brand,
     Layers,
+    /// The page's settings: name, size, background, notes, animation.
+    Page,
 }
 
 impl LeftTab {
-    pub const ALL: [LeftTab; 6] = [LeftTab::Templates, LeftTab::Elements, LeftTab::Text, LeftTab::Media, LeftTab::Brand, LeftTab::Layers];
+    pub const ALL: [LeftTab; 7] =
+        [LeftTab::Templates, LeftTab::Elements, LeftTab::Text, LeftTab::Media, LeftTab::Brand, LeftTab::Layers, LeftTab::Page];
     /// The tab's name in English (as the control channel reports it; shown translated).
     pub fn label(self) -> &'static str {
         match self {
@@ -73,6 +76,7 @@ impl LeftTab {
             LeftTab::Media => N_("Media"),
             LeftTab::Brand => N_("Brand"),
             LeftTab::Layers => N_("Layers"),
+            LeftTab::Page => N_("Page"),
         }
     }
 }
