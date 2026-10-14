@@ -20,7 +20,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             always,
             search_cmd
         ),
-        cmd!(query "settings.get", "Settings", [], None, "{} — {name, dark, language, network, snapping}", always, settings_get),
+        cmd!(query "settings.get", "Settings", [], None, "{} — {name, dark, language, network, snapping, layer_strip}", always, settings_get),
         cmd!(
             query "settings.set",
             "Change Settings",
@@ -183,6 +183,7 @@ fn settings_get(s: &mut Session, _: &Value) -> Result<Value> {
         "language": s.language.id(),
         "network": s.network,
         "snapping": s.snapping,
+        "layer_strip": s.layer_strip,
     }))
 }
 

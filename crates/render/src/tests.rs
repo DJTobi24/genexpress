@@ -780,3 +780,37 @@ fn shrunk_text_is_drawn_where_its_fitted_layout_is() {
     }
     assert!(ink.x1 <= frame.x + frame.width + 1.0 && ink.y1 <= frame.y + frame.height + 1.0, "{ink:?}");
 }
+
+#[test]
+fn one_element_alone_framed_to_its_bounds() {
+    let mut d = doc(1000.0, 1000.0);
+    let back = shape(&mut d, Frame::new(0.0, 0.0, 1000.0, 1000.0), rect(), Fill::solid(Color::rgb(0, 0, 255)));
+    let wide = shape(&mut d, Frame::new(600.0, 700.0, 200.0, 100.0), rect(), Fill::solid(RED));
+    let mut r = Renderer::new();
+    let t = r.render_element(&d, 0, wide, &FontBook::new(), 100).unwrap();
+    // 200 × 100 plus a margin on each side, fit into 100 px: the aspect ratio is kept.
+    assert_eq!(t.width, 100);
+    assert!((52..=56).contains(&t.height), "{}", t.height);
+    // Only this object: red in the middle, transparent in the margin (no page, no background object).
+    assert_eq!(t.pixel(50, t.height / 2), Some([255, 0, 0, 255]));
+    assert_eq!(t.pixel(0, 0).map(|p| p[3]), Some(0));
+    // A hidden object still gets a picture.
+    d.pages[0].elements[1].hidden = true;
+    let t = r.render_element(&d, 0, wide, &FontBook::new(), 100).unwrap();
+    assert_eq!(t.pixel(50, t.height / 2), Some([255, 0, 0, 255]));
+    // The full-page object fills its picture.
+    let b = r.render_element(&d, 0, back, &FontBook::new(), 64).unwrap();
+    assert_eq!((b.width, b.height), (64, 64));
+    assert_eq!(b.pixel(32, 32), Some([0, 0, 255, 255]));
+    // Missing objects and pages, empty boxes: errors, no panic.
+    assert!(matches!(r.render_element(&d, 0, NodeId(9999), &FontBook::new(), 64), Err(RenderError::NoElement(9999))));
+    assert!(matches!(r.render_element(&d, 3, wide, &FontBook::new(), 64), Err(RenderError::NoPage(3))));
+    let flat = shape(&mut d, Frame::new(10.0, 10.0, 0.0, 0.0), rect(), Fill::solid(RED));
+    assert!(r.render_element(&d, 0, flat, &FontBook::new(), 64).is_err());
+    // A rotated object is framed by its rotated bounds.
+    let tilted = shape(&mut d, Frame { x: 100.0, y: 100.0, width: 100.0, height: 100.0, rotation: 45.0 }, rect(), Fill::solid(RED));
+    let t = r.render_element(&d, 0, tilted, &FontBook::new(), 100).unwrap();
+    assert_eq!((t.width, t.height), (100, 100));
+    assert_eq!(t.pixel(50, 50), Some([255, 0, 0, 255]));
+    assert_eq!(t.pixel(12, 12).map(|p| p[3]), Some(0), "the corners of the diamond's box are empty");
+}

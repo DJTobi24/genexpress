@@ -58,6 +58,15 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             toggle_strikethrough
         ),
         cmd!(
+            "text.applyPreset",
+            "Apply Text Style",
+            [],
+            None,
+            "{id: text style id (textPresets.list), ids?} — gives whole text boxes a text style: its font, weight, colour, spacing and effect; the size and alignment stay (one undo step)",
+            has_text,
+            apply_preset
+        ),
+        cmd!(
             query "text.inspect",
             "Inspect Text",
             [],
@@ -213,6 +222,58 @@ fn apply(s: &mut Session, p: &Value, cmd: &str, label: &str, span: &SpanStyle, r
             })?;
             Ok(ok(json!({"changed": n})))
         }
+    }
+}
+
+/// `text.applyPreset`: a text style on whole boxes (the edited one, or the selected ones).
+fn apply_preset(s: &mut Session, p: &Value) -> Result<Value> {
+    const CMD: &str = "text.applyPreset";
+    let id = super::str_req(p, "id", CMD)?;
+    let preset = genha_templates::text_presets()
+        .into_iter()
+        .find(|t| t.id == id)
+        .ok_or_else(|| bad(CMD, format!("unknown text style `{id}` (see textPresets.list)")))?;
+    let mut patch = serde_json::to_value(&preset.style).map_err(|e| EngineError::Other(e.to_string()))?;
+    if let Some(o) = patch.as_object_mut() {
+        // The box keeps its size and alignment: they belong to the layout, not the look.
+        o.remove("font_size");
+        o.remove("align");
+    }
+    let (span, rest) = split_patch(&patch, CMD)?;
+    let rest = Value::Object(rest);
+    let ids = match (&s.text_editing, p.get("ids")) {
+        (Some(e), None | Some(Value::Null)) => vec![e.id],
+        _ => targets(s, p, CMD)?,
+    };
+    let fonts = Arc::clone(&s.fonts);
+    let effect = preset.effect.clone();
+    let n = s.edit("Text Style", |doc, _| {
+        let mut n = 0;
+        for id in &ids {
+            let el = doc.element_mut(*id)?;
+            if !el.locked && style_deep(el, &span, &rest, &fonts, CMD) {
+                effect_deep(el, &effect);
+                n += 1;
+            }
+        }
+        if n == 0 {
+            return Err(bad(CMD, "select a text box"));
+        }
+        Ok(n)
+    })?;
+    Ok(ok(json!({"changed": n})))
+}
+
+/// Gives a text box, or every unlocked text box in a group, `effect`.
+fn effect_deep(el: &mut Element, effect: &genha_doc::TextEffect) {
+    match &mut el.kind {
+        ElementKind::Group(g) => {
+            for c in g.children.iter_mut().filter(|c| !c.locked) {
+                effect_deep(c, effect);
+            }
+        }
+        ElementKind::Text(t) => t.effect = effect.clone(),
+        _ => {}
     }
 }
 

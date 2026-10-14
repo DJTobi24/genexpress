@@ -41,6 +41,15 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
         cmd!("object.sendBackward", "Send Backward", ["Arrange"], Some("Cmd+["), "{ids?}", has_selection, backward),
         cmd!("object.bringToFront", "Bring to Front", ["Arrange"], Some("Cmd+Shift+]"), "{ids?}", has_selection, to_front),
         cmd!("object.sendToBack", "Send to Back", ["Arrange"], Some("Cmd+Shift+["), "{ids?}", has_selection, to_back),
+        cmd!(
+            "object.reorder",
+            "Move in Stack",
+            [],
+            None,
+            "{id?, index} — moves one object of the current page to `index` in the stacking order: 0 is the back, the object count minus one the front (larger numbers mean the front). Without `id`, the one selected object. Returns {index}",
+            has_selection,
+            reorder
+        ),
         cmd!("object.group", "Group", ["Arrange"], Some("Cmd+G"), "{ids?: at least two objects on the current page}", has_multi, group),
         cmd!("object.ungroup", "Ungroup", ["Arrange"], Some("Cmd+Shift+G"), "{ids?}", has_selection, ungroup),
     ]
@@ -275,6 +284,39 @@ fn to_front(s: &mut Session, p: &Value) -> Result<Value> {
 }
 fn to_back(s: &mut Session, p: &Value) -> Result<Value> {
     arrange(s, p, "object.sendToBack", "Send to Back", i64::MIN)
+}
+
+fn reorder(s: &mut Session, p: &Value) -> Result<Value> {
+    const CMD: &str = "object.reorder";
+    let ids = targets(s, p, CMD)?;
+    let [id] = ids.as_slice() else {
+        return Err(bad(CMD, "pass `id`, or select exactly one object"));
+    };
+    let id = *id;
+    let wanted = match p.get("index") {
+        Some(v) => v.as_u64().ok_or_else(|| bad(CMD, "`index` must be a whole number from 0 (the back)"))?,
+        None => return Err(bad(CMD, "missing `index` (0 is the back)")),
+    };
+    let d = s.doc()?;
+    let page = d.doc.page(d.page)?;
+    let n = page.elements.len();
+    let from =
+        page.elements.iter().position(|e| e.id == id).ok_or_else(|| bad(CMD, "the object is not on the current page (or is inside a group)"))?;
+    // `n` is at least one here: the object was found.
+    let to = usize::try_from(wanted).unwrap_or(usize::MAX).min(n.saturating_sub(1));
+    if to == from {
+        return Ok(ok(json!({"index": to})));
+    }
+    s.edit("Move in Stack", |doc, cx| {
+        let page = doc.page_mut(cx.page)?;
+        if from >= page.elements.len() {
+            return Err(bad(CMD, "the page changed"));
+        }
+        let el = page.elements.remove(from);
+        page.elements.insert(to.min(page.elements.len()), el);
+        Ok(())
+    })?;
+    Ok(ok(json!({"index": to})))
 }
 
 fn group(s: &mut Session, p: &Value) -> Result<Value> {

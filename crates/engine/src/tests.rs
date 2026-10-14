@@ -88,6 +88,85 @@ fn group_ungroup_and_arrange() {
 }
 
 #[test]
+fn reorder_moves_one_object_to_a_stack_position() {
+    let mut s = session();
+    let a = id(&s.execute("shape.add", &json!({})).unwrap());
+    let b = id(&s.execute("shape.add", &json!({})).unwrap());
+    let c = id(&s.execute("shape.add", &json!({})).unwrap());
+    let order = |s: &Session| s.doc().unwrap().doc.pages[0].elements.iter().map(|e| e.id.0).collect::<Vec<_>>();
+    assert_eq!(order(&s), vec![a, b, c]);
+    // The front object to the back, in one undo step.
+    assert_eq!(s.execute("object.reorder", &json!({"id": c, "index": 0})).unwrap()["index"], 0);
+    assert_eq!(order(&s), vec![c, a, b]);
+    // Indices past the front mean the front; the selection is used without `id`.
+    s.execute("select.set", &json!({"ids": [c]})).unwrap();
+    assert_eq!(s.execute("object.reorder", &json!({"index": 99})).unwrap()["index"], 2);
+    assert_eq!(order(&s), vec![a, b, c]);
+    s.execute("object.reorder", &json!({"id": a, "index": 1})).unwrap();
+    assert_eq!(order(&s), vec![b, a, c]);
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert_eq!(order(&s), vec![a, b, c]);
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert_eq!(order(&s), vec![c, a, b]);
+    // Moving to where it already is changes nothing (no undo step).
+    s.execute("edit.redo", &json!({})).unwrap();
+    s.execute("object.reorder", &json!({"id": b, "index": 1})).unwrap();
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert_eq!(order(&s), vec![c, a, b]);
+    // Bad requests.
+    assert!(s.execute("object.reorder", &json!({"id": a})).is_err(), "no index");
+    assert!(s.execute("object.reorder", &json!({"id": a, "index": -1})).is_err());
+    assert!(s.execute("object.reorder", &json!({"id": a, "index": "top"})).is_err());
+    assert!(s.execute("object.reorder", &json!({"id": 999_999, "index": 0})).is_err());
+    s.execute("select.set", &json!({"ids": [a, b]})).unwrap();
+    assert!(s.execute("object.reorder", &json!({"index": 0})).is_err(), "two selected");
+    // Objects inside a group are not on the page's stack.
+    let g = id(&s.execute("object.group", &json!({})).unwrap());
+    assert!(s.execute("object.reorder", &json!({"id": a, "index": 0})).is_err());
+    s.execute("object.reorder", &json!({"id": g, "index": 0})).unwrap();
+    assert_eq!(order(&s), vec![g, c]);
+}
+
+#[test]
+fn text_style_applies_to_a_box_keeping_size_and_alignment() {
+    let mut s = session();
+    let t = id(&s.execute("text.add", &json!({"text": "Hello"})).unwrap());
+    s.execute("text.setStyle", &json!({"font_size": 77, "align": "right"})).unwrap();
+    let preset = genha_templates::text_presets().into_iter().find(|p| p.effect != genha_doc::TextEffect::None).unwrap();
+    s.execute("text.applyPreset", &json!({"id": preset.id})).unwrap();
+    let el = s.doc().unwrap().doc.element(NodeId(t)).unwrap().clone();
+    let ElementKind::Text(te) = el.kind else { panic!() };
+    assert_eq!(te.style.font_family, preset.style.font_family);
+    assert_eq!(te.style.color, preset.style.color);
+    assert_eq!(te.effect, preset.effect);
+    assert_eq!(te.style.font_size, 77.0, "size stays");
+    assert_eq!(te.style.align, genha_doc::TextAlign::Right, "alignment stays");
+    // One undo step.
+    s.execute("edit.undo", &json!({})).unwrap();
+    let el = s.doc().unwrap().doc.element(NodeId(t)).unwrap().clone();
+    let ElementKind::Text(te) = el.kind else { panic!() };
+    assert_eq!(te.effect, genha_doc::TextEffect::None);
+    assert!(s.execute("text.applyPreset", &json!({"id": "nope"})).is_err());
+    let shape = id(&s.execute("shape.add", &json!({})).unwrap());
+    assert!(s.execute("text.applyPreset", &json!({"id": preset.id, "ids": [shape]})).is_err());
+}
+
+#[test]
+fn layer_strip_setting_is_kept() {
+    let mut s = Session::new();
+    s.store = Some(Box::new(crate::store::MemStore::default()));
+    assert!(s.layer_strip, "shown by default");
+    assert_eq!(s.execute("view.layerStrip", &json!({})).unwrap()["on"], false);
+    assert_eq!(s.execute("settings.get", &json!({})).unwrap()["layer_strip"], false);
+    let mut next = Session::new();
+    next.store = s.store.take();
+    crate::cmd::edit::load_preferences(&mut next);
+    assert!(!next.layer_strip);
+    assert_eq!(next.execute("view.layerStrip", &json!({"on": true})).unwrap()["on"], true);
+    assert!(next.execute("view.layerStrip", &json!({"on": 1})).is_err());
+}
+
+#[test]
 fn clipboard_duplicate_delete_lock() {
     let mut s = session();
     let a = id(&s.execute("shape.add", &json!({"x": 0, "y": 0, "width": 10, "height": 10})).unwrap());
@@ -403,6 +482,33 @@ fn exports_write_files() {
     s.execute("export.pdf", &json!({"path": path("d.pdf"), "dpi": 40})).unwrap();
     assert!(std::fs::read(dir.join("d.pdf")).unwrap().starts_with(b"%PDF"));
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn template_replaces_the_current_page_undoably() {
+    let mut s = session();
+    s.execute("page.add", &json!({})).unwrap();
+    s.execute("page.goto", &json!({"index": 0})).unwrap();
+    let mine = id(&s.execute("text.add", &json!({"text": "Mine"})).unwrap());
+    let ids = |s: &Session| s.doc().unwrap().doc.pages.iter().map(|p| p.id.0).collect::<Vec<_>>();
+    let before = ids(&s);
+    let tpl = genha_templates::catalog()[0].id;
+    let r = s.execute("template.use", &json!({"id": tpl, "replace": true})).unwrap();
+    assert_eq!(r["page"], 0);
+    assert_eq!(s.docs.len(), 1, "no new design");
+    let after = ids(&s);
+    assert_eq!(after.len(), 2, "the template's page took the first page's place");
+    assert_ne!(after[0], before[0]);
+    assert_eq!(after[1], before[1], "other pages stay");
+    assert!(s.doc().unwrap().doc.element(NodeId(mine)).is_err());
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert_eq!(ids(&s), before);
+    assert!(s.doc().unwrap().doc.element(NodeId(mine)).is_ok());
+    assert!(s.execute("template.use", &json!({"id": tpl, "replace": true, "as_page": true})).is_err());
+    // Without a design open, `replace` opens the template as a new design.
+    let mut empty = Session::new();
+    empty.execute("template.use", &json!({"id": tpl, "replace": true})).unwrap();
+    assert_eq!(empty.docs.len(), 1);
 }
 
 #[test]

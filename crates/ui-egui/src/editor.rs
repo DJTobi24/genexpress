@@ -14,6 +14,14 @@ pub struct EditorState {
     pub resize_copy: bool,
     pub qr_text: String,
     pub template_query: String,
+    /// A template clicked while the design has content: asks how to use it (new design, replace
+    /// this page, add a page).
+    pub template_ask: Option<&'static str>,
+    /// The text panel's tab (Edit, Effects, Animation).
+    pub text_tab: crate::properties::TextTab,
+    /// The text box the text panel was closed for (× or a rail tab): the left panel shows its tab
+    /// until another text box is selected.
+    pub text_panel_closed: Option<NodeId>,
     pub renaming: Option<String>,
     pub new_brand_color: [u8; 3],
     pub versions_open: bool,
@@ -91,15 +99,28 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     status_bar(app, ui, &t);
     page_strip(app, ui, &t);
     left_rail(app, ui, &t);
-    egui::Panel::left("left_panel").resizable(true).default_size(290.0).min_size(240.0).frame(panel_frame(&t)).show(ui, |ui| {
-        egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| left_panel(app, ui, &t));
+    // Nothing selected: a text box selected again gets its panel again.
+    if app.session.active().is_some_and(|d| d.selection.is_empty()) && app.session.text_editing.is_none() {
+        app.editor.text_panel_closed = None;
+    }
+    // A selected text box is edited in the left panel; the right-hand panel stays closed.
+    let text_panel = crate::properties::text_panel_target(app);
+    egui::Panel::left("left_panel").resizable(true).default_size(290.0).min_size(260.0).frame(panel_frame(&t)).show(ui, |ui| {
+        egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| match text_panel {
+            Some(id) => crate::properties::text_panel(app, ui, &t, id),
+            None => left_panel(app, ui, &t),
+        });
     });
-    egui::Panel::right("properties").resizable(true).default_size(290.0).min_size(240.0).frame(panel_frame(&t)).show(ui, |ui| {
-        egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| crate::properties::show(app, ui, &t));
-    });
+    if text_panel.is_none() {
+        egui::Panel::right("properties").resizable(true).default_size(290.0).min_size(240.0).frame(panel_frame(&t)).show(ui, |ui| {
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| crate::properties::show(app, ui, &t));
+        });
+    }
+    crate::layers::show(app, ui, &t);
     egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.canvas)).show(ui, |ui| crate::canvas::show(app, ui, &t));
     palette(app, ui.ctx(), &t);
     versions_window(app, ui.ctx(), &t);
+    template_dialog(app, ui.ctx(), &t);
     crate::models::show(app, ui.ctx());
 }
 
@@ -261,6 +282,14 @@ fn view_group(app: &mut App, ui: &mut egui::Ui) {
         .clicked()
     {
         app.run("view.snapping", &json!({"on": !snapping}));
+    }
+    let strip = app.session.layer_strip;
+    if ui
+        .add(egui::Button::new(tr("Layers")).selected(strip))
+        .on_hover_text(tr("The layer strip: every object as a picture, the front at the top; drag one up or down to restack it"))
+        .clicked()
+    {
+        app.run("view.layerStrip", &json!({"on": !strip}));
     }
     if ui.button(tr("Fit")).on_hover_text(tr("Fit page (Ctrl+0)")).clicked() {
         app.view.fit_pending = true;
@@ -516,6 +545,10 @@ fn left_rail(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                         .frame(on);
                     if ui.add(b).clicked() {
                         app.left_tab = tab;
+                        // The rail always wins over the text panel.
+                        if let Some(id) = crate::properties::text_panel_target(app) {
+                            app.editor.text_panel_closed = Some(id);
+                        }
                     }
                     ui.add_space(2.0);
                 }
@@ -543,7 +576,9 @@ fn left_panel(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 fn templates_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     heading(ui, tr("Templates"));
     ui.add(egui::TextEdit::singleline(&mut app.editor.template_query).hint_text(tr("Search templates")));
-    ui.label(egui::RichText::new(tr("Click: open as a new design · right-click: add as a page")).size(11.0).color(t.text_dim));
+    ui.label(
+        egui::RichText::new(tr("Click: use (asks first when your design has content) · right-click: add as a page")).size(11.0).color(t.text_dim),
+    );
     let q = app.editor.template_query.to_lowercase();
     let ctx = ui.ctx().clone();
     let mut chosen: Option<(&'static str, bool)> = None;
@@ -586,8 +621,18 @@ fn templates_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         }
     });
     if let Some((id, as_page)) = chosen {
-        app.run("template.use", &json!({"id": id, "as_page": as_page}));
-        app.view.fit_pending = true;
+        let has_content = app.session.active().is_some_and(|d| d.doc.pages.iter().any(|p| !p.elements.is_empty()));
+        if as_page {
+            app.run("template.use", &json!({"id": id, "as_page": true}));
+            app.view.fit_pending = true;
+        } else if has_content {
+            // Never replace someone's work without asking.
+            app.editor.template_ask = Some(id);
+        } else {
+            // An empty design simply takes the template.
+            app.run("template.use", &json!({"id": id, "replace": true}));
+            app.view.fit_pending = true;
+        }
     }
 }
 
@@ -937,6 +982,59 @@ fn layers_tab(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     });
     if let Some((cmd, p)) = action {
         app.run(cmd, &p);
+    }
+}
+
+/// Asks how to use a template clicked while the design has content: as a new design (the design
+/// stays as it is), in place of the current page (undoable), or as an added page.
+fn template_dialog(app: &mut App, ctx: &egui::Context, t: &Tokens) {
+    let Some(id) = app.editor.template_ask else { return };
+    let name = genha_templates::catalog().into_iter().find(|tp| tp.id == id).map(|tp| tp.name).unwrap_or(id);
+    let frame = egui::Frame::new().fill(t.panel).corner_radius(18).inner_margin(22).stroke(egui::Stroke::new(1.0, t.border));
+    let mut choice: Option<Option<Value>> = None;
+    let r = egui::Modal::new(egui::Id::new("template_ask")).frame(frame).backdrop_color(t.scrim).show(ctx, |ui| {
+        ui.set_width(380.0);
+        ui.label(egui::RichText::new(tr!("Use “{name}”?", name = name)).size(19.0).strong().color(t.text));
+        ui.add_space(6.0);
+        ui.label(egui::RichText::new(tr("Your design has content. How should the template be used?")).color(t.text_dim));
+        ui.add_space(14.0);
+        let option = |ui: &mut egui::Ui, title: &str, sub: &str, primary: bool| {
+            let (fill, ink, dim) = if primary { (t.accent, t.accent_text, t.accent_text) } else { (t.panel_alt, t.text, t.text_dim) };
+            let text = egui::text::LayoutJob::default();
+            let mut job = text;
+            job.append(title, 0.0, egui::TextFormat { font_id: egui::FontId::proportional(14.5), color: ink, ..Default::default() });
+            job.append("\n", 0.0, egui::TextFormat::default());
+            job.append(sub, 0.0, egui::TextFormat { font_id: egui::FontId::proportional(12.0), color: dim, ..Default::default() });
+            let b = egui::Button::new(job).fill(fill).corner_radius(12).min_size(egui::vec2(ui.available_width(), 52.0));
+            ui.add(b).clicked()
+        };
+        if option(ui, tr("Open as a new design"), tr("Your design stays as it is"), true) {
+            choice = Some(Some(json!({"id": id})));
+        }
+        ui.add_space(6.0);
+        if option(ui, tr("Replace this page"), tr("The page becomes the template; Undo brings it back"), false) {
+            choice = Some(Some(json!({"id": id, "replace": true})));
+        }
+        ui.add_space(6.0);
+        if option(ui, tr("Add as a new page"), tr("After the current page"), false) {
+            choice = Some(Some(json!({"id": id, "as_page": true})));
+        }
+        ui.add_space(12.0);
+        ui.vertical_centered(|ui| {
+            if ui.add(egui::Button::new(egui::RichText::new(tr("Cancel")).color(t.text_dim)).frame(false)).clicked() {
+                choice = Some(None);
+            }
+        });
+    });
+    if r.should_close() && choice.is_none() {
+        choice = Some(None);
+    }
+    if let Some(run) = choice {
+        app.editor.template_ask = None;
+        if let Some(p) = run {
+            app.run("template.use", &p);
+            app.view.fit_pending = true;
+        }
     }
 }
 

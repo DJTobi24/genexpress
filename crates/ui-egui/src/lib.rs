@@ -20,6 +20,7 @@ pub mod editor;
 pub mod fonts;
 pub mod home;
 mod io;
+pub mod layers;
 pub mod models;
 pub mod motion;
 pub mod pages;
@@ -130,6 +131,8 @@ pub struct App {
     pub home: home::HomeState,
     pub editor: editor::EditorState,
     pub canvas: canvas::CanvasState,
+    /// The layer strip beside the canvas (UI-only state: a drag in progress, pictures' tones).
+    pub layers: layers::LayerStripState,
     /// Playback on the canvas and present mode (UI-only state).
     pub motion: motion::MotionState,
     /// Background removal with the AI model (method, download prompt, work in progress).
@@ -198,6 +201,7 @@ impl App {
             status: None,
             home: home::HomeState::default(),
             editor: editor::EditorState::default(),
+            layers: layers::LayerStripState::default(),
             canvas: canvas::CanvasState::default(),
             motion: motion::MotionState::default(),
             ml: models::MlState::default(),

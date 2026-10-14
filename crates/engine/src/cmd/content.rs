@@ -16,7 +16,7 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             "Use Template",
             [],
             None,
-            "{id, as_page?: bool — add its pages to the open design instead of opening a new one, brand?: bool — apply the design's brand kit}",
+            "{id, as_page?: bool — add its pages after the current page of the open design instead of opening a new design, replace?: bool — put its pages in place of the current page (one undo step), brand?: bool — apply the design's brand kit}",
             always,
             template_use
         ),
@@ -124,16 +124,26 @@ fn template_list(_: &mut Session, p: &Value) -> Result<Value> {
 
 fn template_use(s: &mut Session, p: &Value) -> Result<Value> {
     let id = str_req(p, "id", "template.use")?;
-    let as_page = super::bool_or(p, "as_page", false) && s.active().is_some();
+    let open = s.active().is_some();
+    let as_page = super::bool_or(p, "as_page", false) && open;
+    let replace = super::bool_or(p, "replace", false) && open;
+    if as_page && replace {
+        return Err(bad("template.use", "pass `as_page` or `replace`, not both"));
+    }
     let brand = if super::bool_or(p, "brand", false) { s.active().map(|d| d.doc.brand.clone()) } else { None };
     let tdoc = genha_templates::instantiate(id, brand.as_ref())
         .ok_or_else(|| bad("template.use", format!("unknown template `{id}` (see template.list)")))?;
-    if !as_page {
+    if !as_page && !replace {
         let index = s.open_document(tdoc);
         return Ok(ok(json!({"document": index})));
     }
-    let first = s.edit("Add Template", |doc, cx| {
-        let at = (cx.page + 1).min(doc.pages.len());
+    if tdoc.pages.is_empty() {
+        return Err(bad("template.use", format!("template `{id}` has no pages")));
+    }
+    let label = if replace { "Replace with Template" } else { "Add Template" };
+    let first = s.edit(label, |doc, cx| {
+        let current = cx.page.min(doc.pages.len().saturating_sub(1));
+        let at = (current + 1).min(doc.pages.len());
         let mut remap = std::collections::BTreeMap::new();
         for (aid, asset) in tdoc.assets {
             remap.insert(aid, doc.add_asset(asset));
@@ -149,9 +159,15 @@ fn template_use(s: &mut Session, p: &Value) -> Result<Value> {
             });
             doc.pages.insert(at + i, page);
         }
-        cx.page = at;
+        // The template's pages are in; the page they replace goes (there is always one left).
+        if replace && current < doc.pages.len() && doc.pages.len() > 1 {
+            doc.pages.remove(current);
+            cx.page = current;
+        } else {
+            cx.page = at;
+        }
         cx.selection.clear();
-        Ok(at)
+        Ok(cx.page)
     })?;
     Ok(ok(json!({"page": first})))
 }

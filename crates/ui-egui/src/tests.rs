@@ -410,3 +410,41 @@ fn designs_start_in_the_folder_shown_and_the_greeting_has_the_name() {
     assert_eq!(crate::home::ago(1_000_000.0, 1_000_000 - 6 * 86_400), "6 days ago");
     assert_eq!(crate::home::ago(100.0, 0), "");
 }
+
+#[test]
+fn text_panel_opens_for_a_text_box_and_closes_from_the_rail() {
+    let ctx = egui::Context::default();
+    let mut app = english(App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default()));
+    app.run("file.new", &json!({"width": 1080, "height": 1080}));
+    app.screen = Screen::Editor;
+    let a = app.run("text.add", &json!({"text": "One"})).unwrap()["id"].as_u64().unwrap();
+    let b = app.run("text.add", &json!({"text": "Two"})).unwrap()["id"].as_u64().unwrap();
+    let shape = app.run("shape.add", &json!({})).unwrap()["id"].as_u64().unwrap();
+    app.run("select.set", &json!({"ids": [a]}));
+    assert_eq!(crate::properties::text_panel_target(&app), Some(genha_doc::NodeId(a)));
+    // Every tab draws.
+    for tab in [crate::properties::TextTab::Edit, crate::properties::TextTab::Effects, crate::properties::TextTab::Animation] {
+        app.editor.text_tab = tab;
+        run_frames(&mut app, &ctx, 2);
+    }
+    // A shape or two objects: the properties panel instead.
+    app.run("select.set", &json!({"ids": [shape]}));
+    assert_eq!(crate::properties::text_panel_target(&app), None);
+    app.run("select.set", &json!({"ids": [a, b]}));
+    assert_eq!(crate::properties::text_panel_target(&app), None);
+    // Closed for one box, it opens again for another, and for the first after deselecting.
+    app.run("select.set", &json!({"ids": [a]}));
+    app.editor.text_panel_closed = Some(genha_doc::NodeId(a));
+    assert_eq!(crate::properties::text_panel_target(&app), None);
+    run_frames(&mut app, &ctx, 1);
+    app.run("select.set", &json!({"ids": [b]}));
+    assert_eq!(crate::properties::text_panel_target(&app), Some(genha_doc::NodeId(b)));
+    app.run("select.set", &json!({"ids": []}));
+    run_frames(&mut app, &ctx, 1);
+    app.run("select.set", &json!({"ids": [a]}));
+    assert_eq!(crate::properties::text_panel_target(&app), Some(genha_doc::NodeId(a)));
+    // A text style from the panel's row applies to the box.
+    let preset = genha_templates::text_presets()[0].id;
+    app.run("text.applyPreset", &json!({"id": preset}));
+    run_frames(&mut app, &ctx, 2);
+}

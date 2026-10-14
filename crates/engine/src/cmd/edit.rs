@@ -51,6 +51,15 @@ pub(crate) fn specs() -> Vec<CommandSpec> {
             view_snapping
         ),
         cmd!(
+            query "view.layerStrip",
+            "Layer Strip",
+            ["View"],
+            None,
+            "{on?: bool} — the strip beside the canvas with every object of the page as a picture, the front at the top; drag one up or down to restack it (toggles without `on`). Kept for next time",
+            always,
+            view_layer_strip
+        ),
+        cmd!(
             query "ui.setLanguage",
             "Language",
             [],
@@ -293,6 +302,24 @@ fn view_snapping(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(ok(json!({"on": on})))
 }
 
+/// Where the layer strip preference is kept.
+const LAYER_STRIP_KEY: &str = "settings/layer-strip";
+
+fn view_layer_strip(s: &mut Session, p: &Value) -> Result<Value> {
+    let on = match p.get("on") {
+        None | Some(Value::Null) => !s.layer_strip,
+        Some(v) => v.as_bool().ok_or_else(|| bad("view.layerStrip", "`on` must be true or false"))?,
+    };
+    s.layer_strip = on;
+    if let Some(store) = s.store.as_mut() {
+        // Losing the preference only means the strip shows again next run: not worth failing.
+        if let Err(e) = store.write(LAYER_STRIP_KEY, if on { b"on" } else { b"off" }) {
+            s.post(format!("Could not keep the layer strip setting: {e}"));
+        }
+    }
+    Ok(ok(json!({"on": on})))
+}
+
 /// Where the language preference is kept.
 const LANGUAGE_KEY: &str = "settings/language";
 
@@ -313,11 +340,14 @@ fn ui_set_language(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(ok(json!({"lang": s.language.id(), "resolved": s.language.resolve().code(), "available": available})))
 }
 
-/// Reads the preferences kept in the session's store (smart guides on or off, the language, network
-/// use, the greeting's name, dark mode).
+/// Reads the preferences kept in the session's store (smart guides and the layer strip on or
+/// off, the language, network use, the greeting's name, dark mode).
 pub fn load_preferences(s: &mut Session) {
     if let Some(v) = s.store.as_ref().and_then(|st| st.read(SNAPPING_KEY)) {
         s.snapping = v.as_slice() != b"off";
+    }
+    if let Some(v) = s.store.as_ref().and_then(|st| st.read(LAYER_STRIP_KEY)) {
+        s.layer_strip = v.as_slice() != b"off";
     }
     if let Some(v) = s.store.as_ref().and_then(|st| st.read(LANGUAGE_KEY)) {
         // A setting this version doesn't know (a newer one wrote it) means the system's language.
