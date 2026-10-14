@@ -427,11 +427,13 @@ fn text_panel_opens_for_a_text_box_and_closes_from_the_rail() {
         app.editor.panel_tab = tab;
         run_frames(&mut app, &ctx, 2);
     }
-    // A shape or two objects: the properties panel instead.
+    // A shape, or two objects: their own panels.
     app.run("select.set", &json!({"ids": [shape]}));
-    assert_eq!(crate::properties::context_target(&app), None);
+    assert_eq!(crate::properties::context_target(&app), Some((genha_doc::NodeId(shape), crate::properties::Context::Shape)));
+    run_frames(&mut app, &ctx, 2);
     app.run("select.set", &json!({"ids": [a, b]}));
-    assert_eq!(crate::properties::context_target(&app), None);
+    assert_eq!(crate::properties::context_target(&app), Some((genha_doc::NodeId(a), crate::properties::Context::Several)));
+    run_frames(&mut app, &ctx, 2);
     // Closed for one box, it opens again for another, and for the first after deselecting.
     app.run("select.set", &json!({"ids": [a]}));
     app.editor.panel_closed = Some(genha_doc::NodeId(a));

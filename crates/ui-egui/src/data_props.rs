@@ -1,4 +1,4 @@
-//! Properties of charts and tables, and the curve of text (part of the properties panel).
+//! Properties of charts and tables (part of the object panel).
 
 use serde_json::json;
 
@@ -6,7 +6,7 @@ use super::{Actions, color_row, section};
 use crate::theme::Tokens;
 use genha_color::Color;
 use genha_doc::{
-    BorderLines, BrandColor, BrandKit, CellRange, CellSpan, ChartEl, ChartKind, ChartSeries, LegendPosition, TableEl, TextAlign, TextEl, ValueFormat,
+    BorderLines, BrandColor, BrandKit, CellRange, CellSpan, ChartEl, ChartKind, ChartSeries, LegendPosition, TableEl, TextAlign, ValueFormat,
 };
 use genha_i18n::{N_, tr};
 
@@ -597,20 +597,6 @@ fn picked_cells(ui: &mut egui::Ui, t: &Tokens, id: u64, tb: &TableEl, width: f64
             if ui.add(egui::DragValue::new(&mut h).range(1.0..=10_000.0).speed(1.0).prefix(tr("Least height "))).changed() {
                 acts.run("table.setRowHeight", json!({"row": r.row, "height": h, "merge_key": key("rowh")}));
             }
-        }
-    });
-}
-
-/// The curve slider for text.
-pub(super) fn curve(ui: &mut egui::Ui, t: &Tokens, id: u64, text: &TextEl, acts: &mut Actions) {
-    section(ui, t, tr("CURVE"));
-    let mut deg = text.curve;
-    ui.horizontal(|ui| {
-        if ui.add(egui::Slider::new(&mut deg, -360.0..=360.0).step_by(1.0).suffix("°").text(tr("Curve"))).changed() {
-            acts.run("text.setCurve", json!({"degrees": deg, "merge_key": format!("curve:{id}")}));
-        }
-        if text.curve != 0.0 && ui.button(tr("Straight")).clicked() {
-            acts.run("text.setCurve", json!({"degrees": 0.0}));
         }
     });
 }

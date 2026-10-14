@@ -48,7 +48,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens, id: genha_doc::NodeId)
         });
     });
     ui.add_space(8.0);
-    segmented(ui, t, &mut tab);
+    segmented(ui, t, &mut tab, &ALL_TABS);
     ui.add_space(12.0);
     app.editor.panel_tab = tab;
 
@@ -85,14 +85,27 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens, id: genha_doc::NodeId)
     }
 }
 
-/// Edit, Effects, Animation as one rounded control.
-pub(super) fn segmented(ui: &mut egui::Ui, t: &Tokens, tab: &mut PanelTab) {
+/// Every tab, in order.
+pub(super) const ALL_TABS: [PanelTab; 3] = [PanelTab::Edit, PanelTab::Effects, PanelTab::Animation];
+
+/// `tabs` (some of Edit, Effects, Animation) as one rounded control; a tab not offered falls back
+/// to the first.
+pub(super) fn segmented(ui: &mut egui::Ui, t: &Tokens, tab: &mut PanelTab, tabs: &[PanelTab]) {
+    if !tabs.contains(tab)
+        && let Some(first) = tabs.first()
+    {
+        *tab = *first;
+    }
     let width = ui.available_width();
     let (rect, _) = ui.allocate_exact_size(egui::vec2(width, 36.0), egui::Sense::hover());
     ui.painter().rect_filled(rect, 18, t.panel_alt);
-    let tabs = [(PanelTab::Edit, N_("Edit")), (PanelTab::Effects, N_("Effects")), (PanelTab::Animation, N_("Animation"))];
-    let w = (rect.width() - 6.0) / tabs.len() as f32;
-    for (i, (which, label)) in tabs.into_iter().enumerate() {
+    let w = (rect.width() - 6.0) / tabs.len().max(1) as f32;
+    for (i, which) in tabs.iter().copied().enumerate() {
+        let label = match which {
+            PanelTab::Edit => N_("Edit"),
+            PanelTab::Effects => N_("Effects"),
+            PanelTab::Animation => N_("Animation"),
+        };
         let r = egui::Rect::from_min_size(rect.min + egui::vec2(3.0 + w * i as f32, 3.0), egui::vec2(w, 30.0));
         let resp = ui.interact(r, ui.id().with(("text_tab", i)), egui::Sense::click());
         let on = *tab == which;

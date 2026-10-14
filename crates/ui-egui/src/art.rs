@@ -27,6 +27,8 @@ pub enum Icon {
     Text,
     /// Three stacked sheets: layers.
     Layers,
+    /// A sheet with a folded corner: the page.
+    Page,
 }
 
 /// Draws icons and illustrations; holds what rendering library icons needs.
@@ -134,6 +136,14 @@ impl Art<'_> {
                 let bar = w * 0.13;
                 p.rect_filled(Rect::from_min_size(pos2(r.left() + w * 0.14, r.top() + w * 0.12), vec2(w * 0.72, bar)), w * 0.03, color);
                 p.rect_filled(Rect::from_center_size(pos2(r.center().x, r.center().y + w * 0.06), vec2(bar, w * 0.7)), w * 0.03, color);
+            }
+            Icon::Page => {
+                let fold = w * 0.26;
+                let (l, t, rt, b) = (r.left() + w * 0.2, r.top() + w * 0.08, r.right() - w * 0.2, r.bottom() - w * 0.08);
+                let body = vec![pos2(l, t), pos2(rt - fold, t), pos2(rt, t + fold), pos2(rt, b), pos2(l, b)];
+                p.add(egui::Shape::convex_polygon(body, color, Stroke::NONE));
+                let corner = vec![pos2(rt - fold, t), pos2(rt - fold, t + fold), pos2(rt, t + fold)];
+                p.add(egui::Shape::convex_polygon(corner, color.gamma_multiply(0.5), Stroke::NONE));
             }
             Icon::Layers => {
                 // Three diamonds, the top one solid.

@@ -34,7 +34,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens, id: genha_doc::NodeId)
         });
     });
     ui.add_space(8.0);
-    segmented(ui, t, &mut tab);
+    segmented(ui, t, &mut tab, &super::text_panel::ALL_TABS);
     ui.add_space(14.0);
     app.editor.panel_tab = tab;
 

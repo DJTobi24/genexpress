@@ -544,14 +544,8 @@ msgstr "Änderungen gelten für den nächsten eingegebenen Text"
 msgid "Changes apply to the selected text"
 msgstr "Änderungen gelten für den ausgewählten Text"
 
-msgid "Font (mixed)"
-msgstr "Schrift (gemischt)"
-
 msgid "Font"
 msgstr "Schrift"
-
-msgid "Size (mixed) "
-msgstr "Größe (gemischt) "
 
 msgid "Size "
 msgstr "Größe "
@@ -586,9 +580,6 @@ msgstr "Mitte"
 msgid "Right"
 msgstr "Rechts"
 
-msgid "Colour: mixed"
-msgstr "Farbe: gemischt"
-
 msgid "Line height"
 msgstr "Zeilenhöhe"
 
@@ -607,9 +598,6 @@ msgstr "Auf {percent} % verkleinert, damit er passt"
 msgid "Too long to fit, even at {percent}%"
 msgstr "Passt auch mit {percent} % nicht"
 
-msgid "EFFECT"
-msgstr "EFFEKT"
-
 msgid "None"
 msgstr "Ohne"
 
@@ -622,17 +610,11 @@ msgstr "Kontur"
 msgid "Highlight"
 msgstr "Hervorhebung"
 
-msgid "FILL"
-msgstr "FÜLLUNG"
-
 msgid "No fill"
 msgstr "Keine Füllung"
 
 msgid "Corners"
 msgstr "Ecken"
-
-msgid "BORDER"
-msgstr "RAHMEN"
 
 msgid "Border"
 msgstr "Rahmen"
@@ -643,20 +625,8 @@ msgstr "Breite"
 msgid "Dashed"
 msgstr "Gestrichelt"
 
-msgid "SHADOW"
-msgstr "SCHATTEN"
-
-msgid "Drop shadow"
-msgstr "Schlagschatten"
-
 msgid "Blur"
 msgstr "Weichzeichnen"
-
-msgid "FILTERS"
-msgstr "FILTER"
-
-msgid "ADJUST"
-msgstr "ANPASSEN"
 
 msgid "Brightness"
 msgstr "Helligkeit"
@@ -675,9 +645,6 @@ msgstr "Schärfen"
 
 msgid "Reset adjustments"
 msgstr "Anpassungen zurücksetzen"
-
-msgid "CROP & SHAPE"
-msgstr "ZUSCHNITT & FORM"
 
 msgid "Top"
 msgstr "Oben"
@@ -700,9 +667,6 @@ msgstr "Sechseck"
 msgid "Triangle"
 msgstr "Dreieck"
 
-msgid "QUICK ACTIONS"
-msgstr "SCHNELLAKTIONEN"
-
 msgid "Remove background"
 msgstr "Hintergrund entfernen"
 
@@ -714,9 +678,6 @@ msgstr "Hintergrund weichzeichnen"
 
 msgid "White background"
 msgstr "Weißer Hintergrund"
-
-msgid "Brand background"
-msgstr "Markenhintergrund"
 
 msgid "Fill frame"
 msgstr "Rahmen füllen"
@@ -730,17 +691,8 @@ msgstr "Farben → Marke"
 msgid "Ungroup"
 msgstr "Gruppierung aufheben"
 
-msgid "POSITION"
-msgstr "POSITION"
-
 msgid "Opacity"
 msgstr "Deckkraft"
-
-msgid "ALIGN TO PAGE"
-msgstr "AN SEITE AUSRICHTEN"
-
-msgid "ARRANGE"
-msgstr "ANORDNEN"
 
 msgid "Flip H"
 msgstr "Horiz. spiegeln"
@@ -781,12 +733,6 @@ msgstr "Unten"
 msgid "Align bottom edges"
 msgstr "Untere Kanten ausrichten"
 
-msgid "ALIGN"
-msgstr "AUSRICHTEN"
-
-msgid "DISTRIBUTE"
-msgstr "VERTEILEN"
-
 msgid "Horizontally"
 msgstr "Horizontal"
 
@@ -796,14 +742,8 @@ msgstr "Vertikal"
 msgid "Group"
 msgstr "Gruppieren"
 
-msgid "COLLAGE"
-msgstr "COLLAGE"
-
 msgid "Pick a layout in Elements › Collage."
 msgstr "Ein Layout unter Elemente › Collage wählen."
-
-msgid "CURVE"
-msgstr "KRÜMMUNG"
 
 msgid "Curve"
 msgstr "Krümmung"
@@ -3039,3 +2979,18 @@ msgstr "Das Bild in Schwarzweiß"
 
 msgid "The picture's main colours become the brand's colours"
 msgstr "Die Hauptfarben des Bildes werden zu den Markenfarben"
+
+msgid "Align to each other"
+msgstr "Aneinander ausrichten"
+
+msgid "Hard"
+msgstr "Hart"
+
+msgid "Pick a shadow to lift the shape off the page."
+msgstr "Wähle einen Schatten, damit die Form von der Seite abhebt."
+
+msgid "Solid"
+msgstr "Durchgehend"
+
+msgid "Spread evenly"
+msgstr "Gleichmäßig verteilen"
