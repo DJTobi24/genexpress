@@ -1195,7 +1195,7 @@ dependencies = [
 
 [[package]]
 name = "genha"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "eframe",
  "egui",
@@ -1216,14 +1216,14 @@ dependencies = [
 
 [[package]]
 name = "genha-brand"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "png",
 ]
 
 [[package]]
 name = "genha-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "embed-resource",
  "genha-brand",
@@ -1237,7 +1237,7 @@ dependencies = [
 
 [[package]]
 name = "genha-color"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -1245,7 +1245,7 @@ dependencies = [
 
 [[package]]
 name = "genha-doc"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "genha-color",
@@ -1257,7 +1257,7 @@ dependencies = [
 
 [[package]]
 name = "genha-effects"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "genha-color",
  "genha-doc",
@@ -1268,7 +1268,7 @@ dependencies = [
 
 [[package]]
 name = "genha-engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "genha-color",
@@ -1298,7 +1298,7 @@ dependencies = [
 
 [[package]]
 name = "genha-format"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "flate2",
  "genha-doc",
@@ -1310,7 +1310,7 @@ dependencies = [
 
 [[package]]
 name = "genha-geom"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "kurbo 0.13.1",
  "serde",
@@ -1319,14 +1319,14 @@ dependencies = [
 
 [[package]]
 name = "genha-i18n"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "sys-locale",
 ]
 
 [[package]]
 name = "genha-layout"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "genha-color",
  "genha-doc",
@@ -1339,7 +1339,7 @@ dependencies = [
 
 [[package]]
 name = "genha-mcp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "genha-doc",
@@ -1350,7 +1350,7 @@ dependencies = [
 
 [[package]]
 name = "genha-motion"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "genha-doc",
  "genha-geom",
@@ -1359,7 +1359,7 @@ dependencies = [
 
 [[package]]
 name = "genha-pdf"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "genha-color",
  "genha-doc",
@@ -1377,7 +1377,7 @@ dependencies = [
 
 [[package]]
 name = "genha-render"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "genha-color",
  "genha-doc",
@@ -1393,7 +1393,7 @@ dependencies = [
 
 [[package]]
 name = "genha-segment"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "genha-effects",
  "image",
@@ -1405,7 +1405,7 @@ dependencies = [
 
 [[package]]
 name = "genha-svg"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "genha-color",
@@ -1422,7 +1422,7 @@ dependencies = [
 
 [[package]]
 name = "genha-templates"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "genha-color",
  "genha-doc",
@@ -1439,7 +1439,7 @@ dependencies = [
 
 [[package]]
 name = "genha-text"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "genha-doc",
  "genha-geom",
@@ -1455,7 +1455,7 @@ dependencies = [
 
 [[package]]
 name = "genha-tools"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "genha-doc",
  "genha-geom",
@@ -1465,7 +1465,7 @@ dependencies = [
 
 [[package]]
 name = "genha-ui-egui"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arboard",
  "base64 0.22.1",
@@ -1497,7 +1497,7 @@ dependencies = [
 
 [[package]]
 name = "genha-video"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proptest",
  "thiserror 2.0.21",
@@ -1505,7 +1505,7 @@ dependencies = [
 
 [[package]]
 name = "genha-web"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "eframe",
  "egui",
@@ -5135,7 +5135,7 @@ checksum = "9440ea3e5aeabb0ac63af70daf835274065238cdd0cec83418f417eae38bacee"
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "flate2",
  "genha-brand",
