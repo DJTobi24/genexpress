@@ -12,9 +12,9 @@ use crate::{App, thumbs};
 use genha_doc::{Element, ElementKind, RangeStyle, TextAlign, TextEffect, TextEl, TextFit};
 use genha_i18n::{N_, tr};
 
-/// The panel's tabs.
+/// The tabs of the text and picture panels.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum TextTab {
+pub enum PanelTab {
     #[default]
     Edit,
     Effects,
@@ -23,20 +23,6 @@ pub enum TextTab {
 
 /// Colours offered for text besides the brand's: black, white and a bright row.
 const SWATCHES: [u32; 9] = [0x000000, 0xffffff, 0xe02424, 0xf97316, 0xfacc15, 0x16a34a, 0x2563eb, 0x7c3aed, 0xdb2777];
-
-/// The text box the panel is for: exactly one text box selected (or the one edited in place),
-/// unless the panel was closed for it.
-pub fn target(app: &App) -> Option<genha_doc::NodeId> {
-    let d = app.session.active()?;
-    let id = match &app.session.text_editing {
-        Some(e) => e.id,
-        None => match d.selected_elements().as_slice() {
-            [el] if matches!(el.kind, ElementKind::Text(_)) => el.id,
-            _ => return None,
-        },
-    };
-    (app.editor.text_panel_closed != Some(id)).then_some(id)
-}
 
 /// Draws the panel for `id`.
 pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens, id: genha_doc::NodeId) {
@@ -50,24 +36,24 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens, id: genha_doc::NodeId)
     let caret_only = app.session.text_editing.as_ref().is_some_and(|e| e.anchor == e.caret);
     let fit = (text.fit == TextFit::Shrink).then(|| genha_render::text_fit(&app.session.fonts, &text, el.frame.width, el.frame.height));
     let mut acts = Actions::default();
-    let mut tab = app.editor.text_tab;
+    let mut tab = app.editor.panel_tab;
 
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new(tr("Text")).size(19.0).strong().color(t.text));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let close = egui::Button::new(egui::RichText::new("×").size(18.0).color(t.text_dim)).frame(false);
             if ui.add(close).on_hover_text(tr("Close (the left panel shows its tab again)")).clicked() {
-                app.editor.text_panel_closed = Some(id);
+                app.editor.panel_closed = Some(id);
             }
         });
     });
     ui.add_space(8.0);
     segmented(ui, t, &mut tab);
     ui.add_space(12.0);
-    app.editor.text_tab = tab;
+    app.editor.panel_tab = tab;
 
     match tab {
-        TextTab::Edit => {
+        PanelTab::Edit => {
             let shown_whole;
             let shown = match &editing {
                 Some(r) => r,
@@ -85,8 +71,8 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens, id: genha_doc::NodeId)
             ui.add_space(14.0);
             edit_tab(ui, t, &el, &text, shown, &brand, &families, fit, &mut acts);
         }
-        TextTab::Effects => effects_tab(ui, t, &text, &brand, &mut acts),
-        TextTab::Animation => {
+        PanelTab::Effects => effects_tab(ui, t, &text, &brand, &mut acts),
+        PanelTab::Animation => {
             element_animation(ui, t, &el, &mut acts);
         }
     }
@@ -100,11 +86,11 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens, id: genha_doc::NodeId)
 }
 
 /// Edit, Effects, Animation as one rounded control.
-fn segmented(ui: &mut egui::Ui, t: &Tokens, tab: &mut TextTab) {
+pub(super) fn segmented(ui: &mut egui::Ui, t: &Tokens, tab: &mut PanelTab) {
     let width = ui.available_width();
     let (rect, _) = ui.allocate_exact_size(egui::vec2(width, 36.0), egui::Sense::hover());
     ui.painter().rect_filled(rect, 18, t.panel_alt);
-    let tabs = [(TextTab::Edit, N_("Edit")), (TextTab::Effects, N_("Effects")), (TextTab::Animation, N_("Animation"))];
+    let tabs = [(PanelTab::Edit, N_("Edit")), (PanelTab::Effects, N_("Effects")), (PanelTab::Animation, N_("Animation"))];
     let w = (rect.width() - 6.0) / tabs.len() as f32;
     for (i, (which, label)) in tabs.into_iter().enumerate() {
         let r = egui::Rect::from_min_size(rect.min + egui::vec2(3.0 + w * i as f32, 3.0), egui::vec2(w, 30.0));
@@ -124,7 +110,7 @@ fn segmented(ui: &mut egui::Ui, t: &Tokens, tab: &mut TextTab) {
 }
 
 /// A small heading over a group of controls.
-fn label(ui: &mut egui::Ui, t: &Tokens, text: &str) {
+pub(super) fn label(ui: &mut egui::Ui, t: &Tokens, text: &str) {
     ui.label(egui::RichText::new(text).size(12.5).strong().color(t.text_dim));
     ui.add_space(4.0);
 }
@@ -508,7 +494,7 @@ fn effect_picture(painter: &egui::Painter, rect: egui::Rect, t: &Tokens, i: usiz
 
 /// The current colour (click for the full picker) and the brand's colours on one row,
 /// [`SWATCHES`] on the next.
-fn swatches(ui: &mut egui::Ui, t: &Tokens, current: genha_color::Color, brand: &[genha_color::Color]) -> Option<genha_color::Color> {
+pub(super) fn swatches(ui: &mut egui::Ui, t: &Tokens, current: genha_color::Color, brand: &[genha_color::Color]) -> Option<genha_color::Color> {
     let mut out = None;
     let same = |a: genha_color::Color, b: genha_color::Color| a.r == b.r && a.g == b.g && a.b == b.b;
     // A round swatch; whether it was clicked.
@@ -559,7 +545,7 @@ fn swatches(ui: &mut egui::Ui, t: &Tokens, current: genha_color::Color, brand: &
 }
 
 /// A tile's background: accent when on, soft when hovered.
-fn tile_back(ui: &egui::Ui, t: &Tokens, rect: egui::Rect, on: bool, hovered: bool) {
+pub(super) fn tile_back(ui: &egui::Ui, t: &Tokens, rect: egui::Rect, on: bool, hovered: bool) {
     let fill = if on || hovered { t.accent_soft } else { t.panel_alt };
     ui.painter().rect_filled(rect, 8, fill);
     if on {
@@ -568,7 +554,7 @@ fn tile_back(ui: &egui::Ui, t: &Tokens, rect: egui::Rect, on: bool, hovered: boo
 }
 
 /// A round-cornered square button with a symbol.
-fn pill_button(ui: &mut egui::Ui, t: &Tokens, symbol: &str, side: f32) -> egui::Response {
+pub(super) fn pill_button(ui: &mut egui::Ui, t: &Tokens, symbol: &str, side: f32) -> egui::Response {
     let (rect, r) = ui.allocate_exact_size(egui::vec2(side, 30.0), egui::Sense::click());
     tile_back(ui, t, rect, false, r.hovered());
     ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, symbol, egui::FontId::proportional(17.0), t.text);

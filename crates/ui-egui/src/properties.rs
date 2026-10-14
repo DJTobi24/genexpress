@@ -4,10 +4,45 @@ use serde_json::{Value, json};
 
 #[path = "data_props.rs"]
 mod data_props;
+#[path = "image_panel.rs"]
+mod image_panel;
 #[path = "text_panel.rs"]
 mod text_panel;
 
-pub use text_panel::{TextTab, show as text_panel, target as text_panel_target};
+pub use text_panel::PanelTab;
+
+/// What the left panel edits in place of its tab.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Context {
+    Text,
+    Picture,
+}
+
+/// The object the left panel edits: exactly one text box or picture selected (or the text box
+/// edited in place), unless the panel was closed for it.
+pub fn context_target(app: &App) -> Option<(genha_doc::NodeId, Context)> {
+    let d = app.session.active()?;
+    let (id, kind) = match &app.session.text_editing {
+        Some(e) => (e.id, Context::Text),
+        None => match d.selected_elements().as_slice() {
+            [el] => match el.kind {
+                ElementKind::Text(_) => (el.id, Context::Text),
+                ElementKind::Image(_) => (el.id, Context::Picture),
+                _ => return None,
+            },
+            _ => return None,
+        },
+    };
+    (app.editor.panel_closed != Some(id)).then_some((id, kind))
+}
+
+/// Draws the left panel's editor for `id`.
+pub fn context_panel(app: &mut App, ui: &mut egui::Ui, t: &Tokens, id: genha_doc::NodeId, kind: Context) {
+    match kind {
+        Context::Text => text_panel::show(app, ui, t, id),
+        Context::Picture => image_panel::show(app, ui, t, id),
+    }
+}
 
 use crate::App;
 use crate::theme::{Tokens, from_egui, to_egui};

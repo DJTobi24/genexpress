@@ -32,7 +32,7 @@ everything runs on your own computer (desktop on Windows, macOS and Linux, or in
 - **Edit:** multi-page designs (pages of any size); move, resize and rotate with smart guides (snapping, equal spacing, distance hints); groups, layers (a strip of pictures beside the canvas: drag to restack), lock/hide, align & distribute; copy/paste of objects and styles; undo/redo; version history; Data Recovery after a crash; My designs with project folders and recent designs.
 - **Text:** edited in place on the canvas, with its own panel on the left (styles, font, colours, effects, animation), with real typography (kerning, ligatures, Arabic, Hebrew, Indic scripts, font fallback for mixed text); format single words; 25 text styles; shadow, outline and highlight effects; curved text.
 - **Content:** charts (bar, line, area, pie, donut, progress — several series, stacked, axis titles), tables with merged and styled cells, shapes and 114 original icons, QR codes, collages, 40 palettes, brand kits.
-- **Pictures:** crop, fit, crop to shape, corners, borders, adjustments, 14 filters; **remove, blur or change the background** — with an AI model that finds the subject on busy photos (U²-Net, Apache-2.0, downloaded once on request, runs locally) or a fast colour-based method.
+- **Pictures:** their own panel on the left (quick actions, filters previewed on the picture, adjust); crop, fit, crop to shape, corners, borders, adjustments, 14 filters; **remove, blur or change the background** — with an AI model that finds the subject on busy photos (U²-Net, Apache-2.0, downloaded once on request, runs locally) or a fast colour-based method.
 - **Smart resize:** re-lay out a design for another format, or add a resized copy.
 - **Motion:** animations for any object or text, "animate all" with a stagger, playback on the canvas, present mode.
 - **Export:** PNG (also transparent, 2×), JPEG, SVG, **vector PDF** with real, searchable text, **print PDF** (300 dpi, bleed, crop marks, optional CMYK), **MP4 video** (our own pure-Rust H.264 encoder), animated GIF and PNG. Native `.genha` files.
@@ -106,7 +106,7 @@ video timeline with audio, and more UI languages.
 |---|---|
 | Templates / size presets / icons / palettes | 121 / 35 / 114 / 40 |
 | Commands (UI = CLI = MCP) | 184 |
-| Tests | 403 |
+| Tests | 404 |
 | Code | ~60k lines of Rust |
 
 - [ROADMAP.md](ROADMAP.md) — stage, numbers, what's next and the progress log.
