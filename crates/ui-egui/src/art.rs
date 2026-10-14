@@ -21,6 +21,12 @@ pub enum Icon {
     Brand,
     Dots,
     Close,
+    /// A circle, a square and a triangle: shapes and other elements.
+    Shapes,
+    /// A capital T: text.
+    Text,
+    /// Three stacked sheets: layers.
+    Layers,
 }
 
 /// Draws icons and illustrations; holds what rendering library icons needs.
@@ -113,6 +119,30 @@ impl Art<'_> {
                 for dx in [-0.25, 0.0, 0.25] {
                     p.circle_filled(r.center() + vec2(w * dx, 0.0), w * 0.08, color);
                 }
+            }
+            Icon::Shapes => {
+                p.circle_filled(pos2(r.left() + w * 0.3, r.top() + w * 0.3), w * 0.2, color);
+                p.rect_filled(Rect::from_min_size(pos2(r.left() + w * 0.56, r.top() + w * 0.12), vec2(w * 0.34, w * 0.34)), w * 0.05, color);
+                let tri = vec![
+                    pos2(r.center().x, r.top() + w * 0.54),
+                    pos2(r.right() - w * 0.22, r.bottom() - w * 0.08),
+                    pos2(r.left() + w * 0.22, r.bottom() - w * 0.08),
+                ];
+                p.add(egui::Shape::convex_polygon(tri, color, Stroke::NONE));
+            }
+            Icon::Text => {
+                let bar = w * 0.13;
+                p.rect_filled(Rect::from_min_size(pos2(r.left() + w * 0.14, r.top() + w * 0.12), vec2(w * 0.72, bar)), w * 0.03, color);
+                p.rect_filled(Rect::from_center_size(pos2(r.center().x, r.center().y + w * 0.06), vec2(bar, w * 0.7)), w * 0.03, color);
+            }
+            Icon::Layers => {
+                // Three diamonds, the top one solid.
+                let c = r.center();
+                let diamond = |dy: f32| vec![c + vec2(0.0, dy - w * 0.2), c + vec2(w * 0.4, dy), c + vec2(0.0, dy + w * 0.2), c + vec2(-w * 0.4, dy)];
+                for (dy, a) in [(w * 0.24, 0.45), (w * 0.08, 0.7)] {
+                    p.add(egui::Shape::convex_polygon(diamond(dy), color.gamma_multiply(a), Stroke::NONE));
+                }
+                p.add(egui::Shape::convex_polygon(diamond(-w * 0.1), color, Stroke::NONE));
             }
         }
     }

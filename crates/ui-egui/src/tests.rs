@@ -421,30 +421,55 @@ fn text_panel_opens_for_a_text_box_and_closes_from_the_rail() {
     let b = app.run("text.add", &json!({"text": "Two"})).unwrap()["id"].as_u64().unwrap();
     let shape = app.run("shape.add", &json!({})).unwrap()["id"].as_u64().unwrap();
     app.run("select.set", &json!({"ids": [a]}));
-    assert_eq!(crate::properties::text_panel_target(&app), Some(genha_doc::NodeId(a)));
+    assert_eq!(crate::properties::context_target(&app), Some((genha_doc::NodeId(a), crate::properties::Context::Text)));
     // Every tab draws.
-    for tab in [crate::properties::TextTab::Edit, crate::properties::TextTab::Effects, crate::properties::TextTab::Animation] {
-        app.editor.text_tab = tab;
+    for tab in [crate::properties::PanelTab::Edit, crate::properties::PanelTab::Effects, crate::properties::PanelTab::Animation] {
+        app.editor.panel_tab = tab;
         run_frames(&mut app, &ctx, 2);
     }
     // A shape or two objects: the properties panel instead.
     app.run("select.set", &json!({"ids": [shape]}));
-    assert_eq!(crate::properties::text_panel_target(&app), None);
+    assert_eq!(crate::properties::context_target(&app), None);
     app.run("select.set", &json!({"ids": [a, b]}));
-    assert_eq!(crate::properties::text_panel_target(&app), None);
+    assert_eq!(crate::properties::context_target(&app), None);
     // Closed for one box, it opens again for another, and for the first after deselecting.
     app.run("select.set", &json!({"ids": [a]}));
-    app.editor.text_panel_closed = Some(genha_doc::NodeId(a));
-    assert_eq!(crate::properties::text_panel_target(&app), None);
+    app.editor.panel_closed = Some(genha_doc::NodeId(a));
+    assert_eq!(crate::properties::context_target(&app), None);
     run_frames(&mut app, &ctx, 1);
     app.run("select.set", &json!({"ids": [b]}));
-    assert_eq!(crate::properties::text_panel_target(&app), Some(genha_doc::NodeId(b)));
+    assert_eq!(crate::properties::context_target(&app), Some((genha_doc::NodeId(b), crate::properties::Context::Text)));
     app.run("select.set", &json!({"ids": []}));
     run_frames(&mut app, &ctx, 1);
     app.run("select.set", &json!({"ids": [a]}));
-    assert_eq!(crate::properties::text_panel_target(&app), Some(genha_doc::NodeId(a)));
+    assert_eq!(crate::properties::context_target(&app), Some((genha_doc::NodeId(a), crate::properties::Context::Text)));
     // A text style from the panel's row applies to the box.
     let preset = genha_templates::text_presets()[0].id;
     app.run("text.applyPreset", &json!({"id": preset}));
     run_frames(&mut app, &ctx, 2);
+}
+
+#[test]
+fn picture_panel_opens_for_a_picture() {
+    let ctx = egui::Context::default();
+    let mut app = english(App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default()));
+    app.run("file.new", &json!({"width": 400, "height": 400}));
+    app.screen = Screen::Editor;
+    let dir = std::env::temp_dir().join(format!("genha-picpanel-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("p.png");
+    let raster = genha_render::Raster { width: 8, height: 8, rgba: [200, 40, 40, 255].repeat(64) };
+    std::fs::write(&path, genha_render::encode_png(&raster).unwrap()).unwrap();
+    let pic = app.run("image.place", &json!({"path": path.display().to_string()})).unwrap()["id"].as_u64().unwrap();
+    app.run("select.set", &json!({"ids": [pic]}));
+    assert_eq!(crate::properties::context_target(&app), Some((genha_doc::NodeId(pic), crate::properties::Context::Picture)));
+    for tab in [crate::properties::PanelTab::Edit, crate::properties::PanelTab::Effects, crate::properties::PanelTab::Animation] {
+        app.editor.panel_tab = tab;
+        run_frames(&mut app, &ctx, 3);
+    }
+    // Closed from the rail, the tab shows until another object is selected.
+    app.editor.panel_closed = Some(genha_doc::NodeId(pic));
+    assert_eq!(crate::properties::context_target(&app), None);
+    run_frames(&mut app, &ctx, 1);
+    std::fs::remove_dir_all(&dir).unwrap();
 }

@@ -3006,3 +3006,36 @@ msgstr "Abstände"
 
 msgid "Thickness"
 msgstr "Stärke"
+
+msgid "Adjust"
+msgstr "Anpassen"
+
+msgid "Background colour"
+msgstr "Hintergrundfarbe"
+
+msgid "Crop & shape"
+msgstr "Zuschneiden & Form"
+
+msgid "Filters"
+msgstr "Filter"
+
+msgid "Keeps the subject sharp and blurs the rest"
+msgstr "Das Motiv bleibt scharf, der Rest wird weichgezeichnet"
+
+msgid "Put the subject on"
+msgstr "Motiv auf diese Farbe setzen"
+
+msgid "Puts the subject on a colour"
+msgstr "Setzt das Motiv auf eine Farbe"
+
+msgid "Strength"
+msgstr "Stärke"
+
+msgid "The picture fills its frame, cropped where needed"
+msgstr "Das Bild füllt seinen Rahmen und wird bei Bedarf beschnitten"
+
+msgid "The picture in black and white"
+msgstr "Das Bild in Schwarzweiß"
+
+msgid "The picture's main colours become the brand's colours"
+msgstr "Die Hauptfarben des Bildes werden zu den Markenfarben"

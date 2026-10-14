@@ -17,11 +17,13 @@ pub struct EditorState {
     /// A template clicked while the design has content: asks how to use it (new design, replace
     /// this page, add a page).
     pub template_ask: Option<&'static str>,
-    /// The text panel's tab (Edit, Effects, Animation).
-    pub text_tab: crate::properties::TextTab,
-    /// The text box the text panel was closed for (× or a rail tab): the left panel shows its tab
-    /// until another text box is selected.
-    pub text_panel_closed: Option<NodeId>,
+    /// The text and picture panels' tab (Edit, Effects, Animation).
+    pub panel_tab: crate::properties::PanelTab,
+    /// The object the text or picture panel was closed for (× or a rail tab): the left panel
+    /// shows its tab until another object is selected.
+    pub panel_closed: Option<NodeId>,
+    /// The strength of the picture's filter as last set in the picture panel (none: full).
+    pub filter_strength: Option<f32>,
     pub renaming: Option<String>,
     pub new_brand_color: [u8; 3],
     pub versions_open: bool,
@@ -101,17 +103,18 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     left_rail(app, ui, &t);
     // Nothing selected: a text box selected again gets its panel again.
     if app.session.active().is_some_and(|d| d.selection.is_empty()) && app.session.text_editing.is_none() {
-        app.editor.text_panel_closed = None;
+        app.editor.panel_closed = None;
     }
-    // A selected text box is edited in the left panel; the right-hand panel stays closed.
-    let text_panel = crate::properties::text_panel_target(app);
+    // A selected text box or picture is edited in the left panel; the right-hand panel stays
+    // closed.
+    let context = crate::properties::context_target(app);
     egui::Panel::left("left_panel").resizable(true).default_size(290.0).min_size(260.0).frame(panel_frame(&t)).show(ui, |ui| {
-        egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| match text_panel {
-            Some(id) => crate::properties::text_panel(app, ui, &t, id),
+        egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| match context {
+            Some((id, kind)) => crate::properties::context_panel(app, ui, &t, id, kind),
             None => left_panel(app, ui, &t),
         });
     });
-    if text_panel.is_none() {
+    if context.is_none() {
         egui::Panel::right("properties").resizable(true).default_size(290.0).min_size(240.0).frame(panel_frame(&t)).show(ui, |ui| {
             egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| crate::properties::show(app, ui, &t));
         });
@@ -532,27 +535,60 @@ fn d_key(doc: &std::sync::Arc<genha_doc::Document>) -> u64 {
 
 fn left_rail(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     egui::Panel::left("rail")
-        .exact_size(106.0)
+        .exact_size(78.0)
         .frame(egui::Frame::new().fill(t.panel).inner_margin(egui::Margin::symmetric(6, 10)).stroke(egui::Stroke::new(1.0, t.border)))
         .show(ui, |ui| {
+            let ctx = ui.ctx().clone();
+            let fonts = app.session.fonts.clone();
+            let mut picked = None;
             ui.vertical_centered(|ui| {
                 for tab in LeftTab::ALL {
-                    let on = app.left_tab == tab;
-                    let text = egui::RichText::new(tr(tab.label())).size(12.0).color(if on { t.accent } else { t.text_dim });
-                    let b = egui::Button::new(text)
-                        .min_size(egui::vec2(92.0, 40.0))
-                        .fill(if on { t.accent_soft } else { egui::Color32::TRANSPARENT })
-                        .frame(on);
-                    if ui.add(b).clicked() {
-                        app.left_tab = tab;
-                        // The rail always wins over the text panel.
-                        if let Some(id) = crate::properties::text_panel_target(app) {
-                            app.editor.text_panel_closed = Some(id);
-                        }
+                    // The tab whose content shows (none while the text or picture panel is open).
+                    let on = app.left_tab == tab && crate::properties::context_target(app).is_none();
+                    let (rect, r) = ui.allocate_exact_size(egui::vec2(66.0, 58.0), egui::Sense::click());
+                    let back = egui::Rect::from_center_size(rect.center_top() + egui::vec2(0.0, 19.0), egui::vec2(44.0, 32.0));
+                    if on {
+                        ui.painter().rect_filled(back, 12, t.accent_soft);
+                    } else if r.hovered() {
+                        ui.painter().rect_filled(back, 12, t.panel_alt);
                     }
-                    ui.add_space(2.0);
+                    let ink = if on {
+                        t.accent
+                    } else if r.hovered() {
+                        t.text
+                    } else {
+                        t.text_dim
+                    };
+                    let icon = match tab {
+                        LeftTab::Templates => crate::art::Icon::Grid,
+                        LeftTab::Elements => crate::art::Icon::Shapes,
+                        LeftTab::Text => crate::art::Icon::Text,
+                        LeftTab::Media => crate::art::Icon::Lib("image"),
+                        LeftTab::Brand => crate::art::Icon::Brand,
+                        LeftTab::Layers => crate::art::Icon::Layers,
+                    };
+                    let mut art = crate::art::Art::new(&mut app.thumbs, &ctx, fonts.clone());
+                    art.icon(ui.painter(), icon, egui::Rect::from_center_size(back.center(), egui::vec2(20.0, 20.0)), ink);
+                    ui.painter().text(
+                        egui::pos2(rect.center().x, rect.bottom() - 10.0),
+                        egui::Align2::CENTER_CENTER,
+                        tr(tab.label()),
+                        egui::FontId::proportional(11.0),
+                        ink,
+                    );
+                    if r.clicked() {
+                        picked = Some(tab);
+                    }
+                    ui.add_space(4.0);
                 }
             });
+            if let Some(tab) = picked {
+                app.left_tab = tab;
+                // The rail always wins over the text and picture panels.
+                if let Some((id, _)) = crate::properties::context_target(app) {
+                    app.editor.panel_closed = Some(id);
+                }
+            }
         });
 }
 
