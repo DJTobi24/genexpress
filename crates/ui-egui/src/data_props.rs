@@ -23,11 +23,34 @@ fn swatch(ui: &mut egui::Ui, color: Color) -> Option<Color> {
 
 pub(super) fn chart(ui: &mut egui::Ui, t: &Tokens, id: u64, c: &ChartEl, brand: &[Color], acts: &mut Actions) {
     let key = |what: &str| format!("{what}:{id}");
-    section(ui, t, tr("CHART TYPE"));
-    ui.horizontal_wrapped(|ui| {
-        for k in ChartKind::ALL {
-            if ui.add(egui::Button::new(tr(k.label())).selected(c.kind == k)).clicked() {
+    section(ui, t, tr("Chart type"));
+    // Each kind as a small picture on a tile, the current one marked.
+    let side = ((ui.available_width() - 16.0) / 3.0).floor();
+    egui::Grid::new(("chart_kinds", id)).spacing(egui::vec2(8.0, 8.0)).show(ui, |ui| {
+        for (i, k) in ChartKind::ALL.into_iter().enumerate() {
+            let (rect, r) = ui.allocate_exact_size(egui::vec2(side, 62.0), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
+            let on = c.kind == k;
+            let hover = crate::theme::hover_fade(ui.ctx(), rect, r.hovered());
+            ui.painter().rect_filled(rect, 10, t.panel_alt.lerp_to_gamma(t.accent_soft, if on { 1.0 } else { hover }));
+            if on {
+                ui.painter().rect_stroke(rect, 10, egui::Stroke::new(1.5, t.accent), egui::StrokeKind::Inside);
+            }
+            let ink = if on { t.accent } else { t.text_dim };
+            let pic = egui::Rect::from_center_size(rect.center() - egui::vec2(0.0, 8.0), egui::vec2(30.0, 22.0));
+            crate::tabs::chart_icon(ui.painter(), pic, k.id(), ink, t);
+            ui.painter().text(
+                rect.center_bottom() - egui::vec2(0.0, 10.0),
+                egui::Align2::CENTER_CENTER,
+                tr(k.label()),
+                egui::FontId::proportional(11.0),
+                if on { t.accent } else { t.text },
+            );
+            if r.clicked() && !on {
                 acts.run("chart.setKind", json!({"kind": k.id()}));
+            }
+            if i % 3 == 2 {
+                ui.end_row();
             }
         }
     });
@@ -35,7 +58,7 @@ pub(super) fn chart(ui: &mut egui::Ui, t: &Tokens, id: u64, c: &ChartEl, brand: 
     chart_data(ui, t, id, c, brand, acts);
 
     if !c.kind.multi_series() || c.series.len() <= 1 {
-        section(ui, t, tr("COLOURS"));
+        section(ui, t, tr("Colours"));
         let shown: Vec<Color> = if c.colors.is_empty() { genha_render::CHART_PALETTE.to_vec() } else { c.colors.clone() };
         let mut colors = shown.clone();
         let mut colors_changed = false;
@@ -68,7 +91,7 @@ pub(super) fn chart(ui: &mut egui::Ui, t: &Tokens, id: u64, c: &ChartEl, brand: 
     }
 
     if c.kind.has_axis() {
-        section(ui, t, tr("AXES"));
+        section(ui, t, tr("Axes"));
         ui.horizontal_wrapped(|ui| {
             let mut stacked = c.stacked;
             if ui
@@ -79,7 +102,7 @@ pub(super) fn chart(ui: &mut egui::Ui, t: &Tokens, id: u64, c: &ChartEl, brand: 
                 acts.run("chart.setStyle", json!({"stacked": stacked}));
             }
             let mut grid = c.gridlines;
-            if ui.checkbox(&mut grid, tr("Gridlines")).changed() {
+            if crate::theme::switch(ui, &mut grid, tr("Gridlines")).changed() {
                 acts.run("chart.setStyle", json!({"gridlines": grid}));
             }
         });
@@ -97,7 +120,7 @@ pub(super) fn chart(ui: &mut egui::Ui, t: &Tokens, id: u64, c: &ChartEl, brand: 
                 ui.label(tr(label));
                 ui.horizontal(|ui| {
                     let mut auto = value.is_none();
-                    if ui.checkbox(&mut auto, tr("Auto")).changed() {
+                    if crate::theme::switch(ui, &mut auto, tr("Auto")).changed() {
                         acts.run("chart.setStyle", json!({field: if auto { None } else { Some(guess) }}));
                     }
                     if let Some(mut m) = value
@@ -111,7 +134,7 @@ pub(super) fn chart(ui: &mut egui::Ui, t: &Tokens, id: u64, c: &ChartEl, brand: 
         });
     }
 
-    section(ui, t, tr("LEGEND"));
+    section(ui, t, tr("Legend"));
     ui.horizontal_wrapped(|ui| {
         if ui.add(egui::Button::new(tr("None")).selected(!c.show_legend)).clicked() {
             acts.run("chart.setStyle", json!({"legend": "none"}));
@@ -128,11 +151,11 @@ pub(super) fn chart(ui: &mut egui::Ui, t: &Tokens, id: u64, c: &ChartEl, brand: 
         }
     });
 
-    section(ui, t, tr("SHOW"));
+    section(ui, t, tr("Show on the chart"));
     ui.horizontal_wrapped(|ui| {
         for (label, field, on) in [(N_("Labels"), "show_labels", c.show_labels), (N_("Values"), "show_values", c.show_values)] {
             let mut v = on;
-            if ui.checkbox(&mut v, tr(label)).changed() {
+            if crate::theme::switch(ui, &mut v, tr(label)).changed() {
                 acts.run("chart.setStyle", json!({field: v}));
             }
         }
@@ -157,7 +180,7 @@ pub(super) fn chart(ui: &mut egui::Ui, t: &Tokens, id: u64, c: &ChartEl, brand: 
             }
         }
         let mut auto = c.decimals.is_none();
-        if ui.checkbox(&mut auto, tr("Auto decimals")).changed() {
+        if crate::theme::switch(ui, &mut auto, tr("Auto decimals")).changed() {
             acts.run("chart.setStyle", json!({"decimals": if auto { None } else { Some(2) }}));
         }
         if let Some(mut d) = c.decimals
@@ -175,7 +198,7 @@ pub(super) fn chart(ui: &mut egui::Ui, t: &Tokens, id: u64, c: &ChartEl, brand: 
     if c.kind == ChartKind::Progress {
         ui.horizontal(|ui| {
             let mut auto = c.max.is_none();
-            if ui.checkbox(&mut auto, tr("Out of 100")).changed() {
+            if crate::theme::switch(ui, &mut auto, tr("Out of 100")).changed() {
                 let top = c.value(0, 0).max(1.0);
                 acts.run("chart.setStyle", json!({"max": if auto { None } else { Some(top.ceil()) }}));
             }
@@ -187,7 +210,7 @@ pub(super) fn chart(ui: &mut egui::Ui, t: &Tokens, id: u64, c: &ChartEl, brand: 
         });
     }
 
-    section(ui, t, tr("TEXT"));
+    section(ui, t, tr("Text"));
     let mut size = c.font_size;
     if ui.add(egui::DragValue::new(&mut size).range(1.0..=2000.0).speed(0.5).prefix(tr("Size "))).changed() {
         acts.run("chart.setStyle", json!({"font_size": size, "merge_key": key("chartsize")}));
@@ -200,7 +223,7 @@ pub(super) fn chart(ui: &mut egui::Ui, t: &Tokens, id: u64, c: &ChartEl, brand: 
 /// The data grid: one row per category, one column per series (one series for pies and progress
 /// charts), and a box for pasting a table.
 fn chart_data(ui: &mut egui::Ui, t: &Tokens, id: u64, c: &ChartEl, brand: &[Color], acts: &mut Actions) {
-    section(ui, t, tr("DATA"));
+    section(ui, t, tr("Data"));
     let kit = kit(brand);
     let multi = c.kind.multi_series();
     let shown = if multi { c.series.len() } else { c.series.len().min(1) };
@@ -329,7 +352,7 @@ pub(super) fn table(ui: &mut egui::Ui, t: &Tokens, id: u64, tb: &TableEl, width:
     let pick_id = egui::Id::new(("table_pick", id));
     let mut pick: Pick = ui.data(|d| d.get_temp(pick_id)).unwrap_or(Pick { range: CellRange::cell(0, 0), from: (0, 0) });
     pick.range = pick.range.clipped(rows, cols).unwrap_or(CellRange::cell(0, 0));
-    section(ui, t, tr("CELLS"));
+    section(ui, t, tr("Cells"));
     ui.label(egui::RichText::new(tr("Click a cell to pick it, shift-click to pick a range.")).small().color(t.text_dim));
     let spans = tb.spans();
     let shift = ui.input(|i| i.modifiers.shift);
@@ -399,14 +422,14 @@ pub(super) fn table(ui: &mut egui::Ui, t: &Tokens, id: u64, tb: &TableEl, width:
         }
     });
     let mut header = tb.header_row;
-    if ui.checkbox(&mut header, tr("Header row")).changed() {
+    if crate::theme::switch(ui, &mut header, tr("Header row")).changed() {
         acts.run("table.setStyle", json!({"header_row": header}));
     }
 
     picked_cells(ui, t, id, tb, width, &mut pick, brand, acts);
     ui.data_mut(|d| d.insert_temp(pick_id, pick));
 
-    section(ui, t, tr("TEXT"));
+    section(ui, t, tr("Text"));
     ui.horizontal(|ui| {
         let mut size = tb.font_size;
         if ui.add(egui::DragValue::new(&mut size).range(1.0..=2000.0).speed(0.5).prefix(tr("Size "))).changed() {
@@ -429,16 +452,16 @@ pub(super) fn table(ui: &mut egui::Ui, t: &Tokens, id: u64, tb: &TableEl, width:
         acts.run("table.setStyle", json!({"text_color": c.to_hex(), "merge_key": key("tabletext")}));
     }
 
-    section(ui, t, tr("HEADER"));
+    section(ui, t, tr("Header"));
     if let Some(c) = color_row(ui, tb.header_fill, brand) {
         acts.run("table.setStyle", json!({"header_fill": c.to_hex(), "header_text": c.readable_text().to_hex(), "merge_key": key("tablehead")}));
     }
-    section(ui, t, tr("ROWS"));
+    section(ui, t, tr("Rows"));
     if let Some(c) = color_row(ui, tb.row_fill, brand) {
         acts.run("table.setStyle", json!({"row_fill": c.to_hex(), "merge_key": key("tablerow")}));
     }
     let mut banded = tb.alt_row_fill.is_some();
-    if ui.checkbox(&mut banded, tr("Banded rows")).changed() {
+    if crate::theme::switch(ui, &mut banded, tr("Banded rows")).changed() {
         let alt = tb.header_fill.lerp(Color::WHITE, 0.9);
         acts.run("table.setStyle", json!({"alt_row_fill": if banded { Some(alt.to_hex()) } else { None }}));
     }
@@ -447,9 +470,9 @@ pub(super) fn table(ui: &mut egui::Ui, t: &Tokens, id: u64, tb: &TableEl, width:
     {
         acts.run("table.setStyle", json!({"alt_row_fill": c.to_hex(), "merge_key": key("tablealt")}));
     }
-    section(ui, t, tr("LINES"));
+    section(ui, t, tr("Lines"));
     let mut lines = tb.border.is_some();
-    if ui.checkbox(&mut lines, tr("Lines")).changed() {
+    if crate::theme::switch(ui, &mut lines, tr("Lines")).changed() {
         acts.run("style.stroke", if lines { json!({"width": 1.5, "color": "#d9d6e8"}) } else { json!({"none": true}) });
     }
     if let Some(b) = &tb.border {
@@ -469,7 +492,7 @@ pub(super) fn table(ui: &mut egui::Ui, t: &Tokens, id: u64, tb: &TableEl, width:
         }
         if tb.borders.outer() {
             let mut own = tb.outer_border.is_some();
-            if ui.checkbox(&mut own, tr("Different outside line")).changed() {
+            if crate::theme::switch(ui, &mut own, tr("Different outside line")).changed() {
                 let o = json!({"color": b.color.to_hex(), "width": (b.width * 2.0).min(12.0)});
                 acts.run("table.setStyle", json!({"outer_border": if own { o } else { serde_json::Value::Null }}));
             }
@@ -492,7 +515,7 @@ fn picked_cells(ui: &mut egui::Ui, t: &Tokens, id: u64, tb: &TableEl, width: f64
     let key = |what: &str| format!("{what}:{id}");
     let (rows, cols) = (tb.rows.len(), tb.columns());
     let r = pick.range;
-    section(ui, t, tr("PICKED CELLS"));
+    section(ui, t, tr("Picked cells"));
     ui.horizontal_wrapped(|ui| {
         let mut v = [r.row + 1, r.col + 1, r.rows, r.cols];
         let mut moved = false;
@@ -552,7 +575,7 @@ fn picked_cells(ui: &mut egui::Ui, t: &Tokens, id: u64, tb: &TableEl, width: f64
     });
     ui.horizontal_wrapped(|ui| {
         let mut bold = own.bold.unwrap_or(header);
-        if ui.checkbox(&mut bold, tr("Bold")).changed() {
+        if crate::theme::switch(ui, &mut bold, tr("Bold")).changed() {
             acts.run("table.setCellStyle", at(json!({"bold": bold})));
         }
         let align = own.align.unwrap_or(tb.align);
@@ -571,7 +594,7 @@ fn picked_cells(ui: &mut egui::Ui, t: &Tokens, id: u64, tb: &TableEl, width: f64
             acts.run("table.setCellStyle", at(json!({"font_size": null})));
         }
     });
-    section(ui, t, tr("COLUMN AND ROW SIZE"));
+    section(ui, t, tr("Column and row size"));
     ui.horizontal_wrapped(|ui| {
         let frac = tb.fractions().get(r.col).copied().unwrap_or(0.0);
         let mut w = (frac * width).round();
@@ -588,7 +611,7 @@ fn picked_cells(ui: &mut egui::Ui, t: &Tokens, id: u64, tb: &TableEl, width: f64
     ui.horizontal_wrapped(|ui| {
         let set = tb.row_height(r.row);
         let mut auto = set <= 0.0;
-        if ui.checkbox(&mut auto, tr!("Row {n} fits its text", n = r.row + 1)).changed() {
+        if crate::theme::switch(ui, &mut auto, &tr!("Row {n} fits its text", n = r.row + 1)).changed() {
             let h = if auto { 0.0 } else { (tb.font_size * 3.0).round() };
             acts.run("table.setRowHeight", json!({"row": r.row, "height": h}));
         }

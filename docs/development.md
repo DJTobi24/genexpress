@@ -113,6 +113,18 @@ came from data, cap sizes, check floats, and fuzz every parser (`proptest`).
    text translated (below).
 5. Docs: the feature's row in [target-app-parity.md](target-app-parity.md), [gaps.md](gaps.md), the ROADMAP.
 
+## Look and wording of the UI
+
+The editor and the home screen share one style: objects are edited in the left panel (tabs Edit,
+Effects, Animation), choices are pictures on rounded tiles, settings are switches, icons are drawn
+in code (`glyphs.rs`, `art.rs`), colours come from `theme::Tokens`. Text in the UI:
+
+- sentence case for headings and buttons (no ALL-CAPS labels);
+- no em dashes (—) and no middle dots (·) as separators; write a short sentence, a comma, or two
+  labels instead;
+- short and plain; leave out labels the picture or the place already says;
+- motion only answers what the user did (a hover, a choice, a message), and stays short.
+
 ## Translating GenHa
 
 The UI is written in English and translated where text is shown (`crates/i18n`, layer L0). English

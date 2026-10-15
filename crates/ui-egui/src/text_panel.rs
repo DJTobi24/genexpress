@@ -353,7 +353,7 @@ fn edit_tab(
     });
     let mut shrink = text.fit == TextFit::Shrink;
     let tip = tr("When the text does not fit its box, set it smaller (down to 40%) instead of growing the box");
-    if ui.checkbox(&mut shrink, tr("Shrink text to fit")).on_hover_text(tip).changed() {
+    if crate::theme::switch(ui, &mut shrink, tr("Shrink text to fit")).on_hover_text(tip).changed() {
         acts.run("text.setFit", json!({"fit": if shrink { "shrink" } else { "none" }}));
     }
     if let Some(f) = fit.filter(|f| f.scale < 1.0 || !f.fits) {

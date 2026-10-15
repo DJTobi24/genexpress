@@ -124,7 +124,7 @@ fn kind_combo(ui: &mut egui::Ui, id: &str, current: Option<AnimationKind>, none:
 /// The selected object's animation: entrance, timing, loop, exit and a preview.
 fn element_animation(ui: &mut egui::Ui, t: &Tokens, el: &Element, acts: &mut Actions) {
     let id = el.id.0;
-    section(ui, t, tr("ANIMATION"));
+    section(ui, t, tr("Animation"));
     let a = el.animation.as_ref();
     ui.horizontal(|ui| {
         ui.label(tr("Entrance"));
@@ -171,7 +171,7 @@ fn element_animation(ui: &mut egui::Ui, t: &Tokens, el: &Element, acts: &mut Act
 
 /// The page's animation: animate everything at once, and how long the page plays.
 fn page_animation(ui: &mut egui::Ui, t: &Tokens, p: &Page, choices: &mut crate::motion::PanelChoices, acts: &mut Actions) {
-    section(ui, t, tr("ANIMATION"));
+    section(ui, t, tr("Animation"));
     ui.horizontal(|ui| {
         ui.label(tr("Style"));
         if let Some(Some(k)) = kind_combo(ui, "anim_all_kind", Some(choices.kind), "") {
@@ -196,7 +196,7 @@ fn page_animation(ui: &mut egui::Ui, t: &Tokens, p: &Page, choices: &mut crate::
     let mut fixed = p.duration.is_some();
     let mut seconds = genha_motion::page_duration(p);
     ui.horizontal(|ui| {
-        if ui.checkbox(&mut fixed, tr("Fixed length")).on_hover_text(tr("Off: the page plays until its animations finish")).changed() {
+        if crate::theme::switch(ui, &mut fixed, tr("Fixed length")).on_hover_text(tr("Off: the page plays until its animations finish")).changed() {
             let value = if fixed { json!((seconds * 10.0).round() / 10.0) } else { Value::Null };
             acts.run("page.setDuration", json!({"seconds": value}));
         }
@@ -218,8 +218,9 @@ fn title(ui: &mut egui::Ui, text: &str) {
 }
 
 fn section(ui: &mut egui::Ui, t: &Tokens, text: &str) {
-    ui.add_space(8.0);
-    ui.label(egui::RichText::new(text).size(12.0).color(t.text_dim).strong());
+    ui.add_space(14.0);
+    ui.label(egui::RichText::new(text).size(12.5).strong().color(t.text_dim));
+    ui.add_space(2.0);
 }
 
 /// A colour button plus brand swatches; returns the new colour when changed.
@@ -248,7 +249,7 @@ fn page_props(ui: &mut egui::Ui, t: &Tokens, p: &Page, brand: &[genha_color::Col
     if ui.text_edit_singleline(&mut name).changed() {
         acts.run("page.rename", json!({"name": name, "merge_key": format!("pagename:{}", p.id.0)}));
     }
-    section(ui, t, tr("SIZE"));
+    section(ui, t, tr("Size"));
     let (mut w, mut h) = (p.width, p.height);
     ui.horizontal(|ui| {
         let a = ui.add(egui::DragValue::new(&mut w).range(1.0..=16384.0).prefix(tr("W ")).suffix(" px"));
@@ -258,7 +259,7 @@ fn page_props(ui: &mut egui::Ui, t: &Tokens, p: &Page, brand: &[genha_color::Col
         }
     });
     ui.label(egui::RichText::new(tr("Use ⇲ Resize in the top bar to re-layout for another size.")).size(11.0).color(t.text_dim));
-    section(ui, t, tr("BACKGROUND"));
+    section(ui, t, tr("Background"));
     let current = p.background.primary_color().unwrap_or(genha_color::Color::WHITE);
     if let Some(c) = color_row(ui, current, brand) {
         acts.run("page.setBackground", json!({"color": c.to_hex(), "merge_key": format!("pagebg:{}", p.id.0)}));
@@ -272,12 +273,12 @@ fn page_props(ui: &mut egui::Ui, t: &Tokens, p: &Page, brand: &[genha_color::Col
             acts.run("page.setBackground", json!({"fill": Fill::None}));
         }
     });
-    section(ui, t, tr("NOTES"));
+    section(ui, t, tr("Notes"));
     let mut notes = p.notes.clone();
     if ui.add(egui::TextEdit::multiline(&mut notes).desired_rows(3).hint_text(tr("Speaker notes"))).changed() {
         acts.run("page.setNotes", json!({"notes": notes, "merge_key": format!("notes:{}", p.id.0)}));
     }
-    section(ui, t, tr("PAGE"));
+    section(ui, t, tr("Page"));
     ui.horizontal_wrapped(|ui| {
         if ui.button(tr("Add page")).clicked() {
             acts.run("page.add", json!({}));

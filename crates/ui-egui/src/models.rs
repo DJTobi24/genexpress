@@ -274,7 +274,7 @@ fn prompt(app: &mut App, ctx: &egui::Context) {
                 host = host
             ));
             ui.add_enabled_ui(downloading.is_none(), |ui| {
-                ui.checkbox(&mut high, tr("High quality model instead (U²-Net, 176 MB, slower)"));
+                crate::theme::switch(ui, &mut high, tr("High quality model instead (U²-Net, 176 MB, slower)"));
             });
             ui.add_space(6.0);
             if let Some((what, fraction)) = &downloading {

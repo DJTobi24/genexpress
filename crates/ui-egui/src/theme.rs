@@ -166,3 +166,28 @@ pub fn hover_fade(ctx: &egui::Context, rect: egui::Rect, hovered: bool) -> f32 {
     let id = egui::Id::new(("hover_fade", rect.min.x.round() as i32, rect.min.y.round() as i32, rect.width().round() as i32));
     ctx.animate_bool_with_time(id, hovered, 0.12)
 }
+
+/// An on/off switch with a label (a knob that slides; replaces checkboxes). `changed()` is set
+/// when it was flipped.
+pub fn switch(ui: &mut egui::Ui, on: &mut bool, label: &str) -> egui::Response {
+    let t = Tokens::get(ui.ctx());
+    let font = egui::FontId::proportional(13.0);
+    let galley = ui.painter().layout(label.to_string(), font, t.text, (ui.available_width() - 48.0).max(40.0));
+    let size = egui::vec2(36.0 + 10.0 + galley.size().x, galley.size().y.max(20.0));
+    let (rect, mut r) = ui.allocate_exact_size(size, egui::Sense::click());
+    let enabled = ui.is_enabled();
+    if r.clicked() && enabled {
+        *on = !*on;
+        r.mark_changed();
+    }
+    let r = if enabled { r.on_hover_cursor(egui::CursorIcon::PointingHand) } else { r };
+    let k = ui.ctx().animate_bool_with_time(r.id.with("switch"), *on, 0.14);
+    let track = egui::Rect::from_min_size(egui::pos2(rect.left(), rect.top() + (rect.height() - 20.0) / 2.0), egui::vec2(36.0, 20.0));
+    let fill = t.border.lerp_to_gamma(t.accent, k);
+    ui.painter().rect_filled(track, 10, if enabled { fill } else { fill.gamma_multiply(0.5) });
+    let knob = egui::pos2(track.left() + 10.0 + 16.0 * k, track.center().y);
+    ui.painter().circle_filled(knob, 7.5, Color32::WHITE);
+    let ink = if enabled { t.text } else { t.text_dim };
+    ui.painter().galley(egui::pos2(track.right() + 10.0, rect.center().y - galley.size().y / 2.0), galley, ink);
+    r
+}
