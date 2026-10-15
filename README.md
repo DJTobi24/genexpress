@@ -106,7 +106,7 @@ video timeline with audio, and more UI languages.
 |---|---|
 | Templates / size presets / icons / palettes | 121 / 35 / 114 / 40 |
 | Commands (UI = CLI = MCP) | 184 |
-| Tests | 404 |
+| Tests | 405 |
 | Code | ~60k lines of Rust |
 
 - [ROADMAP.md](ROADMAP.md) — stage, numbers, what's next and the progress log.

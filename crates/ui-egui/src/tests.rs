@@ -469,6 +469,9 @@ fn picture_panel_opens_for_a_picture() {
         app.editor.panel_tab = tab;
         run_frames(&mut app, &ctx, 3);
     }
+    // A message shows as a toast over the editor for a few seconds.
+    app.set_status("Saved");
+    run_frames(&mut app, &ctx, 2);
     // Closed from the rail, the tab shows until another object is selected.
     app.editor.panel_closed = Some(genha_doc::NodeId(pic));
     assert_eq!(crate::properties::context_target(&app), None);

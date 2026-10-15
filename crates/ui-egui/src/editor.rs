@@ -118,6 +118,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     palette(app, ui.ctx(), &t);
     versions_window(app, ui.ctx(), &t);
     template_dialog(app, ui.ctx(), &t);
+    toast(app, ui.ctx(), &t);
     crate::models::show(app, ui.ctx());
 }
 
@@ -286,7 +287,33 @@ fn resize_menu(app: &mut App, ui: &mut egui::Ui) {
     });
 }
 
+/// A row of the Download menu: a coloured badge with the format, then the label.
+fn format_row(ui: &mut egui::Ui, t: &Tokens, ext: &str, label: &str) -> egui::Response {
+    let (rect, r) = ui.allocate_exact_size(egui::vec2(280.0, 36.0), egui::Sense::click());
+    let enabled = ui.is_enabled();
+    let r = if enabled { r.on_hover_cursor(egui::CursorIcon::PointingHand) } else { r };
+    let k = crate::theme::hover_fade(ui.ctx(), rect, r.hovered() && enabled);
+    if k > 0.0 {
+        ui.painter().rect_filled(rect, 8, t.accent_soft.gamma_multiply(k));
+    }
+    let color = match ext {
+        "png" => egui::Color32::from_rgb(0x25, 0x63, 0xeb),
+        "jpg" => egui::Color32::from_rgb(0x0e, 0x9f, 0x8e),
+        "svg" => egui::Color32::from_rgb(0xe8, 0x8a, 0x17),
+        "pdf" => egui::Color32::from_rgb(0xd9, 0x30, 0x30),
+        "gif" => egui::Color32::from_rgb(0xdb, 0x27, 0x77),
+        _ => t.accent,
+    };
+    let badge = egui::Rect::from_min_size(rect.left_center() + egui::vec2(8.0, -11.0), egui::vec2(40.0, 22.0));
+    ui.painter().rect_filled(badge, 6, if enabled { color } else { t.border });
+    ui.painter().text(badge.center(), egui::Align2::CENTER_CENTER, ext.to_uppercase(), egui::FontId::proportional(10.5), egui::Color32::WHITE);
+    let ink = if enabled { t.text } else { t.text_dim };
+    ui.painter().text(rect.left_center() + egui::vec2(58.0, 0.0), egui::Align2::LEFT_CENTER, label, egui::FontId::proportional(13.0), ink);
+    r
+}
+
 fn download_menu(app: &mut App, ui: &mut egui::Ui) {
+    let t = Tokens::get(ui.ctx());
     let name = app.session.active().map(|d| io::file_stem(&d.doc.title)).unwrap_or_else(|| "design".into());
     let entries: [(&str, &str, &str, Value); 10] = [
         ("PNG", "export.png", "png", json!({})),
@@ -306,7 +333,7 @@ fn download_menu(app: &mut App, ui: &mut egui::Ui) {
         let busy = video && app.editor.video_job.is_some();
         #[cfg(target_arch = "wasm32")]
         let busy = false;
-        let button = ui.add_enabled(!busy, egui::Button::new(tr(label)));
+        let button = ui.add_enabled_ui(!busy, |ui| format_row(ui, &t, ext, tr(label))).inner;
         let button = if video { button.on_hover_text(tr("Every page in turn, each for its duration (30 frames per second)")) } else { button };
         if button.clicked() {
             ui.close();
@@ -363,12 +390,6 @@ fn status_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                         ui.colored_label(t.text_dim, format!("·  {}", tr!("{n} selected", n = d.selection.len())));
                     }
                 }
-                if let Some((msg, at)) = &app.status
-                    && crate::now() - at < 8.0
-                {
-                    ui.separator();
-                    ui.colored_label(t.text, msg);
-                }
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Some(job) = &app.editor.video_job {
                     use std::sync::atomic::Ordering;
@@ -387,8 +408,8 @@ fn status_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 
 fn page_strip(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     egui::Panel::bottom("pages")
-        .exact_size(112.0)
-        .frame(egui::Frame::new().fill(t.panel_alt).inner_margin(egui::Margin::symmetric(12, 8)).stroke(egui::Stroke::new(1.0, t.border)))
+        .exact_size(118.0)
+        .frame(egui::Frame::new().fill(t.panel_alt).inner_margin(egui::Margin::symmetric(14, 10)).stroke(egui::Stroke::new(1.0, t.border)))
         .show(ui, |ui| {
             let Some(d) = app.session.active() else { return };
             let doc = d.doc.clone();
@@ -397,16 +418,44 @@ fn page_strip(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             let ctx = ui.ctx().clone();
             let mut goto = None;
             let mut action: Option<(&str, Value)> = None;
+            let count = doc.pages.len();
+            let menu = |ui: &mut egui::Ui, i: usize, action: &mut Option<(&str, Value)>| {
+                if ui.button(tr("Duplicate page")).clicked() {
+                    *action = Some(("page.duplicate", json!({"index": i})));
+                    ui.close();
+                }
+                if i > 0 && ui.button(tr("Move left")).clicked() {
+                    *action = Some(("page.move", json!({"from": i, "to": i - 1})));
+                    ui.close();
+                }
+                if i + 1 < count && ui.button(tr("Move right")).clicked() {
+                    *action = Some(("page.move", json!({"from": i, "to": i + 1})));
+                    ui.close();
+                }
+                if count > 1 && ui.button(egui::RichText::new(tr("Delete page")).color(t.danger)).clicked() {
+                    *action = Some(("page.delete", json!({"index": i})));
+                    ui.close();
+                }
+            };
             egui::ScrollArea::horizontal().show(ui, |ui| {
                 ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 12.0;
                     for (i, page) in doc.pages.iter().enumerate() {
                         let fonts = app.session.fonts.clone();
                         let stamp = if i == current { revision } else { 0 };
                         let key = format!("page:{}:{}", d_key(&doc), page.id.0);
-                        let tex = app.thumbs.get(&ctx, &key, stamp, || genha_render::render_thumbnail(&doc, i, &fonts, 160).ok());
-                        let size = thumbs::fit_size(page.width as f32, page.height as f32, egui::vec2(110.0, 72.0));
-                        let (rect, r) = ui.allocate_exact_size(egui::vec2(116.0, 92.0), egui::Sense::click());
-                        let img = egui::Rect::from_center_size(egui::pos2(rect.center().x, rect.top() + 40.0), size);
+                        let tex = app.thumbs.get(&ctx, &key, stamp, || genha_render::render_thumbnail(&doc, i, &fonts, 200).ok());
+                        let (rect, r) = ui.allocate_exact_size(egui::vec2(120.0, 96.0), egui::Sense::click());
+                        let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
+                        // Lifts a little under the pointer.
+                        let lift = ctx.animate_bool_with_time(egui::Id::new(("page_lift", page.id.0)), r.hovered(), 0.15);
+                        let card = rect.translate(egui::vec2(0.0, -2.0 * lift));
+                        if lift > 0.0 {
+                            ui.painter().rect_filled(card.translate(egui::vec2(0.0, 3.0)), 12, egui::Color32::from_black_alpha((26.0 * lift) as u8));
+                        }
+                        ui.painter().rect_filled(card, 12, t.panel);
+                        let size = thumbs::fit_size(page.width as f32, page.height as f32, card.shrink(10.0).size());
+                        let img = egui::Rect::from_center_size(card.center(), size);
                         match &tex {
                             Some(tex) => {
                                 ui.painter().image(
@@ -417,41 +466,50 @@ fn page_strip(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                                 );
                             }
                             None => {
-                                ui.painter().rect_filled(img, 2, t.border);
+                                ui.painter().rect_filled(img, 3, t.border);
                             }
                         }
                         let stroke = if i == current { egui::Stroke::new(2.5, t.accent) } else { egui::Stroke::new(1.0, t.border) };
-                        ui.painter().rect_stroke(img.expand(2.0), 4, stroke, egui::StrokeKind::Outside);
+                        ui.painter().rect_stroke(card, 12, stroke, egui::StrokeKind::Inside);
+                        // The page number on a small badge.
+                        let badge = egui::Rect::from_min_size(card.left_bottom() + egui::vec2(6.0, -22.0), egui::vec2(22.0, 16.0));
+                        ui.painter().rect_filled(badge, 8, if i == current { t.accent } else { t.text.gamma_multiply(0.7) });
                         ui.painter().text(
-                            egui::pos2(rect.center().x, rect.bottom() - 8.0),
+                            badge.center(),
                             egui::Align2::CENTER_CENTER,
                             format!("{}", i + 1),
-                            egui::FontId::proportional(11.0),
-                            t.text_dim,
+                            egui::FontId::proportional(10.5),
+                            t.accent_text,
                         );
+                        // "…" for the page's menu, under the pointer.
+                        let dots = egui::Rect::from_min_size(card.right_top() + egui::vec2(-28.0, 4.0), egui::vec2(24.0, 22.0));
+                        let dots_r = ui.interact(dots, egui::Id::new(("page_menu", page.id.0)), egui::Sense::click());
+                        if r.hovered() || dots_r.hovered() {
+                            ui.painter().rect_filled(dots, 8, if dots_r.hovered() { t.accent_soft } else { t.panel });
+                            crate::glyphs::draw(ui.painter(), crate::glyphs::Glyph::More, dots.shrink(4.0), t.text);
+                        }
+                        egui::Popup::menu(&dots_r).show(|ui| menu(ui, i, &mut action));
                         if r.clicked() {
                             goto = Some(i);
                         }
-                        r.context_menu(|ui| {
-                            if ui.button(tr("Duplicate page")).clicked() {
-                                action = Some(("page.duplicate", json!({"index": i})));
-                                ui.close();
-                            }
-                            if ui.button(tr("Delete page")).clicked() {
-                                action = Some(("page.delete", json!({"index": i})));
-                                ui.close();
-                            }
-                            if i > 0 && ui.button(tr("Move left")).clicked() {
-                                action = Some(("page.move", json!({"from": i, "to": i - 1})));
-                                ui.close();
-                            }
-                            if i + 1 < doc.pages.len() && ui.button(tr("Move right")).clicked() {
-                                action = Some(("page.move", json!({"from": i, "to": i + 1})));
-                                ui.close();
-                            }
-                        });
+                        r.context_menu(|ui| menu(ui, i, &mut action));
                     }
-                    if ui.add(egui::Button::new(egui::RichText::new(tr("+\nAdd page")).size(13.0)).min_size(egui::vec2(90.0, 80.0))).clicked() {
+                    // A tile to add a page.
+                    let (rect, r) = ui.allocate_exact_size(egui::vec2(96.0, 96.0), egui::Sense::click());
+                    let r = r.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(tr("Add page"));
+                    let k = ctx.animate_bool_with_time(r.id.with("hover"), r.hovered(), 0.12);
+                    ui.painter().rect_filled(rect, 12, t.panel.lerp_to_gamma(t.accent_soft, k));
+                    let pts = vec![rect.left_top(), rect.right_top(), rect.right_bottom(), rect.left_bottom(), rect.left_top()];
+                    for sh in egui::Shape::dashed_line(&pts, egui::Stroke::new(1.3, t.border.lerp_to_gamma(t.accent, k)), 6.0, 4.0) {
+                        ui.painter().add(sh);
+                    }
+                    crate::glyphs::draw(
+                        ui.painter(),
+                        crate::glyphs::Glyph::Plus,
+                        egui::Rect::from_center_size(rect.center(), egui::vec2(26.0, 26.0)),
+                        t.text.lerp_to_gamma(t.accent, k),
+                    );
+                    if r.clicked() {
                         action = Some(("page.add", json!({})));
                     }
                 });
@@ -467,6 +525,37 @@ fn page_strip(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         });
 }
 
+/// The latest message as a small card that rises at the bottom of the window and fades away.
+fn toast(app: &App, ctx: &egui::Context, t: &Tokens) {
+    const SHOWN: f64 = 4.0;
+    let Some((msg, at)) = &app.status else { return };
+    let age = crate::now() - at;
+    if !(0.0..SHOWN).contains(&age) {
+        return;
+    }
+    // In over 0.2 s, out over the last 0.4 s.
+    let alpha = ((age / 0.2).min(1.0).min((SHOWN - age) / 0.4)).clamp(0.0, 1.0) as f32;
+    let rise = 10.0 * (1.0 - (age / 0.2).min(1.0) as f32);
+    let screen = ctx.content_rect();
+    egui::Area::new(egui::Id::new("toast"))
+        .order(egui::Order::Tooltip)
+        .anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -150.0 + rise))
+        .interactable(false)
+        .show(ctx, |ui| {
+            ui.set_opacity(alpha);
+            ui.set_max_width((screen.width() - 80.0).clamp(200.0, 560.0));
+            egui::Frame::new()
+                .fill(t.text)
+                .corner_radius(14)
+                .inner_margin(egui::Margin::symmetric(16, 10))
+                .shadow(egui::epaint::Shadow { offset: [0, 4], blur: 16, spread: 0, color: egui::Color32::from_black_alpha(50) })
+                .show(ui, |ui| {
+                    ui.label(egui::RichText::new(msg).color(t.panel).size(13.0));
+                });
+        });
+    ctx.request_repaint();
+}
+
 /// A key that changes when another document is active (thumbnails per document).
 fn d_key(doc: &std::sync::Arc<genha_doc::Document>) -> u64 {
     doc.pages.first().map(|p| p.id.0).unwrap_or(0) ^ (doc.next_id << 20)
@@ -480,16 +569,27 @@ fn left_rail(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             let ctx = ui.ctx().clone();
             let fonts = app.session.fonts.clone();
             let mut picked = None;
+            // The soft pill behind the active tab slides from tab to tab.
+            let shown = crate::properties::context_target(app).is_none();
+            let active = LeftTab::ALL.iter().position(|x| *x == app.left_tab).unwrap_or(0) as f32;
+            let at = ui.ctx().animate_value_with_time(egui::Id::new("rail_pill"), active, 0.18);
+            let first = ui.cursor().min;
+            if shown {
+                let center = egui::pos2(ui.max_rect().center().x, first.y + 19.0 + at * 62.0);
+                ui.painter().rect_filled(egui::Rect::from_center_size(center, egui::vec2(44.0, 32.0)), 12, t.accent_soft);
+            }
             ui.vertical_centered(|ui| {
+                // Items 62 points apart (58 + 4), where the pill above expects them.
+                ui.spacing_mut().item_spacing.y = 0.0;
                 for tab in LeftTab::ALL {
-                    // The tab whose content shows (none while the text or picture panel is open).
-                    let on = app.left_tab == tab && crate::properties::context_target(app).is_none();
+                    // The tab whose content shows (none while an object's panel is open).
+                    let on = app.left_tab == tab && shown;
                     let (rect, r) = ui.allocate_exact_size(egui::vec2(66.0, 58.0), egui::Sense::click());
+                    let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
                     let back = egui::Rect::from_center_size(rect.center_top() + egui::vec2(0.0, 19.0), egui::vec2(44.0, 32.0));
-                    if on {
-                        ui.painter().rect_filled(back, 12, t.accent_soft);
-                    } else if r.hovered() {
-                        ui.painter().rect_filled(back, 12, t.panel_alt);
+                    let k = crate::theme::hover_fade(ui.ctx(), back, r.hovered() && !on);
+                    if k > 0.0 {
+                        ui.painter().rect_filled(back, 12, t.panel_alt.gamma_multiply(k));
                     }
                     let ink = if on {
                         t.accent

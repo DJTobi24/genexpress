@@ -141,9 +141,6 @@ msgstr "Nach links"
 msgid "Move right"
 msgstr "Nach rechts"
 
-msgid "+\nAdd page"
-msgstr "+\nSeite hinzufügen"
-
 msgid "Type a command…"
 msgstr "Befehl eingeben…"
 

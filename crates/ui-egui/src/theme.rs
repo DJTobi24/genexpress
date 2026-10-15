@@ -160,3 +160,9 @@ pub fn from_egui(c: Color32) -> genha_color::Color {
     let [r, g, b, a] = c.to_srgba_unmultiplied();
     genha_color::Color::rgba(r, g, b, a)
 }
+
+/// How far a hover has faded in at `rect` (0 to 1 over 0.12 s), keyed by the rect's place.
+pub fn hover_fade(ctx: &egui::Context, rect: egui::Rect, hovered: bool) -> f32 {
+    let id = egui::Id::new(("hover_fade", rect.min.x.round() as i32, rect.min.y.round() as i32, rect.width().round() as i32));
+    ctx.animate_bool_with_time(id, hovered, 0.12)
+}

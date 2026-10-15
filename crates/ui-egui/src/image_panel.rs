@@ -91,6 +91,7 @@ fn quick_actions(app: &mut App, ui: &mut egui::Ui, t: &Tokens, brand: &[genha_co
     egui::Grid::new("pic_actions").spacing(egui::vec2(8.0, 8.0)).show(ui, |ui| {
         for (i, (illustration, name, hint, cmd)) in actions.into_iter().enumerate() {
             let (rect, r) = ui.allocate_exact_size(egui::vec2(side, side + 18.0), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
             let pic = egui::Rect::from_min_size(rect.min, egui::vec2(side, side * 0.78));
             tile_back(ui, t, pic, false, r.hovered());
             let ink = if r.hovered() { t.accent } else { t.text_dim };
@@ -143,6 +144,7 @@ fn tools(ui: &mut egui::Ui, t: &Tokens, el: &Element, img: &ImageEl, acts: &mut 
     let half = ((ui.available_width() - 8.0) / 2.0).floor();
     let button = |ui: &mut egui::Ui, icon: ToolIcon, text: &str| -> egui::Response {
         let (rect, r) = ui.allocate_exact_size(egui::vec2(half, 36.0), egui::Sense::click());
+        let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
         tile_back(ui, t, rect, false, r.hovered());
         let ink = if r.hovered() { t.accent } else { t.text };
         tool_icon(ui.painter(), egui::Rect::from_center_size(rect.left_center() + egui::vec2(20.0, 0.0), egui::vec2(16.0, 16.0)), icon, ink);
@@ -255,6 +257,7 @@ fn filters(app: &mut App, ui: &mut egui::Ui, t: &Tokens, el: &Element, img: &Ima
     egui::Grid::new("pic_filters").spacing(egui::vec2(8.0, 8.0)).show(ui, |ui| {
         for (i, f) in genha_effects::filter_presets().into_iter().enumerate() {
             let (rect, r) = ui.allocate_exact_size(egui::vec2(side, side + 18.0), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
             let pic = egui::Rect::from_min_size(rect.min, egui::vec2(side, side));
             let on = f.id == current;
             tile_back(ui, t, pic, on, r.hovered());

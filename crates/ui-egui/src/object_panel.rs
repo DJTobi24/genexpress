@@ -163,6 +163,7 @@ fn shape_edit(ui: &mut egui::Ui, t: &Tokens, el: &Element, sh: &ShapeEl, brand: 
     ui.horizontal(|ui| {
         for (i, name) in [N_("None"), N_("Solid"), N_("Dashed")].into_iter().enumerate() {
             let (rect, r) = ui.allocate_exact_size(egui::vec2(78.0, 48.0), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
             let on = current == i;
             tile_back(ui, t, rect, on, r.hovered());
             let ink = if on { t.accent } else { t.text };
@@ -229,6 +230,7 @@ fn shadow(ui: &mut egui::Ui, t: &Tokens, sh: &ShapeEl, id: u64, acts: &mut Actio
     ui.horizontal(|ui| {
         for (i, name) in [N_("None"), N_("Soft"), N_("Hard")].into_iter().enumerate() {
             let (rect, r) = ui.allocate_exact_size(egui::vec2(78.0, 70.0), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
             let on = current == i;
             tile_back(ui, t, rect, on, r.hovered());
             let card = egui::Rect::from_center_size(rect.center() - egui::vec2(3.0, 9.0), egui::vec2(30.0, 24.0));
