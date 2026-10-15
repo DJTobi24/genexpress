@@ -8,6 +8,7 @@ use crate::App;
 use crate::theme::Tokens;
 use genha_doc::{Document, ElementKind};
 use genha_geom::{Frame, Point};
+use genha_i18n::tr;
 use genha_tools::{Handle, Measure, MeasureKind, PointerEvent, PointerKind, ToolId};
 
 #[derive(Default)]
@@ -172,6 +173,124 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     if app.session.tools.is_dragging() || app.session.preview.is_some() {
         ui.ctx().request_repaint();
     }
+
+    // The bar over the selection, and the zoom control.
+    let selection_rect = (app.session.tools.tool == ToolId::Select
+        && app.session.text_editing.is_none()
+        && !app.session.tools.is_dragging()
+        && !ui.input(|i| i.pointer.any_down()))
+    .then(|| genha_tools::selection_frame(&display, &selection))
+    .flatten()
+    .map(|f| {
+        let c = corners(&f).map(&to_screen);
+        egui::Rect::from_points(&c)
+    });
+    if let Some(r) = selection_rect {
+        selection_bar(app, ui.ctx(), area, r, t);
+    }
+    zoom_control(app, ui.ctx(), area, t);
+}
+
+/// What the bar over the selection can do.
+const BAR_ACTIONS: usize = 5;
+
+/// A small bar of icons over (or under) the selection: duplicate, delete, lock, forward, backward
+/// and more.
+fn selection_bar(app: &mut App, ctx: &egui::Context, area: egui::Rect, sel: egui::Rect, t: &Tokens) {
+    use crate::glyphs::{Glyph, button};
+    let size = egui::vec2(BAR_ACTIONS as f32 * 34.0 + 34.0 + 16.0, 42.0);
+    // Above the selection (clear of the rotation knob), else below, kept inside the canvas.
+    let above = sel.top() - 52.0 - size.y;
+    let y = if above > area.top() + 6.0 { above } else { (sel.bottom() + 14.0).min(area.bottom() - size.y - 6.0) };
+    let x = (sel.center().x - size.x / 2.0).clamp(area.left() + 6.0, (area.right() - size.x - 6.0).max(area.left() + 6.0));
+    let locked = app.session.active().is_some_and(|d| d.selected_elements().iter().any(|e| e.locked));
+    let several = app.session.active().is_some_and(|d| d.selection.len() > 1);
+    let mut action: Option<&'static str> = None;
+    egui::Area::new(egui::Id::new("selection_bar")).order(egui::Order::Foreground).fixed_pos(egui::pos2(x, y)).show(ctx, |ui| {
+        egui::Frame::new()
+            .fill(t.panel)
+            .corner_radius(12)
+            .stroke(egui::Stroke::new(1.0, t.border))
+            .shadow(egui::epaint::Shadow { offset: [0, 3], blur: 12, spread: 0, color: egui::Color32::from_black_alpha(40) })
+            .inner_margin(egui::Margin::same(4))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 2.0;
+                    for (g, hint, cmd) in [
+                        (Glyph::Duplicate, genha_i18n::N_("Duplicate (Ctrl+D)"), "edit.duplicate"),
+                        (Glyph::Trash, genha_i18n::N_("Delete"), "edit.delete"),
+                        (
+                            if locked { Glyph::Unlock } else { Glyph::Lock },
+                            if locked { genha_i18n::N_("Unlock") } else { genha_i18n::N_("Lock") },
+                            if locked { "object.unlock" } else { "object.lock" },
+                        ),
+                        (Glyph::Forward, genha_i18n::N_("Bring forward"), "object.bringForward"),
+                        (Glyph::Backward, genha_i18n::N_("Send backward"), "object.sendBackward"),
+                    ] {
+                        if button(ui, t, g, false, 32.0).on_hover_text(tr(hint)).clicked() {
+                            action = Some(cmd);
+                        }
+                    }
+                    let r = button(ui, t, Glyph::More, false, 32.0).on_hover_text(tr("More"));
+                    egui::Popup::menu(&r).show(|ui| {
+                        ui.set_min_width(200.0);
+                        let mut item = |ui: &mut egui::Ui, label: &str, cmd: &'static str| {
+                            if ui.button(label).clicked() {
+                                action = Some(cmd);
+                                ui.close();
+                            }
+                        };
+                        item(ui, tr("Bring to Front"), "object.bringToFront");
+                        item(ui, tr("Send to Back"), "object.sendToBack");
+                        ui.separator();
+                        item(ui, tr("Flip H"), "object.flipHorizontal");
+                        item(ui, tr("Flip V"), "object.flipVertical");
+                        if several {
+                            item(ui, tr("Group"), "object.group");
+                        }
+                        item(ui, tr("Ungroup"), "object.ungroup");
+                        ui.separator();
+                        item(ui, tr("Copy style"), "style.copy");
+                        item(ui, tr("Paste style"), "style.paste");
+                    });
+                });
+            });
+    });
+    if let Some(cmd) = action {
+        app.run(cmd, &serde_json::json!({}));
+    }
+}
+
+/// Zoom out, the zoom (a click fits the page), zoom in, at the canvas's bottom right.
+fn zoom_control(app: &mut App, ctx: &egui::Context, area: egui::Rect, t: &Tokens) {
+    use crate::glyphs::{Glyph, button};
+    let size = egui::vec2(32.0 * 3.0 + 58.0 + 12.0, 40.0);
+    let pos = area.right_bottom() - size - egui::vec2(14.0, 14.0);
+    egui::Area::new(egui::Id::new("zoom_control")).order(egui::Order::Foreground).fixed_pos(pos).show(ctx, |ui| {
+        egui::Frame::new().fill(t.panel).corner_radius(12).stroke(egui::Stroke::new(1.0, t.border)).inner_margin(egui::Margin::same(4)).show(
+            ui,
+            |ui| {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 2.0;
+                    if button(ui, t, Glyph::Minus, false, 32.0).on_hover_text(tr("Zoom out")).clicked() {
+                        zoom_by(app, 0.8, None);
+                    }
+                    let label = egui::Button::new(egui::RichText::new(format!("{:.0}%", app.view.zoom * 100.0)).size(12.5).color(t.text))
+                        .frame(false)
+                        .min_size(egui::vec2(58.0, 32.0));
+                    if ui.add(label).on_hover_text(tr("Fit page (Ctrl+0)")).clicked() {
+                        app.view.fit_pending = true;
+                    }
+                    if button(ui, t, Glyph::Plus, false, 32.0).on_hover_text(tr("Zoom in")).clicked() {
+                        zoom_by(app, 1.25, None);
+                    }
+                    if button(ui, t, Glyph::Fit, false, 32.0).on_hover_text(tr("Fit page (Ctrl+0)")).clicked() {
+                        app.view.fit_pending = true;
+                    }
+                });
+            },
+        );
+    });
 }
 
 /// The document to draw: the stored one with the gesture preview applied, built once per change.

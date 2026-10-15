@@ -14,6 +14,7 @@ mod object_panel;
 mod text_panel;
 
 pub use text_panel::PanelTab;
+pub(crate) use text_panel::preset_picture;
 
 /// What the left panel edits in place of its tab.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
