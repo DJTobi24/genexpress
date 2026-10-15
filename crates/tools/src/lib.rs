@@ -251,6 +251,19 @@ enum Gesture {
     },
 }
 
+/// What a gesture in progress does, without its details.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GestureKind {
+    Idle,
+    Move,
+    /// Resizing by a handle (one object or several).
+    Resize(Handle),
+    Rotate,
+    Marquee,
+    Create,
+    Pan,
+}
+
 /// The active tool and the gesture in progress.
 #[derive(Default)]
 pub struct ToolState {
@@ -273,6 +286,19 @@ impl ToolState {
 
     pub fn is_dragging(&self) -> bool {
         !matches!(self.gesture, Gesture::Idle)
+    }
+
+    /// The gesture in progress, as the UI shows it (the pointer's shape).
+    pub fn gesture(&self) -> GestureKind {
+        match &self.gesture {
+            Gesture::Idle => GestureKind::Idle,
+            Gesture::Move { .. } => GestureKind::Move,
+            Gesture::Resize { handle, .. } | Gesture::ResizeMany { handle, .. } => GestureKind::Resize(*handle),
+            Gesture::Rotate { .. } | Gesture::RotateMany { .. } => GestureKind::Rotate,
+            Gesture::Marquee { .. } => GestureKind::Marquee,
+            Gesture::Create { .. } => GestureKind::Create,
+            Gesture::Pan { .. } => GestureKind::Pan,
+        }
     }
 
     /// Abandons the gesture (Escape).

@@ -57,7 +57,8 @@ fn chips(ui: &mut egui::Ui, t: &Tokens, labels: &[&str], chosen: usize) -> Optio
 
 /// A tile's background: soft when hovered.
 fn tile(ui: &egui::Ui, t: &Tokens, rect: egui::Rect, hovered: bool) {
-    ui.painter().rect_filled(rect, 10, if hovered { t.accent_soft } else { t.panel_alt });
+    let k = crate::theme::hover_fade(ui.ctx(), rect, hovered);
+    ui.painter().rect_filled(rect, 10, t.panel_alt.lerp_to_gamma(t.accent_soft, k));
 }
 
 /// Draws `tex` (or a placeholder) inside `rect`, keeping its proportions.
@@ -135,6 +136,7 @@ pub fn templates(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 genha_render::render_thumbnail(&doc, 0, &fonts, 360).ok()
             });
             let (rect, r) = ui.allocate_exact_size(egui::vec2(w, w + 22.0), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
             let pic = egui::Rect::from_min_size(rect.min, egui::vec2(w, w));
             tile(ui, t, pic, r.hovered());
             picture(ui, t, tex.as_ref(), pic.shrink(8.0), tp.width as f32, tp.height as f32);
@@ -223,6 +225,7 @@ pub fn elements(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                     genha_render::render_thumbnail(&doc, 0, &fonts, 96).ok()
                 });
                 let (rect, r) = ui.allocate_exact_size(egui::vec2(side, side), egui::Sense::click());
+                let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
                 tile(ui, t, rect, r.hovered());
                 picture(ui, t, tex.as_ref(), rect.shrink(side * 0.18), 1.0, 1.0);
                 if r.on_hover_text(tr(item.label)).clicked() {
@@ -241,6 +244,7 @@ pub fn elements(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         let mut n = 0;
         for (label, kind, hint) in CHARTS.iter().copied().chain(std::iter::once((N_("Table"), "table", N_("Add a 3 x 3 table")))) {
             let (rect, r) = ui.allocate_exact_size(egui::vec2(w, 70.0), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
             tile(ui, t, rect, r.hovered());
             let ink = if r.hovered() { t.accent } else { t.text_dim };
             chart_icon(ui.painter(), egui::Rect::from_center_size(rect.center() - egui::vec2(0.0, 9.0), egui::vec2(34.0, 26.0)), kind, ink, t);
@@ -289,6 +293,7 @@ pub fn elements(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             ui.spacing_mut().item_spacing = egui::vec2(8.0, 8.0);
             for l in genha_layout::collage_layouts(pictures) {
                 let (rect, r) = ui.allocate_exact_size(egui::vec2(side, side), egui::Sense::click());
+                let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
                 tile(ui, t, rect, r.hovered());
                 let inner = rect.shrink(6.0);
                 for c in &l.cells {
@@ -384,6 +389,7 @@ pub fn text(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         [("heading", N_("Add a heading"), 21.0), ("subheading", N_("Add a subheading"), 16.0), ("body", N_("Add body text"), 13.0)]
     {
         let (rect, r) = ui.allocate_exact_size(egui::vec2(ui.available_width(), size + 26.0), egui::Sense::click());
+        let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
         tile(ui, t, rect, r.hovered());
         let font = egui::FontId::new(size, egui::FontFamily::Proportional);
         let galley = ui.painter().layout_no_wrap(tr(label).to_string(), font, t.text);
@@ -415,6 +421,7 @@ pub fn text(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 .thumbs
                 .get(&ctx, &format!("textstyle:{}:{}", genha_i18n::language().code(), p.id), 0, || crate::properties::preset_picture(&p, &fonts));
             let (rect, r) = ui.allocate_exact_size(egui::vec2(w, 62.0), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
             let light_ink = p.style.color.luminance() > 0.6;
             ui.painter().rect_filled(rect, 10, if light_ink { t.thumb_dark } else { t.thumb_light });
             if r.hovered() {
@@ -445,6 +452,7 @@ pub fn media(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     title(ui, t, tr("Media"));
     // A large tile to upload pictures; they can be dropped on the window too.
     let (rect, r) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 104.0), egui::Sense::click());
+    let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
     ui.painter().rect_filled(rect, 14, if r.hovered() { t.accent_soft } else { t.panel_alt });
     let pts = vec![rect.left_top(), rect.right_top(), rect.right_bottom(), rect.left_bottom(), rect.left_top()];
     for s in egui::Shape::dashed_line(&pts, egui::Stroke::new(1.4, if r.hovered() { t.accent } else { t.border }), 6.0, 4.0) {
@@ -496,6 +504,7 @@ pub fn media(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 Some(genha_render::Raster { width: img.width(), height: img.height(), rgba: img.into_raw() })
             });
             let (rect, r) = ui.allocate_exact_size(egui::vec2(side, side), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
             tile(ui, t, rect, r.hovered());
             picture(ui, t, tex.as_ref(), rect.shrink(4.0), w as f32, h as f32);
             if r.on_hover_text(name).clicked() {
@@ -523,6 +532,7 @@ pub fn brand(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         ui.spacing_mut().item_spacing = egui::vec2(8.0, 8.0);
         for (i, c) in brand.colors.iter().enumerate() {
             let (rect, r) = ui.allocate_exact_size(egui::vec2(34.0, 34.0), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
             ui.painter().circle_filled(rect.center(), 15.0, to_egui(c.color));
             ui.painter().circle_stroke(rect.center(), 15.0, egui::Stroke::new(1.0, t.border));
             if r.hovered() {
@@ -542,6 +552,7 @@ pub fn brand(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         }
         // A "+" to add a colour.
         let (rect, r) = ui.allocate_exact_size(egui::vec2(34.0, 34.0), egui::Sense::click());
+        let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
         ui.painter().circle_filled(rect.center(), 15.0, if r.hovered() { t.accent_soft } else { t.panel_alt });
         glyphs::draw(ui.painter(), Glyph::Plus, egui::Rect::from_center_size(rect.center(), egui::vec2(14.0, 14.0)), t.text);
         let r = r.on_hover_text(tr("Add colour"));
@@ -596,6 +607,7 @@ pub fn brand(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     egui::Grid::new("tab_palettes").spacing(egui::vec2(8.0, 8.0)).show(ui, |ui| {
         for (i, p) in genha_templates::palettes().into_iter().enumerate() {
             let (rect, r) = ui.allocate_exact_size(egui::vec2(w, 58.0), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
             tile(ui, t, rect, r.hovered());
             let stripe = egui::Rect::from_min_size(rect.min + egui::vec2(8.0, 8.0), egui::vec2(w - 16.0, 24.0));
             let n = p.colors.len().max(1) as f32;
@@ -654,6 +666,7 @@ pub fn layers(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     for el in page.elements.iter().rev() {
         let on = sel.contains(&el.id);
         let (rect, r) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 48.0), egui::Sense::click());
+        let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
         if on {
             ui.painter().rect_filled(rect, 10, t.accent_soft);
         } else if r.hovered() {

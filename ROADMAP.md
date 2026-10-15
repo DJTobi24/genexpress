@@ -2,7 +2,7 @@
 
 **Stage: pre-alpha** · next: alpha (M2–M3: document styles, embedded fonts) · ~30–35% of the target feature set (estimated)
 
-> **Last updated:** 2026-10-14 · **Change:** minor (M2.25 layer strip, M2.26 template dialog, M2.27 text panel, M2.28 picture panel and icon rail, M2.29 all panels on the left, M2.30 icon top bar and restyled tabs, M3.1 text shaping, M2.16 text edited on the canvas, M4.1 vector PDF, M2.17 web app follow-ups, M2.19 smart guides, M5.1 multi-series charts and richer tables, M3.2 formatting part of a text box, M6.1 MP4 video export, M2.20 template library of 121, M5.2 German UI, M2.21 smart resize re-layout, M4.2 AI background removal, M3.3 text that shrinks to fit its box, M2.24 home screen with My designs and project folders, M7.1 release packaging)
+> **Last updated:** 2026-10-14 · **Change:** minor (M2.25 layer strip, M2.26 template dialog, M2.27 text panel, M2.28 picture panel and icon rail, M2.29 all panels on the left, M2.30 icon top bar and restyled tabs, M2.31 pointer shapes and motion, M3.1 text shaping, M2.16 text edited on the canvas, M4.1 vector PDF, M2.17 web app follow-ups, M2.19 smart guides, M5.1 multi-series charts and richer tables, M3.2 formatting part of a text box, M6.1 MP4 video export, M2.20 template library of 121, M5.2 German UI, M2.21 smart resize re-layout, M4.2 AI background removal, M3.3 text that shrinks to fit its box, M2.24 home screen with My designs and project folders, M7.1 release packaging)
 
 ## Headline numbers
 
@@ -11,10 +11,10 @@
 | Feature parity with the target (all areas) | ~20–25% | estimated, see [target-app-parity.md](docs/target-app-parity.md) |
 | Commands (UI = CLI = MCP) | 184 | measured (`genha-cli exec engine.commands`) |
 | Templates / size presets / icons / text styles / palettes / filters | 121 / 35 / 114 (+10 basic shapes) / 25 / 40 / 14 | measured (counted from `genha_templates`) |
-| Tests | 404 | measured (`cargo test --workspace`) |
+| Tests | 405 | measured (`cargo test --workspace`) |
 | Rust lines | ~60k | measured (all `.rs` files, tests included) |
 | Platforms | Linux, macOS, Windows (desktop); web (WASM, `cargo xtask web`); downloads: universal macOS DMG (signed and notarized with the Apple secrets set), Windows zip, Linux tar.gz, web zip (`release.yml`, docs/release.md) | Linux, its package and Chromium measured; macOS and Windows packaging untested until the first tagged release |
-| UI languages | English, German (972 strings) | measured (`crates/i18n/po/de.po`) |
+| UI languages | English, German (971 strings) | measured (`crates/i18n/po/de.po`) |
 
 ## What's next
 
@@ -30,6 +30,7 @@ Full milestone table: [docs/roadmap.md](docs/roadmap.md). Ranked work list: [doc
 
 | Date | Milestone | Summary |
 |---|---|---|
+| 2026-10-15 | M2.31 | Pointer shapes and motion (asked for by the owner): resize arrows that match each handle and follow the object's rotation, a drawn turning arrow on the rotation knob, the move cross over objects, crosshair for the drawing tools, text cursor for the Text tool and inside edited text, open/closed hand for the Hand tool and panning, pointing hand on tiles and buttons (`ToolState::gesture()` tells the UI what a drag does). Hovers fade in on every tile and icon button; the tab switcher's pill and the rail's pill slide to the chosen tab; the bar over the selection fades and rises in; messages are toasts that rise at the bottom and fade after four seconds (no longer in the status bar). The page strip has rounded cards that lift under the pointer, a page-number badge, a "…" menu per page and a dashed "+" tile; the Download menu shows a coloured format badge per entry |
 | 2026-10-15 | M2.30 | Editor chrome in one style: the top bar is one row of line icons drawn in code (`glyphs.rs`: home, the design's name, undo/redo, Resize, the six tools on a strip in the middle, a More menu with commands, version history, Save as, smart guides and the layer strip, Save, Play, Present, Download in the accent colour); a small bar floats over the selection on the canvas (duplicate, delete, lock, forward, backward, more: front/back, flip, group/ungroup, copy/paste style), hidden while dragging or editing text; zoom out / zoom (a click fits) / zoom in / fit sits at the canvas's bottom right. The left tabs follow the panels: a rounded search field and category chips with templates in two columns, shapes and icons on rounded tiles, charts and tables as drawn tiles, text styles as rendered previews, a dashed upload tile and a picture grid, brand colours as circles with a picker and a "+", palettes as colour stripes, layers as rows with each object's picture and eye/lock toggles |
 | 2026-10-14 | M7.5 | Version 0.2.0: 0.1.0 is published (signed, notarized macOS DMG checked on a real Mac after the M7.4 fix); the next release carries the layer strip, the template dialog and the left-hand object panels (M2.25–M2.29). A manual release run uploads into the release of the current version, so the version moves on before the next one |
 | 2026-10-14 | M2.29 | Every object is edited on the left; the right-hand panel is gone (the canvas gets its width). Shapes: fill swatches with gradient and no fill, border none/solid/dashed as pictures with colour and width, corners, an Effects tab with shadow none/soft/hard as pictures plus softness and distance; charts and tables: their data editors under Edit, plus Animation; groups: ungroup; several objects: align to each other, spread evenly, group, duplicate, paste style, delete. Position, Opacity (pop-ups) and Arrange look the same on every panel. The page's settings (name, size, background, notes, page animation) moved to a new Page item in the icon rail. 20 strings of the old panel dropped from the catalogue |

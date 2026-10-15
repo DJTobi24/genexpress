@@ -100,6 +100,11 @@ pub(super) fn segmented(ui: &mut egui::Ui, t: &Tokens, tab: &mut PanelTab, tabs:
     let (rect, _) = ui.allocate_exact_size(egui::vec2(width, 36.0), egui::Sense::hover());
     ui.painter().rect_filled(rect, 18, t.panel_alt);
     let w = (rect.width() - 6.0) / tabs.len().max(1) as f32;
+    // The filled pill slides to the chosen tab.
+    let index = tabs.iter().position(|x| x == tab).unwrap_or(0) as f32;
+    let at = ui.ctx().animate_value_with_time(ui.id().with("segmented_pill"), index, 0.18);
+    let pill = egui::Rect::from_min_size(rect.min + egui::vec2(3.0 + w * at, 3.0), egui::vec2(w, 30.0));
+    ui.painter().rect_filled(pill, 15, t.accent);
     for (i, which) in tabs.iter().copied().enumerate() {
         let label = match which {
             PanelTab::Edit => N_("Edit"),
@@ -108,13 +113,13 @@ pub(super) fn segmented(ui: &mut egui::Ui, t: &Tokens, tab: &mut PanelTab, tabs:
         };
         let r = egui::Rect::from_min_size(rect.min + egui::vec2(3.0 + w * i as f32, 3.0), egui::vec2(w, 30.0));
         let resp = ui.interact(r, ui.id().with(("text_tab", i)), egui::Sense::click());
-        let on = *tab == which;
-        if on {
-            ui.painter().rect_filled(r, 15, t.accent);
-        } else if resp.hovered() {
+        let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+        // The label turns light where the pill is under it.
+        let cover = (1.0 - (at - i as f32).abs()).clamp(0.0, 1.0);
+        if resp.hovered() && cover < 0.5 {
             ui.painter().rect_filled(r, 15, t.accent_soft);
         }
-        let ink = if on { t.accent_text } else { t.text };
+        let ink = t.text.lerp_to_gamma(t.accent_text, cover);
         ui.painter().text(r.center(), egui::Align2::CENTER_CENTER, tr(label), egui::FontId::proportional(13.5), ink);
         if resp.clicked() {
             *tab = which;
@@ -139,6 +144,7 @@ fn styles_row(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 let fonts = app.session.fonts.clone();
                 let tex = app.thumbs.get(&ctx, &format!("textstyle:{}:{}", genha_i18n::language().code(), p.id), 0, || preset_picture(&p, &fonts));
                 let (rect, r) = ui.allocate_exact_size(egui::vec2(116.0, 68.0), egui::Sense::click());
+                let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
                 let light_ink = p.style.color.luminance() > 0.6;
                 ui.painter().rect_filled(rect, 10, if light_ink { t.thumb_dark } else { t.thumb_light });
                 if let Some(tex) = &tex {
@@ -233,6 +239,7 @@ fn edit_tab(
         ui.add_space(6.0);
         for (a, hint) in [(TextAlign::Left, N_("Align left")), (TextAlign::Center, N_("Centre")), (TextAlign::Right, N_("Align right"))] {
             let (rect, r) = ui.allocate_exact_size(egui::vec2(30.0, 30.0), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
             let on = st.align == a;
             tile_back(ui, t, rect, on, r.hovered());
             align_icon(ui.painter(), rect, a, if on { t.accent } else { t.text });
@@ -253,6 +260,7 @@ fn edit_tab(
         ] {
             let on = on && !mixed(field);
             let (rect, r) = ui.allocate_exact_size(egui::vec2(38.0, 32.0), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
             tile_back(ui, t, rect, on, r.hovered());
             let ink = if on { t.accent } else { t.text };
             let line = egui::Stroke::new(1.4, ink);
@@ -278,6 +286,7 @@ fn edit_tab(
         }
         let on = text.style.uppercase;
         let (rect, r) = ui.allocate_exact_size(egui::vec2(44.0, 32.0), egui::Sense::click());
+        let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
         tile_back(ui, t, rect, on, r.hovered());
         ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "AA", egui::FontId::proportional(13.0), if on { t.accent } else { t.text });
         if r.on_hover_text(tr("uppercase")).clicked() {
@@ -297,6 +306,7 @@ fn edit_tab(
         for (curved, name) in [(false, N_("Straight")), (true, N_("Curved"))] {
             let on = (text.curve != 0.0) == curved;
             let (rect, r) = ui.allocate_exact_size(egui::vec2(96.0, 54.0), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
             tile_back(ui, t, rect, on, r.hovered());
             let ink = if on { t.accent } else { t.text };
             let mid = rect.center() - egui::vec2(0.0, 6.0);
@@ -403,6 +413,7 @@ fn effects_tab(ui: &mut egui::Ui, t: &Tokens, text: &TextEl, brand: &[genha_colo
         for (i, (name, e)) in effects.into_iter().enumerate() {
             let on = std::mem::discriminant(&text.effect) == std::mem::discriminant(&e);
             let (rect, r) = ui.allocate_exact_size(egui::vec2(120.0, 76.0), egui::Sense::click());
+            let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
             tile_back(ui, t, rect, on, r.hovered());
             effect_picture(ui.painter(), rect.shrink2(egui::vec2(0.0, 10.0)).translate(egui::vec2(0.0, -6.0)), t, i);
             ui.painter().text(
@@ -513,6 +524,7 @@ pub(super) fn swatches(ui: &mut egui::Ui, t: &Tokens, current: genha_color::Colo
     // A round swatch; whether it was clicked.
     let dot = |ui: &mut egui::Ui, col: genha_color::Color| -> bool {
         let (rect, r) = ui.allocate_exact_size(egui::vec2(24.0, 24.0), egui::Sense::click());
+        let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
         let center = rect.center();
         ui.painter().circle_filled(center, 10.5, to_egui(col));
         ui.painter().circle_stroke(center, 10.5, egui::Stroke::new(1.0, t.border));
@@ -527,6 +539,7 @@ pub(super) fn swatches(ui: &mut egui::Ui, t: &Tokens, current: genha_color::Colo
         ui.spacing_mut().item_spacing = egui::vec2(5.0, 6.0);
         // The current colour, large; a click opens the full picker.
         let (rect, r) = ui.allocate_exact_size(egui::vec2(40.0, 28.0), egui::Sense::click());
+        let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
         ui.painter().rect_filled(rect, 8, to_egui(current));
         ui.painter().rect_stroke(rect, 8, egui::Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
         let r = r.on_hover_text(tr("Pick any colour"));
@@ -559,8 +572,8 @@ pub(super) fn swatches(ui: &mut egui::Ui, t: &Tokens, current: genha_color::Colo
 
 /// A tile's background: accent when on, soft when hovered.
 pub(super) fn tile_back(ui: &egui::Ui, t: &Tokens, rect: egui::Rect, on: bool, hovered: bool) {
-    let fill = if on || hovered { t.accent_soft } else { t.panel_alt };
-    ui.painter().rect_filled(rect, 8, fill);
+    let k = if on { 1.0 } else { crate::theme::hover_fade(ui.ctx(), rect, hovered) };
+    ui.painter().rect_filled(rect, 8, t.panel_alt.lerp_to_gamma(t.accent_soft, k));
     if on {
         ui.painter().rect_stroke(rect, 8, egui::Stroke::new(1.5, t.accent), egui::StrokeKind::Inside);
     }
@@ -569,6 +582,7 @@ pub(super) fn tile_back(ui: &egui::Ui, t: &Tokens, rect: egui::Rect, on: bool, h
 /// A round-cornered square button with a symbol.
 pub(super) fn pill_button(ui: &mut egui::Ui, t: &Tokens, symbol: &str, side: f32) -> egui::Response {
     let (rect, r) = ui.allocate_exact_size(egui::vec2(side, 30.0), egui::Sense::click());
+    let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
     tile_back(ui, t, rect, false, r.hovered());
     ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, symbol, egui::FontId::proportional(17.0), t.text);
     r

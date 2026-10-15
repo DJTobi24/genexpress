@@ -206,10 +206,12 @@ pub fn draw(p: &Painter, g: Glyph, rect: Rect, ink: Color32) {
 pub fn button(ui: &mut egui::Ui, t: &Tokens, g: Glyph, on: bool, side: f32) -> egui::Response {
     let (rect, r) = ui.allocate_exact_size(vec2(side, side), egui::Sense::click());
     let enabled = ui.is_enabled();
+    let r = if enabled { r.on_hover_cursor(egui::CursorIcon::PointingHand) } else { r };
+    let k = crate::theme::hover_fade(ui.ctx(), rect, r.hovered() && enabled);
     if on {
         ui.painter().rect_filled(rect, 9, t.accent_soft);
-    } else if r.hovered() && enabled {
-        ui.painter().rect_filled(rect, 9, t.panel_alt);
+    } else if k > 0.0 {
+        ui.painter().rect_filled(rect, 9, t.panel_alt.gamma_multiply(k));
     }
     let ink = if !enabled {
         t.text_dim.gamma_multiply(0.5)
@@ -228,12 +230,9 @@ pub fn labelled(ui: &mut egui::Ui, t: &Tokens, g: Glyph, text: &str, accent: boo
     let galley = ui.painter().layout_no_wrap(text.to_string(), font, if accent { t.accent_text } else { t.text });
     let size = vec2(galley.size().x + 46.0, 34.0);
     let (rect, r) = ui.allocate_exact_size(size, egui::Sense::click());
-    let fill = match (accent, r.hovered()) {
-        (true, true) => t.accent.gamma_multiply(0.9),
-        (true, false) => t.accent,
-        (false, true) => t.accent_soft,
-        (false, false) => t.panel_alt,
-    };
+    let r = r.on_hover_cursor(egui::CursorIcon::PointingHand);
+    let k = crate::theme::hover_fade(ui.ctx(), rect, r.hovered());
+    let fill = if accent { t.accent.lerp_to_gamma(t.text, 0.15 * k) } else { t.panel_alt.lerp_to_gamma(t.accent_soft, k) };
     ui.painter().rect_filled(rect, 10, fill);
     let ink = if accent { t.accent_text } else { t.text };
     draw(ui.painter(), g, Rect::from_center_size(rect.left_center() + vec2(19.0, 0.0), vec2(17.0, 17.0)), ink);

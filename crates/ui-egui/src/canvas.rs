@@ -170,6 +170,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
     if !crate::textedit::show(app, ui, &resp, &display, page_index, &view, t) {
         pointer_input(app, ui, &resp, area, &to_page, &display, page_index);
     }
+    pointer_shape(app, ui, &resp, &display, page_index, &selection, &to_page, t);
     if app.session.tools.is_dragging() || app.session.preview.is_some() {
         ui.ctx().request_repaint();
     }
@@ -185,10 +186,103 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         let c = corners(&f).map(&to_screen);
         egui::Rect::from_points(&c)
     });
+    // The bar fades in when a selection settles (after a drag, a click).
+    let shown = ui.ctx().animate_bool_with_time(egui::Id::new("selection_bar_shown"), selection_rect.is_some(), 0.16);
     if let Some(r) = selection_rect {
-        selection_bar(app, ui.ctx(), area, r, t);
+        selection_bar(app, ui.ctx(), area, r, t, shown);
     }
     zoom_control(app, ui.ctx(), area, t);
+}
+
+/// The pointer's shape over the canvas: what a press would do there, or what the drag does.
+#[allow(clippy::too_many_arguments)]
+fn pointer_shape(
+    app: &App,
+    ui: &egui::Ui,
+    resp: &egui::Response,
+    doc: &Document,
+    page_index: usize,
+    selection: &[genha_doc::NodeId],
+    to_page: &impl Fn(egui::Pos2) -> Point,
+    t: &Tokens,
+) {
+    use egui::CursorIcon as C;
+    use genha_tools::GestureKind;
+    let ctx = ui.ctx();
+    let gesture = app.session.tools.gesture();
+    if !resp.hovered() && gesture == GestureKind::Idle && app.canvas.panning.is_none() {
+        return;
+    }
+    let frame = genha_tools::selection_frame(doc, selection);
+    let rotation = frame.map_or(0.0, |f| f.rotation);
+    let space = ui.input(|i| i.key_down(egui::Key::Space));
+    let icon = if app.canvas.panning.is_some() {
+        C::Grabbing
+    } else {
+        match gesture {
+            GestureKind::Resize(h) => resize_cursor(h, rotation),
+            GestureKind::Rotate => return rotate_cursor(ctx, t),
+            GestureKind::Move => C::Move,
+            GestureKind::Create => C::Crosshair,
+            GestureKind::Pan => C::Grabbing,
+            GestureKind::Marquee => C::Default,
+            GestureKind::Idle => {
+                let Some(pos) = resp.hover_pos() else { return };
+                let p = to_page(pos);
+                match app.session.tools.tool {
+                    _ if space => C::Grab,
+                    ToolId::Hand => C::Grab,
+                    ToolId::Rect | ToolId::Ellipse | ToolId::Line => C::Crosshair,
+                    ToolId::Text => C::Text,
+                    ToolId::Select => {
+                        let page = doc.pages.get(page_index);
+                        let edited = app.session.text_editing.as_ref().map(|e| e.id);
+                        let over = page.and_then(|pg| genha_tools::hit_test(pg, p));
+                        let handle =
+                            (edited.is_none()).then_some(frame).flatten().and_then(|f| genha_tools::hit_handle(&f, p, f64::from(app.view.zoom)));
+                        match (handle, over) {
+                            (Some(Handle::Rotate), _) => return rotate_cursor(ctx, t),
+                            (Some(h), _) => resize_cursor(h, rotation),
+                            (None, Some(el)) if edited == Some(el.id) => C::Text,
+                            (None, Some(el)) if !el.locked => C::Move,
+                            _ => C::Default,
+                        }
+                    }
+                }
+            }
+        }
+    };
+    ctx.set_cursor_icon(icon);
+}
+
+/// The resize arrows for `handle` on a box turned by `rotation` degrees.
+fn resize_cursor(handle: Handle, rotation: f64) -> egui::CursorIcon {
+    use egui::CursorIcon as C;
+    // The direction the handle pulls in, on the unturned box (y points down).
+    let base = match handle {
+        Handle::Left | Handle::Right => 0.0,
+        Handle::TopLeft | Handle::BottomRight => 45.0,
+        Handle::Top | Handle::Bottom => 90.0,
+        Handle::TopRight | Handle::BottomLeft => 135.0,
+        Handle::Rotate => return C::Default,
+    };
+    let turned = if rotation.is_finite() { base + rotation } else { base };
+    match ((turned / 45.0).round().rem_euclid(4.0)) as u8 {
+        0 => C::ResizeHorizontal,
+        1 => C::ResizeNwSe,
+        2 => C::ResizeVertical,
+        _ => C::ResizeNeSw,
+    }
+}
+
+/// A turning arrow drawn at the pointer (no system cursor has one).
+fn rotate_cursor(ctx: &egui::Context, t: &Tokens) {
+    let Some(pos) = ctx.pointer_hover_pos().or_else(|| ctx.pointer_interact_pos()) else { return };
+    ctx.set_cursor_icon(egui::CursorIcon::None);
+    let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::new("rotate_cursor")));
+    let r = egui::Rect::from_center_size(pos, egui::vec2(22.0, 22.0));
+    painter.circle_filled(pos, 12.0, egui::Color32::from_white_alpha(200));
+    crate::glyphs::draw(&painter, crate::glyphs::Glyph::Redo, r, t.selection);
 }
 
 /// What the bar over the selection can do.
@@ -196,7 +290,7 @@ const BAR_ACTIONS: usize = 5;
 
 /// A small bar of icons over (or under) the selection: duplicate, delete, lock, forward, backward
 /// and more.
-fn selection_bar(app: &mut App, ctx: &egui::Context, area: egui::Rect, sel: egui::Rect, t: &Tokens) {
+fn selection_bar(app: &mut App, ctx: &egui::Context, area: egui::Rect, sel: egui::Rect, t: &Tokens, shown: f32) {
     use crate::glyphs::{Glyph, button};
     let size = egui::vec2(BAR_ACTIONS as f32 * 34.0 + 34.0 + 16.0, 42.0);
     // Above the selection (clear of the rotation knob), else below, kept inside the canvas.
@@ -206,7 +300,9 @@ fn selection_bar(app: &mut App, ctx: &egui::Context, area: egui::Rect, sel: egui
     let locked = app.session.active().is_some_and(|d| d.selected_elements().iter().any(|e| e.locked));
     let several = app.session.active().is_some_and(|d| d.selection.len() > 1);
     let mut action: Option<&'static str> = None;
+    let y = y + 6.0 * (1.0 - shown);
     egui::Area::new(egui::Id::new("selection_bar")).order(egui::Order::Foreground).fixed_pos(egui::pos2(x, y)).show(ctx, |ui| {
+        ui.set_opacity(shown);
         egui::Frame::new()
             .fill(t.panel)
             .corner_radius(12)
@@ -514,5 +610,28 @@ fn send(app: &mut App, ev: PointerEvent, zoom: f64, snap: bool) {
             }
         }
         Err(e) => app.set_status(e.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resize_cursor;
+    use egui::CursorIcon as C;
+    use genha_tools::Handle;
+
+    #[test]
+    fn resize_arrows_follow_the_handle_and_the_rotation() {
+        assert_eq!(resize_cursor(Handle::Right, 0.0), C::ResizeHorizontal);
+        assert_eq!(resize_cursor(Handle::Top, 0.0), C::ResizeVertical);
+        assert_eq!(resize_cursor(Handle::TopLeft, 0.0), C::ResizeNwSe);
+        assert_eq!(resize_cursor(Handle::BottomLeft, 0.0), C::ResizeNeSw);
+        // A box turned a quarter: the side handles pull up and down.
+        assert_eq!(resize_cursor(Handle::Right, 90.0), C::ResizeVertical);
+        assert_eq!(resize_cursor(Handle::Top, -90.0), C::ResizeHorizontal);
+        // Turned 45°: the side handle pulls diagonally.
+        assert_eq!(resize_cursor(Handle::Right, 45.0), C::ResizeNwSe);
+        assert_eq!(resize_cursor(Handle::Right, -45.0), C::ResizeNeSw);
+        assert_eq!(resize_cursor(Handle::Right, f64::NAN), C::ResizeHorizontal);
+        assert_eq!(resize_cursor(Handle::Rotate, 0.0), C::Default);
     }
 }
