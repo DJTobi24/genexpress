@@ -31,7 +31,7 @@ impl Thumbs {
             return self.map.get(key).map(|(_, t)| t.clone());
         }
         self.budget -= 1;
-        let raster = make()?;
+        let raster = make().filter(|r| fits(ctx, r))?;
         let tex = ctx.load_texture(key, to_color_image(&raster), egui::TextureOptions::LINEAR);
         self.map.insert(key.to_string(), (stamp, tex.clone()));
         Some(tex)
@@ -44,7 +44,7 @@ impl Thumbs {
         {
             return Some(t.clone());
         }
-        let raster = make()?;
+        let raster = make().filter(|r| fits(ctx, r))?;
         let tex = ctx.load_texture(key, to_color_image(&raster), egui::TextureOptions::LINEAR);
         self.map.insert(key.to_string(), (stamp, tex.clone()));
         Some(tex)
@@ -58,6 +58,17 @@ impl Thumbs {
     pub fn forget_prefix(&mut self, prefix: &str) {
         self.map.retain(|k, _| !k.starts_with(prefix));
     }
+}
+
+/// The largest texture side the graphics driver takes (some Windows OpenGL drivers allow only
+/// 4096 or less; a bigger upload would abort the app).
+pub fn max_side(ctx: &egui::Context) -> f32 {
+    ctx.input(|i| i.max_texture_side).max(64) as f32
+}
+
+fn fits(ctx: &egui::Context, r: &Raster) -> bool {
+    let limit = max_side(ctx);
+    r.width as f32 <= limit && r.height as f32 <= limit
 }
 
 pub fn to_color_image(r: &Raster) -> egui::ColorImage {

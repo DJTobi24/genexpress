@@ -179,8 +179,9 @@ pub fn present(app: &mut App, ui: &mut egui::Ui) {
         let at = if animating { elapsed.max(0.0) } else { duration };
         let mut scale = fit * ctx.pixels_per_point();
         let side = pw.max(ph) * scale;
-        if side > MAX_PRESENT_SIDE {
-            scale *= MAX_PRESENT_SIDE / side;
+        let limit = MAX_PRESENT_SIDE.min(crate::thumbs::max_side(&ctx) - 2.0);
+        if side > limit {
+            scale *= limit / side;
         }
         let key = (Arc::as_ptr(&doc) as usize, index, if animating { at.to_bits() } else { u64::MAX }, scale.to_bits());
         if state.key != Some(key) || state.texture.is_none() {
