@@ -90,7 +90,7 @@ pub fn design_card(app: &mut App, ui: &mut egui::Ui, t: &Tokens, e: &DesignEntry
         && app.home.folder == FolderFilter::All
         && let Some(f) = e.folder.as_deref().and_then(|f| app.library.folder(f))
     {
-        sub = if sub.is_empty() { f.name.clone() } else { format!("{sub} · {}", f.name) };
+        sub = if sub.is_empty() { f.name.clone() } else { format!("{sub}, {}", f.name) };
     }
     let sub = egui::WidgetText::from(egui::RichText::new(sub).size(11.5).color(t.text_dim)).into_galley(
         ui,

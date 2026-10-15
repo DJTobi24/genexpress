@@ -505,7 +505,7 @@ fn delete_folder(app: &mut App, ui: &mut egui::Ui, t: &Tokens, id: &str, name: &
     ui.label(egui::RichText::new(body).color(t.text_dim));
     if n > 0 {
         ui.add_space(6.0);
-        ui.checkbox(delete_designs, tr("Also delete the designs in it (files saved elsewhere are kept)"));
+        crate::theme::switch(ui, delete_designs, tr("Also delete the designs in it (files saved elsewhere are kept)"));
     }
     ui.add_space(14.0);
     let mut keep = true;
@@ -651,7 +651,7 @@ pub fn search_field(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                     if !results.sizes.is_empty() {
                         group(ui, tr("Sizes"));
                         for p in &results.sizes {
-                            let sub = format!("{:.0} × {:.0} px · {}", p.width, p.height, tr(p.category));
+                            let sub = format!("{:.0} × {:.0} px, {}", p.width, p.height, tr(p.category));
                             if row(app, ui, t, RowArt::Size(p.width, p.height), tr(p.label), &sub, first == Some(Hit::Size(p.id))) {
                                 hit = Some(Hit::Size(p.id));
                             }

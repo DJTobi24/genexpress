@@ -244,16 +244,14 @@ fn file_group(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         }
         ui.separator();
         let mut snapping = app.session.snapping;
-        if ui
-            .checkbox(&mut snapping, tr("Smart guides"))
+        if crate::theme::switch(ui, &mut snapping, tr("Smart guides"))
             .on_hover_text(tr("Smart guides: snap to the page, other objects, equal gaps and sizes (hold Ctrl/Cmd while dragging to skip)"))
             .changed()
         {
             app.run("view.snapping", &json!({"on": snapping}));
         }
         let mut strip = app.session.layer_strip;
-        if ui
-            .checkbox(&mut strip, tr("Layer strip"))
+        if crate::theme::switch(ui, &mut strip, tr("Layer strip"))
             .on_hover_text(tr("The layer strip: every object as a picture, the front at the top; drag one up or down to restack it"))
             .changed()
         {
@@ -270,7 +268,7 @@ fn file_group(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 
 fn resize_menu(app: &mut App, ui: &mut egui::Ui) {
     ui.menu_button(tr("Resize"), |ui| {
-        ui.checkbox(&mut app.editor.resize_copy, tr("Keep this page, add a resized copy"));
+        crate::theme::switch(ui, &mut app.editor.resize_copy, tr("Keep this page, add a resized copy"));
         ui.separator();
         for cat in preset::categories() {
             ui.menu_button(tr(cat), |ui| {
@@ -316,16 +314,16 @@ fn download_menu(app: &mut App, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let name = app.session.active().map(|d| io::file_stem(&d.doc.title)).unwrap_or_else(|| "design".into());
     let entries: [(&str, &str, &str, Value); 10] = [
-        ("PNG", "export.png", "png", json!({})),
-        (N_("PNG — transparent background"), "export.png", "png", json!({"transparent": true})),
-        (N_("PNG — 2× size"), "export.png", "png", json!({"scale": 2.0})),
-        ("JPEG", "export.jpeg", "jpg", json!({})),
-        ("SVG", "export.svg", "svg", json!({})),
-        (N_("PDF — all pages"), "export.pdf", "pdf", json!({})),
-        (N_("PDF — print (bleed, crop marks)"), "export.pdf", "pdf", json!({"print": true})),
-        (N_("GIF (animated)"), "export.gif", "gif", json!({})),
+        (N_("Picture"), "export.png", "png", json!({})),
+        (N_("Transparent background"), "export.png", "png", json!({"transparent": true})),
+        (N_("Twice the size"), "export.png", "png", json!({"scale": 2.0})),
+        (N_("Photo, smaller file"), "export.jpeg", "jpg", json!({})),
+        (N_("Vector graphic"), "export.svg", "svg", json!({})),
+        (N_("Document, all pages"), "export.pdf", "pdf", json!({})),
+        (N_("For print, with bleed and crop marks"), "export.pdf", "pdf", json!({"print": true})),
+        (N_("Animation"), "export.gif", "gif", json!({})),
         (N_("Animated PNG"), "export.apng", "png", json!({})),
-        (N_("MP4 video"), "export.mp4", "mp4", json!({})),
+        (N_("Video"), "export.mp4", "mp4", json!({})),
     ];
     for (label, cmd, ext, extra) in entries {
         let video = cmd == "export.mp4";
@@ -383,11 +381,14 @@ fn status_bar(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             ui.horizontal_centered(|ui| {
                 if let Some(d) = app.session.active() {
                     if let Some(p) = d.doc.pages.get(d.page) {
-                        let page = tr!("page {page} of {pages}", page = d.page + 1, pages = d.doc.pages.len());
-                        ui.colored_label(t.text_dim, format!("{}  ·  {:.0} × {:.0} px  ·  {page}", crate::shown_name(&p.name), p.width, p.height));
+                        let page = tr!("Page {page} of {pages}", page = d.page + 1, pages = d.doc.pages.len());
+                        ui.colored_label(t.text_dim, page);
+                        ui.add_space(14.0);
+                        ui.colored_label(t.text_dim, format!("{:.0} × {:.0} px", p.width, p.height));
                     }
                     if !d.selection.is_empty() {
-                        ui.colored_label(t.text_dim, format!("·  {}", tr!("{n} selected", n = d.selection.len())));
+                        ui.add_space(14.0);
+                        ui.colored_label(t.text_dim, tr!("{n} selected", n = d.selection.len()));
                     }
                 }
                 #[cfg(not(target_arch = "wasm32"))]
@@ -925,7 +926,7 @@ fn versions_window(app: &mut App, ctx: &egui::Context, t: &Tokens) {
                 ui.horizontal(|ui| {
                     let label = egui::RichText::new(format!("{}{name}", if bookmarked { "* " } else { "" })).strong();
                     ui.label(label);
-                    ui.colored_label(t.text_dim, format!("{when} · {}", tr_n!("{n} page", "{n} pages", v["pages"].as_u64().unwrap_or(0))));
+                    ui.colored_label(t.text_dim, format!("{when}, {}", tr_n!("{n} page", "{n} pages", v["pages"].as_u64().unwrap_or(0))));
                 });
                 ui.horizontal(|ui| {
                     if ui.small_button(tr("Restore")).clicked() {

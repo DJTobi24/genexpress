@@ -24,8 +24,8 @@ pub fn templates(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
                 t,
                 tr("Templates"),
                 &tr_n!(
-                    "{n} original template, made in code — free to use and change.",
-                    "{n} original templates, made in code — free to use and change.",
+                    "{n} original template, made in code. Free to use and change.",
+                    "{n} original templates, made in code. Free to use and change.",
                     all.len()
                 ),
             );
@@ -167,14 +167,14 @@ pub fn settings(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             group(ui, t, tr("Language"), |ui| language_picker(app, ui));
             group(ui, t, tr("Network"), |ui| {
                 let mut on = app.session.network;
-                if ui.checkbox(&mut on, tr("Allow GenHa to use the network")).changed() {
+                if crate::theme::switch(ui, &mut on, tr("Allow GenHa to use the network")).changed() {
                     app.run("settings.network", &json!({"on": on}));
                 }
                 ui.label(egui::RichText::new(tr("Only to download the optional background removal model when you ask for it.")).color(t.text_dim));
             });
             group(ui, t, tr("Editor"), |ui| {
                 let mut on = app.session.snapping;
-                if ui.checkbox(&mut on, tr("Smart guides: snap while moving and resizing")).changed() {
+                if crate::theme::switch(ui, &mut on, tr("Smart guides: snap while moving and resizing")).changed() {
                     app.run("view.snapping", &json!({"on": on}));
                 }
             });

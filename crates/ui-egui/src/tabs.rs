@@ -104,9 +104,7 @@ pub fn templates(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
         app.editor.template_category = i.checked_sub(1).and_then(|i| categories.get(i).copied());
     }
     ui.add_space(4.0);
-    ui.label(
-        egui::RichText::new(tr("Click: use (asks first when your design has content) · right-click: add as a page")).size(11.0).color(t.text_dim),
-    );
+    ui.label(egui::RichText::new(tr("Right-click a template to add it as a page.")).size(11.0).color(t.text_dim));
     ui.add_space(8.0);
     let q = app.editor.template_query.to_lowercase();
     let category = app.editor.template_category;
@@ -142,7 +140,7 @@ pub fn templates(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             picture(ui, t, tex.as_ref(), pic.shrink(8.0), tp.width as f32, tp.height as f32);
             let galley = ui.painter().layout(tp.name.to_string(), egui::FontId::proportional(11.5), t.text, w);
             ui.painter().galley(egui::pos2(rect.left() + 2.0, pic.bottom() + 4.0), galley, t.text);
-            let r = r.on_hover_text(format!("{} — {}", tp.name, tr(tp.category)));
+            let r = r.on_hover_text(format!("{}\n{}", tp.name, tr(tp.category)));
             if r.clicked() {
                 chosen = Some((id, false));
             }
@@ -315,7 +313,7 @@ pub fn elements(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 }
 
 /// A small drawing of a chart kind (or a table).
-fn chart_icon(p: &egui::Painter, r: egui::Rect, kind: &str, ink: egui::Color32, t: &Tokens) {
+pub(crate) fn chart_icon(p: &egui::Painter, r: egui::Rect, kind: &str, ink: egui::Color32, t: &Tokens) {
     let soft = ink.gamma_multiply(0.45);
     let st = egui::Stroke::new(2.0, ink);
     let (l, top, w, h) = (r.left(), r.top(), r.width(), r.height());

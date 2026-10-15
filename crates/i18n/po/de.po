@@ -81,26 +81,8 @@ msgstr "Größe ändern"
 msgid "Keep this page, add a resized copy"
 msgstr "Diese Seite behalten, angepasste Kopie hinzufügen"
 
-msgid "PNG — transparent background"
-msgstr "PNG – transparenter Hintergrund"
-
-msgid "PNG — 2× size"
-msgstr "PNG – doppelte Größe"
-
-msgid "PDF — all pages"
-msgstr "PDF – alle Seiten"
-
-msgid "PDF — print (bleed, crop marks)"
-msgstr "PDF – Druck (Beschnitt, Schnittmarken)"
-
-msgid "GIF (animated)"
-msgstr "GIF (animiert)"
-
 msgid "Animated PNG"
 msgstr "Animiertes PNG"
-
-msgid "MP4 video"
-msgstr "MP4-Video"
 
 msgid "Every page in turn, each for its duration (30 frames per second)"
 msgstr "Alle Seiten nacheinander, jede für ihre Dauer (30 Bilder pro Sekunde)"
@@ -117,7 +99,7 @@ msgstr "Der Videoexport wurde unerwartet beendet"
 msgid "Saved {path}"
 msgstr "{path} gespeichert"
 
-msgid "page {page} of {pages}"
+msgid "Page {page} of {pages}"
 msgstr "Seite {page} von {pages}"
 
 msgid "{n} selected"
@@ -223,9 +205,6 @@ msgstr "Ebenen"
 
 msgid "Search templates"
 msgstr "Vorlagen suchen"
-
-msgid "Click: use (asks first when your design has content) · right-click: add as a page"
-msgstr "Klick: verwenden (fragt vorher, wenn dein Design Inhalt hat) · Rechtsklick: als Seite hinzufügen"
 
 msgid "Charts & tables"
 msgstr "Diagramme & Tabellen"
@@ -406,9 +385,6 @@ msgstr "Erlaubt GenHa, die auf diesem Computer installierten Schriften zu verwen
 msgid "Page"
 msgstr "Seite"
 
-msgid "SIZE"
-msgstr "GRÖSSE"
-
 msgid "W "
 msgstr "B "
 
@@ -427,23 +403,14 @@ msgstr "Drehung "
 msgid "Use ⇲ Resize in the top bar to re-layout for another size."
 msgstr "Mit ⇲ Größe ändern oben das Layout an eine andere Größe anpassen."
 
-msgid "BACKGROUND"
-msgstr "HINTERGRUND"
-
 msgid "Gradient"
 msgstr "Verlauf"
 
 msgid "Transparent"
 msgstr "Transparent"
 
-msgid "NOTES"
-msgstr "NOTIZEN"
-
 msgid "Speaker notes"
 msgstr "Sprechernotizen"
-
-msgid "PAGE"
-msgstr "SEITE"
 
 msgid "Add page"
 msgstr "Seite hinzufügen"
@@ -453,9 +420,6 @@ msgstr "Auf Inhalt zuschneiden"
 
 msgid "Shrink the page to its objects"
 msgstr "Seite auf ihre Objekte verkleinern"
-
-msgid "ANIMATION"
-msgstr "ANIMATION"
 
 msgid "Entrance"
 msgstr "Erscheinen"
@@ -720,12 +684,6 @@ msgstr "Gerade"
 
 # Charts and tables
 
-msgid "CHART TYPE"
-msgstr "DIAGRAMMTYP"
-
-msgid "COLOURS"
-msgstr "FARBEN"
-
 msgid "Brand colours"
 msgstr "Markenfarben"
 
@@ -734,9 +692,6 @@ msgstr "Farben des Markenkits verwenden"
 
 msgid "One colour"
 msgstr "Eine Farbe"
-
-msgid "AXES"
-msgstr "ACHSEN"
 
 msgid "Stacked"
 msgstr "Gestapelt"
@@ -764,12 +719,6 @@ msgstr "Max."
 
 msgid "Auto"
 msgstr "Automatisch"
-
-msgid "LEGEND"
-msgstr "LEGENDE"
-
-msgid "SHOW"
-msgstr "ANZEIGEN"
 
 msgid "Labels"
 msgstr "Beschriftungen"
@@ -807,12 +756,6 @@ msgstr "Von 100"
 msgid "Max "
 msgstr "Max. "
 
-msgid "TEXT"
-msgstr "TEXT"
-
-msgid "DATA"
-msgstr "DATEN"
-
 msgid "Series {n}"
 msgstr "Reihe {n}"
 
@@ -845,9 +788,6 @@ msgstr "Monat, Umsatz, Kosten\nJan, 12, 8\nFeb, 19, 11"
 
 msgid "Use this data"
 msgstr "Diese Daten verwenden"
-
-msgid "CELLS"
-msgstr "ZELLEN"
 
 msgid "Click a cell to pick it, shift-click to pick a range."
 msgstr "Zelle anklicken, um sie zu wählen; mit Umschalt-Klick einen Bereich wählen."
@@ -885,17 +825,8 @@ msgstr "Kopfzeile"
 msgid "Padding "
 msgstr "Innenabstand "
 
-msgid "HEADER"
-msgstr "KOPFZEILE"
-
-msgid "ROWS"
-msgstr "ZEILEN"
-
 msgid "Banded rows"
 msgstr "Gestreifte Zeilen"
-
-msgid "LINES"
-msgstr "LINIEN"
 
 msgid "Lines"
 msgstr "Linien"
@@ -905,9 +836,6 @@ msgstr "Andere Außenlinie"
 
 msgid "Outside width"
 msgstr "Außenbreite"
-
-msgid "PICKED CELLS"
-msgstr "GEWÄHLTE ZELLEN"
 
 msgid "Row "
 msgstr "Zeile "
@@ -944,9 +872,6 @@ msgstr "Fett"
 
 msgid "Text size "
 msgstr "Textgröße "
-
-msgid "COLUMN AND ROW SIZE"
-msgstr "SPALTEN- UND ZEILENGRÖSSE"
 
 msgid "Column {n} width "
 msgstr "Breite Spalte {n}: "
@@ -2792,10 +2717,10 @@ msgid_plural "{n} years ago"
 msgstr[0] "vor {n} Jahr"
 msgstr[1] "vor {n} Jahren"
 
-msgid "{n} original template, made in code — free to use and change."
-msgid_plural "{n} original templates, made in code — free to use and change."
-msgstr[0] "{n} eigene Vorlage, im Code erstellt – frei nutzbar und veränderbar."
-msgstr[1] "{n} eigene Vorlagen, im Code erstellt – frei nutzbar und veränderbar."
+msgid "{n} original template, made in code. Free to use and change."
+msgid_plural "{n} original templates, made in code. Free to use and change."
+msgstr[0] "{n} eigene Vorlage, im Code erstellt. Frei nutzbar und veränderbar."
+msgstr[1] "{n} eigene Vorlagen, im Code erstellt. Frei nutzbar und veränderbar."
 
 msgid "Empty page"
 msgstr "Leere Seite"
@@ -3003,3 +2928,57 @@ msgstr "Anwenden"
 
 msgid "The front at the top. Drag tiles in the strip beside the canvas to restack."
 msgstr "Das vorderste oben. Zum Umsortieren die Kacheln in der Leiste neben der Leinwand ziehen."
+
+msgid "Background"
+msgstr "Hintergrund"
+
+msgid "Notes"
+msgstr "Notizen"
+
+msgid "Chart type"
+msgstr "Diagrammtyp"
+
+msgid "Axes"
+msgstr "Achsen"
+
+msgid "Legend"
+msgstr "Legende"
+
+msgid "Show on the chart"
+msgstr "Im Diagramm zeigen"
+
+msgid "Data"
+msgstr "Daten"
+
+msgid "Cells"
+msgstr "Zellen"
+
+msgid "Header"
+msgstr "Kopfzeile"
+
+msgid "Picked cells"
+msgstr "Gewählte Zellen"
+
+msgid "Column and row size"
+msgstr "Spalten- und Zeilengröße"
+
+msgid "Document, all pages"
+msgstr "Dokument, alle Seiten"
+
+msgid "For print, with bleed and crop marks"
+msgstr "Für den Druck, mit Beschnitt und Schnittmarken"
+
+msgid "Photo, smaller file"
+msgstr "Foto, kleinere Datei"
+
+msgid "Right-click a template to add it as a page."
+msgstr "Rechtsklick auf eine Vorlage fügt sie als Seite hinzu."
+
+msgid "Transparent background"
+msgstr "Transparenter Hintergrund"
+
+msgid "Twice the size"
+msgstr "Doppelte Größe"
+
+msgid "Vector graphic"
+msgstr "Vektorgrafik"
