@@ -45,9 +45,6 @@ msgstr "Herunterladen"
 msgid "Export as PNG, JPEG, SVG, PDF, GIF, animated PNG or MP4 video"
 msgstr "Als PNG, JPEG, SVG, PDF, GIF, animiertes PNG oder MP4-Video exportieren"
 
-msgid "Versions"
-msgstr "Versionen"
-
 msgid "Version history"
 msgstr "Versionsverlauf"
 
@@ -57,23 +54,14 @@ msgstr "Speichern"
 msgid "Save (Ctrl+S)"
 msgstr "Speichern (Strg+S)"
 
-msgid "Present"
-msgstr "Präsentieren"
-
 msgid "Show the design full screen, page by page (F5)"
 msgstr "Design im Vollbild zeigen, Seite für Seite (F5)"
 
 msgid "Stop"
 msgstr "Stopp"
 
-msgid "Play"
-msgstr "Abspielen"
-
 msgid "Play this page's animations"
 msgstr "Animationen dieser Seite abspielen"
-
-msgid "Snap"
-msgstr "Einrasten"
 
 msgid "Smart guides: snap to the page, other objects, equal gaps and sizes (hold Ctrl/Cmd while dragging to skip)"
 msgstr "Intelligente Hilfslinien: an Seite, anderen Objekten, gleichen Abständen und Größen einrasten (beim Ziehen Strg/Cmd halten, um es auszulassen)"
@@ -86,9 +74,6 @@ msgstr "Seite einpassen (Strg+0)"
 
 msgid "Commands"
 msgstr "Befehle"
-
-msgid "All commands (Ctrl+K)"
-msgstr "Alle Befehle (Strg+K)"
 
 msgid "Resize"
 msgstr "Größe ändern"
@@ -245,9 +230,6 @@ msgstr "Vorlagen suchen"
 msgid "Click: use (asks first when your design has content) · right-click: add as a page"
 msgstr "Klick: verwenden (fragt vorher, wenn dein Design Inhalt hat) · Rechtsklick: als Seite hinzufügen"
 
-msgid "Shapes & icons"
-msgstr "Formen & Symbole"
-
 msgid "Charts & tables"
 msgstr "Diagramme & Tabellen"
 
@@ -386,23 +368,11 @@ msgstr "Als Markenfarben verwenden"
 msgid "This page is empty. Add text, shapes or pictures from the left."
 msgstr "Diese Seite ist leer. Text, Formen oder Bilder links hinzufügen."
 
-msgid "show"
-msgstr "zeigen"
-
-msgid "hide"
-msgstr "verbergen"
-
 msgid "Show"
 msgstr "Einblenden"
 
 msgid "Hide"
 msgstr "Ausblenden"
-
-msgid "unlock"
-msgstr "entsperren"
-
-msgid "lock"
-msgstr "sperren"
 
 msgid "Unlock"
 msgstr "Entsperren"
@@ -2994,3 +2964,45 @@ msgstr "Durchgehend"
 
 msgid "Spread evenly"
 msgstr "Gleichmäßig verteilen"
+
+msgid "Another size for this page, laid out again"
+msgstr "Eine andere Größe für diese Seite, neu angeordnet"
+
+msgid "Bring forward"
+msgstr "Eine Ebene nach vorne"
+
+msgid "Commands…  (Ctrl+K)"
+msgstr "Befehle…  (Strg+K)"
+
+msgid "Duplicate (Ctrl+D)"
+msgstr "Duplizieren (Strg+D)"
+
+msgid "Layer strip"
+msgstr "Ebenenleiste"
+
+msgid "More"
+msgstr "Mehr"
+
+msgid "Save as…"
+msgstr "Speichern unter…"
+
+msgid "Send backward"
+msgstr "Eine Ebene nach hinten"
+
+msgid "Smart guides"
+msgstr "Intelligente Hilfslinien"
+
+msgid "Zoom in"
+msgstr "Vergrößern"
+
+msgid "Zoom out"
+msgstr "Verkleinern"
+
+msgid "Add"
+msgstr "Hinzufügen"
+
+msgid "Apply"
+msgstr "Anwenden"
+
+msgid "The front at the top. Drag tiles in the strip beside the canvas to restack."
+msgstr "Das vorderste oben. Zum Umsortieren die Kacheln in der Leiste neben der Leinwand ziehen."

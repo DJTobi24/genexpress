@@ -165,7 +165,7 @@ fn styles_row(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
 }
 
 /// A text style drawn on its own: its sample in its font, colour and effect.
-fn preset_picture(p: &genha_templates::TextPreset, fonts: &genha_text::FontBook) -> Option<genha_render::Raster> {
+pub(crate) fn preset_picture(p: &genha_templates::TextPreset, fonts: &genha_text::FontBook) -> Option<genha_render::Raster> {
     let mut doc = genha_doc::Document::new("style", 400.0, 220.0);
     let id = doc.alloc_id();
     let mut style = p.style.clone();

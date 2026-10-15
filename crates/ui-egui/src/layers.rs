@@ -113,17 +113,8 @@ fn strip(app: &mut App, ui: &mut egui::Ui, t: &Tokens) {
             for (row, el) in rows.iter().enumerate() {
                 let (rect, resp) = ui.allocate_exact_size(egui::vec2(TILE, TILE), egui::Sense::click_and_drag());
                 row_rects.push(rect);
-                let key = picture_key(design, page.id, el.id);
-                let fonts = app.session.fonts.clone();
-                let renderer = &mut app.renderer;
-                let light = &mut app.layers.light;
-                let tex = app.thumbs.get(&ctx, &key, stamp(el), || {
-                    let r = renderer.render_element(&doc, page_index, el.id, &fonts, PICTURE).ok()?;
-                    light.insert(key.clone(), is_light(&r));
-                    Some(r)
-                });
+                let (tex, on_light_content) = picture(app, &ctx, &doc, page_index, design, el);
                 let dragged = app.layers.dragging.is_some_and(|(id, _)| id == el.id);
-                let on_light_content = app.layers.light.get(&key).copied().unwrap_or(false);
                 let bg = if on_light_content { t.thumb_dark } else { t.thumb_light };
                 let painter = ui.painter();
                 painter.rect_filled(rect, 8, bg);
@@ -268,6 +259,30 @@ fn padlock(painter: &egui::Painter, center: egui::Pos2, t: &Tokens) {
         })
         .collect();
     painter.add(egui::Shape::line(points, egui::Stroke::new(1.4, t.text)));
+}
+
+/// An object's picture (drawn when it changed, a few per frame) and whether the object is mostly
+/// light (it then goes on a dark tile). Shared by the strip and the Layers tab.
+pub(crate) fn picture(
+    app: &mut App,
+    ctx: &egui::Context,
+    doc: &genha_doc::Document,
+    page_index: usize,
+    design: u64,
+    el: &genha_doc::Element,
+) -> (Option<egui::TextureHandle>, bool) {
+    let Some(page) = doc.pages.get(page_index) else { return (None, false) };
+    let key = picture_key(design, page.id, el.id);
+    let fonts = app.session.fonts.clone();
+    let renderer = &mut app.renderer;
+    let light = &mut app.layers.light;
+    let tex = app.thumbs.get(ctx, &key, stamp(el), || {
+        let r = renderer.render_element(doc, page_index, el.id, &fonts, PICTURE).ok()?;
+        light.insert(key.clone(), is_light(&r));
+        Some(r)
+    });
+    let on_light = app.layers.light.get(&key).copied().unwrap_or(false);
+    (tex, on_light)
 }
 
 /// The texture key of an object's picture (designs told apart by their unique recovery id).

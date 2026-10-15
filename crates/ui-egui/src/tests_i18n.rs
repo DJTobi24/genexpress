@@ -77,6 +77,7 @@ const SOURCES: &[(&str, &str)] = &[
     ("motion.rs", include_str!("motion.rs")),
     ("fonts.rs", include_str!("fonts.rs")),
     ("canvas.rs", include_str!("canvas.rs")),
+    ("tabs.rs", include_str!("tabs.rs")),
     ("clipboard.rs", include_str!("clipboard.rs")),
     ("textedit.rs", include_str!("textedit.rs")),
     ("web.rs", include_str!("web.rs")),
