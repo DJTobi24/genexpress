@@ -107,7 +107,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     }
     // A selected object is edited in the left panel (nothing selected: the rail's tab).
     let context = crate::properties::context_target(app);
-    egui::Panel::left("left_panel").resizable(true).default_size(290.0).min_size(260.0).frame(panel_frame(&t)).show(ui, |ui| {
+    egui::Panel::left("left_panel").resizable(true).default_size(290.0).min_size(260.0).max_size(460.0).frame(panel_frame(&t)).show(ui, |ui| {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| match context {
             Some((id, kind)) => crate::properties::context_panel(app, ui, &t, id, kind),
             None => left_panel(app, ui, &t),

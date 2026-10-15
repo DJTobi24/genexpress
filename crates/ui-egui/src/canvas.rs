@@ -429,8 +429,9 @@ fn update_texture(app: &mut App, ctx: &egui::Context, doc: &Arc<Document>, page:
     let Some(pg) = doc.pages.get(page) else { return };
     let mut scale = app.view.zoom * ppp * quality.clamp(0.1, 1.0);
     let side = (pg.width.max(pg.height) as f32) * scale;
-    if side > MAX_RENDER_SIDE {
-        scale *= MAX_RENDER_SIDE / side;
+    let limit = MAX_RENDER_SIDE.min(crate::thumbs::max_side(ctx) - 2.0);
+    if side > limit {
+        scale *= limit / side;
     }
     let key = (Arc::as_ptr(doc) as usize, page, scale.to_bits(), ppp.to_bits(), playback.map_or(u64::MAX, f64::to_bits));
     if app.canvas.key == Some(key) && app.canvas.texture.is_some() {

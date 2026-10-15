@@ -478,3 +478,65 @@ fn picture_panel_opens_for_a_picture() {
     run_frames(&mut app, &ctx, 1);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// At fractional screen scales (Windows 125 % to 175 %) switching from a picture's panel to each
+/// tab keeps the left panel's width: its content never pushes it wider frame by frame.
+#[test]
+fn left_panel_keeps_its_width_at_fractional_scales() {
+    let dir = std::env::temp_dir().join(format!("genha-panelwidth-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("p.png");
+    let raster = genha_render::Raster { width: 8, height: 8, rgba: [200, 40, 40, 255].repeat(64) };
+    std::fs::write(&path, genha_render::encode_png(&raster).unwrap()).unwrap();
+    for ppp in [1.25_f32, 1.5, 1.75] {
+        let ctx = egui::Context::default();
+        ctx.set_pixels_per_point(ppp);
+        let mut app = english(App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default()));
+        app.run("template.use", &json!({"id": genha_templates::catalog()[0].id}));
+        let pic = app.run("image.place", &json!({"path": path.display().to_string()})).unwrap()["id"].as_u64().unwrap();
+        app.run("select.set", &json!({"ids": [pic]}));
+        let width = |app: &mut App, n: usize| {
+            for _ in 0..n {
+                let input = egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1536.0, 816.0))),
+                    ..Default::default()
+                };
+                let mut out = ctx.run_ui(input, |ui| app.ui(ui));
+                out.textures_delta.clear();
+            }
+            egui::containers::panel::PanelState::load(&ctx, egui::Id::new("left_panel")).map(|s| s.size().x).unwrap()
+        };
+        let start = width(&mut app, 4);
+        for tab in crate::LeftTab::ALL {
+            app.left_tab = tab;
+            app.editor.panel_closed = Some(genha_doc::NodeId(pic));
+            let w = width(&mut app, 6);
+            assert!((w - start).abs() < 1.0, "{tab:?} at {ppp}: {start} -> {w}");
+        }
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// The canvas picture stays within the largest texture the graphics driver takes, however far in
+/// the view is zoomed (a bigger upload aborts the app on some Windows OpenGL drivers).
+#[test]
+fn canvas_texture_respects_the_driver_limit() {
+    let ctx = egui::Context::default();
+    let mut app = english(App::new(Arc::new(genha_text::FontBook::new()), AppOptions::default()));
+    app.run("template.use", &json!({"id": genha_templates::catalog()[0].id}));
+    let input = |time: f64| egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1400.0, 900.0))),
+        max_texture_side: Some(1024),
+        time: Some(time),
+        ..Default::default()
+    };
+    let mut out = ctx.run_ui(input(0.0), |ui| app.ui(ui));
+    out.textures_delta.clear();
+    app.view.fit_pending = false;
+    app.view.zoom = 8.0;
+    let mut out = ctx.run_ui(input(0.1), |ui| app.ui(ui));
+    let sizes: Vec<[usize; 2]> = out.textures_delta.set.values().flat_map(|ds| ds.iter().map(|d| d.image.size())).collect();
+    out.textures_delta.clear();
+    assert!(!sizes.is_empty());
+    assert!(sizes.iter().all(|s| s[0] <= 1024 && s[1] <= 1024), "{sizes:?}");
+}
